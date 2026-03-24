@@ -5,7 +5,7 @@ export default async function Home() {
   const session = await auth0.getSession()
   const user = session?.user
 
-  if (user) {
+  if (user && supabase) {
     // 1. Tarkista onko käyttäjällä jo organisaatio
     const { data: olemassaOleva } = await supabase
       .from('kayttajat')
