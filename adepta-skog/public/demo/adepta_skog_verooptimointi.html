@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adepta SKOG — Vero-optimointi</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,300&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --fd:#1c2b1e; --fg:#5DCAA5; --fg2:#1D9E75; --fg3:#0F6E56; --fg4:#085041;
+  --am:#a05c1a; --aml:#fdf3e8; --re:#A32D2D; --rel:#FCEBEB;
+  --bl:#185FA5; --bll:#E6F1FB;
+  --ink:#1a1c18; --inm:#3d4039; --inu:#7a7d72; --inf:#b8bab2;
+  --pp:#fafaf7; --ppw:#f5f3ee; --bd:#dddbd4; --bd2:#c4c2b8;
+  --ffd:'Fraunces',Georgia,serif; --ffb:'DM Sans',sans-serif; --ffm:'DM Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:14px;line-height:1.5;min-height:100vh}
+.topbar{background:var(--fd);height:52px;padding:0 24px;display:flex;align-items:center;gap:20px;position:sticky;top:0;z-index:50}
+.bc{font-size:12px;color:rgba(255,255,255,.45);display:flex;align-items:center;gap:8px}
+.bc-sep{color:rgba(255,255,255,.18)}
+.wrap{max-width:960px;margin:0 auto;padding:28px 24px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:1.5rem}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:1.5rem}
+.card{background:var(--pp);border:0.5px solid var(--bd);border-radius:12px;padding:1.1rem 1.3rem}
+.card-g{border:1.5px solid var(--fg2)}
+.card-r{border:1.5px solid var(--re)}
+.sec{font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--inu);margin-bottom:.8rem;padding-bottom:6px;border-bottom:0.5px solid var(--bd)}
+.page-sec{font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--inu);margin:1.5rem 0 .8rem;padding-bottom:6px;border-bottom:0.5px solid var(--bd)}
+.srow{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.srow label{font-size:12px;color:var(--inu);min-width:175px}
+.srow input[type=range]{flex:1;accent-color:var(--fg2)}
+.sval{font-size:13px;font-weight:500;min-width:95px;text-align:right;font-family:var(--ffm);font-variant-numeric:tabular-nums}
+.tgls{display:flex;gap:8px;margin-bottom:1.5rem;flex-wrap:wrap}
+.tgl{padding:5px 14px;font-size:12px;border:0.5px solid var(--bd2);border-radius:20px;cursor:pointer;background:transparent;color:var(--inu);transition:all .1s;font-family:var(--ffb)}
+.tgl.on{background:var(--fd);color:var(--fg);border-color:var(--fd)}
+.savbox{background:#E1F5EE;border:1px solid var(--fg);border-radius:12px;padding:1.3rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:1.5rem}
+.row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px;border-bottom:0.5px solid var(--bd)}
+.row:last-child{border-bottom:none}
+.row.tot{font-weight:500;font-size:14px;padding-top:9px;margin-top:2px}
+.row.tot2{font-weight:500;font-size:16px;padding-top:9px;margin-top:4px}
+.num{font-family:var(--ffm);font-variant-numeric:tabular-nums}
+.g{color:var(--fg3)}.tl{color:var(--fg2)}.am{color:var(--am)}.re{color:var(--re)}.bl{color:var(--bl)}.mu{color:var(--inu)}
+.bw{height:10px;background:var(--ppw);border-radius:5px;overflow:hidden;border:0.5px solid var(--bd);margin:5px 0}
+.bbar{height:100%;background:var(--fg2);border-radius:5px;transition:width .3s}
+.warn{background:#FAEEDA;border:0.5px solid #EF9F27;border-radius:8px;padding:9px 13px;font-size:12px;color:#633806;margin-bottom:10px;line-height:1.5}
+.info{background:#E6F1FB;border:0.5px solid #85B7EB;border-radius:8px;padding:9px 13px;font-size:12px;color:#0C447C;margin-bottom:10px;line-height:1.5}
+hr.l{border:none;border-top:0.5px solid var(--bd);margin:.75rem 0}
+table.t5{width:100%;border-collapse:collapse;font-size:13px}
+table.t5 th{padding:6px 10px;text-align:right;font-size:10px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--inu);border-bottom:1px solid var(--bd2)}
+table.t5 th:first-child{text-align:left}
+table.t5 td{padding:7px 10px;text-align:right;border-bottom:0.5px solid var(--bd);font-variant-numeric:tabular-nums}
+table.t5 td:first-child{text-align:left}
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:500}
+.bg-g{background:#E1F5EE;color:var(--fg4)}
+.bg-r{background:var(--rel);color:#791F1F}
+.note{font-size:11px;color:var(--inu);line-height:1.6;margin-top:1.5rem;padding-top:1rem;border-top:0.5px solid var(--bd)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <svg width="160" height="32" viewBox="0 0 176 36" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0"  y="2"  width="14" height="32" rx="2" fill="#5DCAA5"/>
+    <rect x="18" y="2"  width="14" height="19" rx="2" fill="#1D9E75"/>
+    <rect x="18" y="24" width="14" height="10" rx="2" fill="#0F6E56"/>
+    <text x="40" y="19" font-family="Fraunces,Georgia,serif" font-weight="300" font-size="15" fill="#ffffff" dominant-baseline="middle">Adepta</text>
+    <circle cx="96" cy="18" r="2.5" fill="#5DCAA5"/>
+    <text x="102" y="19" font-family="Fraunces,Georgia,serif" font-weight="500" font-style="italic" font-size="15" fill="#5DCAA5" dominant-baseline="middle">SKOG</text>
+  </svg>
+  <div class="bc">
+    <span class="bc-sep">/</span><span>Vero-optimointi 2025</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="g2">
+    <div class="card">
+      <div class="sec">Tulot ja menot</div>
+      <div class="srow"><label>Puunmyyntitulot (alv 0%)</label><input type="range" id="i1" min="0" max="100000" step="500" value="32500" oninput="L()"><span class="sval" id="o1"></span></div>
+      <div class="srow"><label>Metsätalousmenot (alv 0%)</label><input type="range" id="i2" min="0" max="30000" step="100" value="1950" oninput="L()"><span class="sval" id="o2"></span></div>
+      <div class="srow"><label>Poistot tänä vuonna</label><input type="range" id="i3" min="0" max="20000" step="100" value="3250" oninput="L()"><span class="sval" id="o3"></span></div>
+    </div>
+    <div class="card">
+      <div class="sec">Metsävähennyspohja</div>
+      <div class="srow"><label>Metsän hankintahinta</label><input type="range" id="i4" min="50000" max="500000" step="1000" value="255000" oninput="L()"><span class="sval" id="o4"></span></div>
+      <div class="srow"><label>Metsämaan osuus (%)</label><input type="range" id="i5" min="40" max="90" step="1" value="63" oninput="L()"><span class="sval" id="o5"></span></div>
+      <div class="srow"><label>Aiemmin käytetty vähennys</label><input type="range" id="i6" min="0" max="100000" step="500" value="18200" oninput="L()"><span class="sval" id="o6"></span></div>
+    </div>
+  </div>
+
+  <div class="tgls">
+    <button class="tgl on" id="t1" onclick="T(1)">Käytä metsävähennys</button>
+    <button class="tgl on" id="t2" onclick="T(2)">Ota poistot</button>
+    <button class="tgl on" id="t3" onclick="T(3)">Progressiivisuus (30/34%)</button>
+  </div>
+
+  <div class="savbox">
+    <div>
+      <div style="font-size:12px;color:var(--fg3);font-weight:500;margin-bottom:4px">Verosäästö optimoinneilla</div>
+      <div style="font-family:var(--ffd);font-size:32px;font-weight:300;color:var(--fg4)" id="sv"></div>
+      <div style="font-size:12px;color:var(--fg3);margin-top:3px" id="snet"></div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:12px;color:var(--fg3);margin-bottom:4px">Efektiivinen veroprosentti</div>
+      <div style="font-family:var(--ffm);font-size:24px;color:var(--fg4)" id="seff"></div>
+      <div style="font-size:11px;color:var(--fg3);margin-top:2px" id="sbase"></div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card card-r">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <span style="font-size:13px;font-weight:500">Ilman optimointia</span>
+        <span class="badge bg-r">Maksimi vero</span>
+      </div>
+      <div id="ri"></div>
+    </div>
+    <div class="card card-g">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <span style="font-size:13px;font-weight:500">Optimoitu</span>
+        <span class="badge bg-g">Suositus</span>
+      </div>
+      <div id="ro"></div>
+    </div>
+  </div>
+
+  <div class="page-sec">Metsävähennyspohja — verohallinnon rajat</div>
+  <div class="card" style="margin-bottom:1.5rem">
+    <div id="mvr"></div>
+    <div style="margin-top:12px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--inu);margin-bottom:3px"><span>Käytetty yhteensä</span><span id="bl"></span></div>
+      <div class="bw"><div class="bbar" id="mb" style="width:0%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--inf);margin-top:2px"><span>0 €</span><span id="bmax"></span></div>
+    </div>
+  </div>
+
+  <div class="page-sec">Poistosuositus</div>
+  <div class="card" style="margin-bottom:1.5rem" id="pc"></div>
+
+  <div class="page-sec">5 vuoden arvio (2025–2029)</div>
+  <div class="card" style="overflow-x:auto;margin-bottom:1rem">
+    <table class="t5" id="t5t">
+      <thead><tr>
+        <th style="text-align:left">Vuosi</th>
+        <th>Tulot</th>
+        <th style="color:var(--fg3)">Metsävähennys</th>
+        <th style="color:var(--fg3)">Poistot</th>
+        <th>Verotettava</th>
+        <th>Vero</th>
+        <th>Eff. %</th>
+      </tr></thead>
+      <tbody id="t5b"></tbody>
+    </table>
+    <div style="font-size:11px;color:var(--inu);margin-top:8px">Vuosien 2026–2029 tulot ovat laskennallisia arvioita (±15%). Metsävähennyspohja pienenee vuosittain käytön mukaan.</div>
+  </div>
+
+  <div class="note">
+    <strong>Huom:</strong> Pääomatuloveroprosentti 2025: 30% enintään 30 000 € ja 34% ylittävältä osalta.
+    Metsävähennys enintään 60% metsämaan hankintahinnasta; vuosittain enintään 60% puunmyyntituloista; alaraja 1 500 €.
+    Tämä laskelma on suuntaa-antava — tarkista aina kirjanpitäjän tai veroneuvojan kanssa. Adepta SKOG ei anna veroneuvolapalvelua.
+  </div>
+</div>
+
+<script>
+const fe=n=>Math.round(n).toLocaleString('fi-FI')+' €';
+const fp=n=>(Math.round(n*10)/10).toFixed(1)+' %';
+const gv=id=>parseFloat(document.getElementById(id).value);
+const ss=(id,v)=>{const e=document.getElementById(id);if(e)e.innerHTML=v};
+let O={1:true,2:true,3:true};
+
+function T(k){
+  O[k]=!O[k];
+  const b=document.getElementById('t'+k);
+  b.classList.toggle('on',O[k]);
+  L();
+}
+
+function tax(x){
+  if(x<=0)return 0;
+  if(!O[3])return x*0.30;
+  return x<=30000?x*0.30:30000*0.30+(x-30000)*0.34;
+}
+
+function rw(a,b,color,tot){
+  const st=tot===2?'font-weight:500;font-size:16px;padding-top:9px;margin-top:4px':tot===1?'font-weight:500;font-size:14px;padding-top:9px;margin-top:2px':'';
+  const col=color||'var(--ink)';
+  return `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:0.5px solid var(--bd);${st}">
+    <span style="color:${col}">${a}</span>
+    <span style="font-family:var(--ffm);font-variant-numeric:tabular-nums;color:${col}">${b}</span>
+  </div>`;
+}
+const hr=()=>`<hr style="border:none;border-top:0.5px solid var(--bd);margin:.75rem 0">`;
+
+function L(){
+  const t=gv('i1'),m=gv('i2'),po=gv('i3');
+  const h=gv('i4'),mmo=gv('i5')/100,kay=gv('i6');
+
+  ss('o1',fe(t));ss('o2',fe(m));ss('o3',fe(po));
+  ss('o4',fe(h));ss('o5',Math.round(gv('i5'))+'%');ss('o6',fe(kay));
+
+  // Metsävähennyslaskenta
+  const mmA=h*mmo;
+  const pohja=mmA*0.60;
+  const jal=Math.max(0,pohja-kay);
+  const vMax=Math.min(t*0.60,jal);
+  const mvOk=vMax>=1500;
+  const mvK=O[1]&&mvOk?vMax:0;
+  const poK=O[2]?po:0;
+
+  const vtI=Math.max(0,t-m);
+  const vtO=Math.max(0,t-m-poK-mvK);
+  const txI=tax(vtI);
+  const txO=tax(vtO);
+  const saa=txI-txO;
+  const effI=t>0?txI/t*100:0;
+  const effO=t>0?txO/t*100:0;
+
+  // Säästöbanneri
+  ss('sv',fe(saa));
+  ss('snet','Nettotulos verojen jälkeen: '+fe(t-txO));
+  ss('seff',fp(effO));
+  ss('sbase','ilman optimointia: '+fp(effI));
+
+  // Ilman-sarake
+  ss('ri',
+    rw('Puunmyyntitulot',fe(t))+
+    rw('− Menot',fe(m),'var(--inu)')+
+    rw('Verotettava tulo',fe(vtI),'var(--ink)',1)+
+    hr()+
+    rw('30% (enintään 30 000 €)',fe(Math.min(vtI,30000)*0.30),'var(--inu)')+
+    (vtI>30000?rw('34% (ylittävältä osalta)',fe((vtI-30000)*0.34),'var(--inu)'):'')+
+    rw('Maksettava vero',fe(txI),'#A32D2D',2)+
+    `<div style="font-size:11px;color:var(--inu);margin-top:6px">Efekt. %: ${fp(effI)}</div>`
+  );
+
+  // Optimoitu-sarake
+  const warn=O[1]&&!mvOk
+    ?`<div class="warn">Metsävähennys alle alarajan 1 500 € (${fe(vMax)}) — ei voida käyttää tänä vuonna.</div>`:'';
+  ss('ro', warn+
+    rw('Puunmyyntitulot',fe(t))+
+    rw('− Menot',fe(m),'var(--inu)')+
+    rw('− Poistot',fe(poK),'#1D9E75')+
+    rw('− Metsävähennys',fe(mvK),'#1D9E75')+
+    rw('Verotettava tulo',fe(vtO),'var(--ink)',1)+
+    hr()+
+    rw('30% (enintään 30 000 €)',fe(Math.min(vtO,30000)*0.30),'var(--inu)')+
+    (vtO>30000?rw('34% (ylittävältä osalta)',fe((vtO-30000)*0.34),'var(--inu)'):'')+
+    rw('Maksettava vero',fe(txO),'#0F6E56',2)+
+    `<div style="font-size:11px;color:var(--inu);margin-top:6px">Efekt. %: ${fp(effO)}</div>`
+  );
+
+  // Metsävähennyspohja
+  const bp=Math.min(100,pohja>0?(kay+mvK)/pohja*100:0);
+  document.getElementById('mb').style.width=bp+'%';
+  ss('bl',fe(kay)+' + '+fe(mvK)+' tänä vuonna = '+fe(kay+mvK));
+  ss('bmax','Max '+fe(pohja));
+  ss('mvr',
+    rw('Hankintahinta',fe(h))+
+    rw('Metsämaan osuus ('+Math.round(gv('i5'))+'%)',fe(mmA),'var(--inu)')+
+    rw('Vähennyspohja (60% metsämaasta)',fe(pohja),'var(--ink)',1)+
+    rw('Aiemmin käytetty',fe(kay),'var(--inu)')+
+    `<div style="display:flex;justify-content:space-between;padding:6px 0 0;font-size:14px;font-weight:500">
+      <span>Käyttämättä</span><span style="font-family:var(--ffm);color:#1D9E75">${fe(jal)}</span>
+    </div>`+hr()+
+    rw('60% tämän vuoden myyntituloista',fe(t*0.6),'var(--inu)')+
+    rw('Vuosiraja (pienempi kahdesta)',fe(vMax))+
+    `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:0.5px solid var(--bd)">
+      <span>Alaraja 1 500 €</span>
+      <span style="font-weight:500;color:${mvOk?'#1D9E75':'#A32D2D'}">${mvOk?'OK — täyttyy':'Ei täyty'}</span>
+    </div>`+
+    `<div style="display:flex;justify-content:space-between;padding:9px 0 0;font-size:14px;font-weight:500">
+      <span>Ehdotettu vähennys</span><span style="font-family:var(--ffm);color:#1D9E75">${fe(mvK)}</span>
+    </div>`
+  );
+
+  // Poistosuositus
+  const yliK=vtI>30000;
+  const poOpt=yliK?Math.min(po,vtI-30000):po;
+  const sP=tax(vtI)-tax(Math.max(0,vtI-poOpt));
+  const sMv=tax(Math.max(0,vtI-poOpt))-txO;
+  ss('pc',
+    (yliK
+      ?`<div class="info">Tulo ylittää 30 000 € — kohdista poistot ensin 34%:n vyöhykkeelle. Optimaalinen poistomäärä on <strong>${fe(poOpt)}</strong> joka poistaa koko 34%:n osuuden.</div>`
+      :`<div class="info">Tulo on alle 30 000 € — kaikki poistot säästävät 30%:n verokannalla.</div>`)+
+    rw('Käytettävissä olevat poistot',fe(po))+
+    rw('Optimaalinen poistomäärä',fe(poOpt),'#1D9E75')+
+    hr()+
+    rw('Verosäästö poistoista',fe(sP),'#1D9E75')+
+    rw('Verosäästö metsävähennyksestä',fe(sMv),'#1D9E75')+
+    `<div style="display:flex;justify-content:space-between;padding:9px 0 0;font-size:15px;font-weight:500">
+      <span>Verosäästö yhteensä</span>
+      <span style="font-family:var(--ffm);color:#0F6E56">${fe(saa)}</span>
+    </div>`
+  );
+
+  // 5v-arvio
+  let jal5=jal-mvK;
+  let rows='';
+  for(let v=0;v<5;v++){
+    const yr=2025+v;
+    const seed=Math.sin(v*3.7+1)*0.12;
+    const t5=v===0?t:Math.round(t*(0.82+seed));
+    const mv5max=Math.min(t5*0.6,jal5);
+    const mv5=O[1]&&mv5max>=1500?mv5max:0;
+    const p5=O[2]?Math.round(po*Math.pow(0.82,v)):0;
+    const vt5=Math.max(0,t5-m-p5-mv5);
+    const tx5=tax(vt5);
+    jal5=Math.max(0,jal5-mv5);
+    const e5=t5>0?tx5/t5*100:0;
+    rows+=`<tr style="background:${v===0?'var(--ppw)':'transparent'}">
+      <td>${yr}${v===0?' <span style="font-size:10px;color:var(--inu)">(nyt)</span>':''}</td>
+      <td>${fe(t5)}</td>
+      <td style="color:#1D9E75">${fe(mv5)}</td>
+      <td style="color:#1D9E75">${fe(p5)}</td>
+      <td>${fe(vt5)}</td>
+      <td style="font-weight:500;color:${e5>20?'#A32D2D':'#0F6E56'}">${fe(tx5)}</td>
+      <td style="color:var(--inu)">${fp(e5)}</td>
+    </tr>`;
+  }
+  document.getElementById('t5b').innerHTML=rows;
+}
+
+L();
+
+  // Oikea portaistettu pääomaverolaskenta
+  function laskePVM(tulo) {
+    if (tulo <= 0) return 0;
+    const raja = 30000;
+    if (tulo <= raja) return Math.round(tulo * 0.30 * 100) / 100;
+    return Math.round((raja * 0.30 + (tulo - raja) * 0.34) * 100) / 100;
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+ADEPTA SKOG - Demo v6 - Kaikki toiminnot
+==========================================
+
+KAYNNISTYS LOCALISSA:
+1. Kopioi KAIKKI HTML-tiedostot kansioon:
+   C:\Users\OMISTAJA\Local Sites\adeptatilat\app\public\demo\
+
+2. Avaa selaimessa:
+   http://adeptatilat.local/demo/adepta_skog_demo.html
+
+3. Kirjaudu ja klikkaa haluamaasi toimintoa
+   - Jokainen sivu avautuu uuteen valilehteen
+
+KIRJAUTUMINEN:
+  merja@metstili.fi / demo2025  (Paakayttaja - kaikki toiminnot)
+  pekka@metstili.fi / demo2025  (Kirjanpitaja)
+
+SIVUT:
+  Asiakkaat, Asiakkaan tiedot, Kirjanpito,
+  Vero-optimointi, Verosuunnitelma, ALV-raportti,
+  Kayttajat (vain paakayttaja)
