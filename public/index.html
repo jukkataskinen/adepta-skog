@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Adepta SKOG — Metsätalouden kirjanpito tilitoimistoille</title>
+<meta name="description" content="Adepta SKOG on ensimmäinen metsätalouden kirjanpito- ja veropalvelu, joka on rakennettu kirjanpitotoimistolle. ALV, pääomavero, poistot ja metsävähennys — kaikki samassa paikassa.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,200;0,9..144,300;0,9..144,500;1,9..144,200;1,9..144,300&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --fd:#1c2b1e;--fm:#2d4a31;--fl:#3d6b43;
+  --gr:#1D9E75;--gl:#5DCAA5;--gll:#E1F5EE;
+  --ink:#1a1c18;--mid:#3d4039;--mu:#7a7d72;--fa:#b8bab2;
+  --pp:#fafaf7;--pw:#f5f3ee;--bd:#dddbd4;
+}
+html{scroll-behavior:smooth}
+body{font-family:'DM Sans',sans-serif;background:#fff;color:var(--ink);overflow-x:hidden}
+
+/* ── NAV ── */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:0 5vw;height:64px;display:flex;align-items:center;justify-content:space-between;transition:background .3s,box-shadow .3s}
+nav.scrolled{background:rgba(28,43,30,.97);backdrop-filter:blur(10px);box-shadow:0 1px 0 rgba(255,255,255,.06)}
+.nav-logo{font-family:'Fraunces',serif;font-size:20px;color:#fff;text-decoration:none;letter-spacing:-.01em}
+.nav-logo em{color:var(--gl);font-style:italic}
+.nav-links{display:flex;align-items:center;gap:28px}
+.nav-links a{font-size:13px;color:rgba(255,255,255,.6);text-decoration:none;transition:color .15s}
+.nav-links a:hover{color:#fff}
+.nav-cta{padding:8px 20px;background:var(--gr);color:#fff;border-radius:6px;font-size:13px;font-weight:500;text-decoration:none;transition:opacity .15s}
+.nav-cta:hover{opacity:.88;color:#fff}
+
+/* ── HERO ── */
+.hero{min-height:100vh;background:var(--fd);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:100px 5vw 80px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 40%,rgba(29,158,117,.12) 0%,transparent 70%)}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 14px;background:rgba(93,202,165,.12);border:1px solid rgba(93,202,165,.25);border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--gl);margin-bottom:28px}
+.hero-badge::before{content:'';width:6px;height:6px;background:var(--gl);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.hero h1{font-family:'Fraunces',serif;font-size:clamp(36px,7vw,72px);color:#fff;font-weight:300;line-height:1.1;letter-spacing:-.02em;max-width:820px;margin-bottom:24px}
+.hero h1 em{color:var(--gl);font-style:italic}
+.hero-sub{font-size:clamp(15px,2vw,18px);color:rgba(255,255,255,.55);max-width:560px;line-height:1.7;margin-bottom:44px}
+.hero-actions{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+.btn-primary{padding:14px 32px;background:var(--gr);color:#fff;border-radius:8px;font-size:15px;font-weight:500;text-decoration:none;transition:all .15s;border:none;cursor:pointer}
+.btn-primary:hover{background:#18c48a;transform:translateY(-1px);box-shadow:0 8px 24px rgba(29,158,117,.3)}
+.btn-secondary{padding:14px 32px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.8);border-radius:8px;font-size:15px;font-weight:400;text-decoration:none;transition:all .15s;border:1px solid rgba(255,255,255,.15)}
+.btn-secondary:hover{background:rgba(255,255,255,.14);color:#fff}
+.hero-stats{display:flex;gap:48px;margin-top:72px;padding-top:40px;border-top:1px solid rgba(255,255,255,.08);flex-wrap:wrap;justify-content:center}
+.stat-num{font-family:'Fraunces',serif;font-size:36px;color:#fff;font-weight:300;line-height:1}
+.stat-label{font-size:12px;color:rgba(255,255,255,.4);margin-top:4px}
+
+/* ── ONGELMA ── */
+.problem{background:var(--pw);padding:80px 5vw}
+.problem-inner{max-width:960px;margin:0 auto}
+.section-label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--gr);margin-bottom:12px}
+.problem h2{font-family:'Fraunces',serif;font-size:clamp(26px,4vw,40px);color:var(--fd);font-weight:300;line-height:1.2;margin-bottom:20px;max-width:640px}
+.problem-lead{font-size:17px;color:var(--mid);line-height:1.7;max-width:580px;margin-bottom:48px}
+.pain-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.pain-card{background:#fff;border-radius:12px;padding:24px;border:1px solid var(--bd)}
+.pain-icon{font-size:28px;margin-bottom:12px}
+.pain-title{font-size:15px;font-weight:600;color:var(--ink);margin-bottom:6px}
+.pain-desc{font-size:13px;color:var(--mu);line-height:1.6}
+
+/* ── OMINAISUUDET ── */
+.features{background:#fff;padding:80px 5vw}
+.features-inner{max-width:960px;margin:0 auto}
+.features h2{font-family:'Fraunces',serif;font-size:clamp(26px,4vw,40px);color:var(--fd);font-weight:300;line-height:1.2;margin-bottom:12px}
+.features-sub{font-size:16px;color:var(--mu);margin-bottom:56px;max-width:520px}
+.feat-list{display:grid;gap:2px}
+.feat-item{display:grid;grid-template-columns:56px 1fr;gap:0;border-radius:10px;overflow:hidden;transition:background .15s;cursor:default}
+.feat-item:hover{background:var(--pw)}
+.feat-num{background:var(--fd);color:var(--gl);font-family:'Fraunces',serif;font-size:22px;font-weight:300;display:flex;align-items:center;justify-content:center;padding:24px 0}
+.feat-body{padding:24px 28px;border-bottom:1px solid var(--bd)}
+.feat-item:last-child .feat-body{border-bottom:none}
+.feat-title{font-size:16px;font-weight:600;color:var(--ink);margin-bottom:5px}
+.feat-desc{font-size:13px;color:var(--mu);line-height:1.6}
+.feat-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.feat-tag{font-size:10px;font-weight:600;letter-spacing:.05em;padding:2px 8px;border-radius:20px;background:var(--gll);color:var(--fl)}
+
+/* ── MITEN TOIMII ── */
+.how{background:var(--fd);padding:80px 5vw}
+.how-inner{max-width:960px;margin:0 auto}
+.how .section-label{color:var(--gl)}
+.how h2{font-family:'Fraunces',serif;font-size:clamp(26px,4vw,40px);color:#fff;font-weight:300;margin-bottom:48px}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1px;background:rgba(255,255,255,.06);border-radius:12px;overflow:hidden}
+.step{background:var(--fd);padding:32px 28px;position:relative}
+.step-num{font-family:'Fraunces',serif;font-size:48px;color:rgba(93,202,165,.15);font-weight:300;line-height:1;margin-bottom:16px}
+.step-title{font-size:15px;font-weight:600;color:#fff;margin-bottom:8px}
+.step-desc{font-size:13px;color:rgba(255,255,255,.45);line-height:1.6}
+.step-arrow{position:absolute;right:-1px;top:50%;transform:translateY(-50%);color:rgba(93,202,165,.3);font-size:20px;display:none}
+
+/* ── UKK ── */
+.faq{background:var(--pw);padding:80px 5vw}
+.faq-inner{max-width:720px;margin:0 auto}
+.faq h2{font-family:'Fraunces',serif;font-size:clamp(26px,4vw,40px);color:var(--fd);font-weight:300;margin-bottom:40px}
+.faq-item{border-bottom:1px solid var(--bd);padding:0}
+.faq-q{width:100%;text-align:left;padding:20px 0;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:16px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;color:var(--ink)}
+.faq-q:hover{color:var(--fl)}
+.faq-icon{font-size:20px;color:var(--gr);flex-shrink:0;transition:transform .25s}
+.faq-item.open .faq-icon{transform:rotate(45deg)}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .3s ease}
+.faq-item.open .faq-a{max-height:300px}
+.faq-a-inner{padding:0 0 18px;font-size:14px;color:var(--mu);line-height:1.7}
+
+/* ── YHTEYDENOTTO ── */
+.contact{background:#fff;padding:80px 5vw}
+.contact-inner{max-width:640px;margin:0 auto;text-align:center}
+.contact h2{font-family:'Fraunces',serif;font-size:clamp(26px,4vw,40px);color:var(--fd);font-weight:300;margin-bottom:12px}
+.contact-sub{font-size:16px;color:var(--mu);margin-bottom:40px}
+.contact-form{background:var(--pw);border-radius:16px;padding:36px;border:1px solid var(--bd);text-align:left}
+.form-row{margin-bottom:16px}
+.form-row label{display:block;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);margin-bottom:6px}
+.form-row input,.form-row textarea,.form-row select{width:100%;padding:11px 14px;font-family:'DM Sans',sans-serif;font-size:14px;background:#fff;border:1px solid var(--bd);border-radius:8px;color:var(--ink);outline:none;transition:border .15s}
+.form-row input:focus,.form-row textarea:focus,.form-row select:focus{border-color:var(--gr)}
+.form-row textarea{resize:vertical;min-height:100px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form-submit{width:100%;padding:13px;background:var(--fd);color:#fff;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;cursor:pointer;transition:background .15s;margin-top:6px}
+.form-submit:hover{background:var(--fm)}
+.form-note{font-size:11px;color:var(--fa);text-align:center;margin-top:12px}
+.form-success{display:none;text-align:center;padding:24px;color:var(--fl)}
+.form-success .check{font-size:40px;margin-bottom:12px}
+
+/* ── FOOTER ── */
+footer{background:var(--fd);padding:40px 5vw 28px;border-top:1px solid rgba(255,255,255,.06)}
+.footer-inner{max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.footer-logo{font-family:'Fraunces',serif;font-size:17px;color:#fff;text-decoration:none}
+.footer-logo em{color:var(--gl);font-style:italic}
+.footer-links{display:flex;gap:20px;flex-wrap:wrap}
+.footer-links a{font-size:12px;color:rgba(255,255,255,.35);text-decoration:none;transition:color .15s}
+.footer-links a:hover{color:rgba(255,255,255,.7)}
+.footer-copy{font-size:11px;color:rgba(255,255,255,.2);width:100%;text-align:center;padding-top:20px;border-top:1px solid rgba(255,255,255,.06);margin-top:16px}
+
+/* ── RESPONSIVE ── */
+@media(max-width:680px){
+  .nav-links a:not(.nav-cta){display:none}
+  .hero-stats{gap:28px}
+  .form-grid{grid-template-columns:1fr}
+  .steps{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="nav">
+  <a href="/" class="nav-logo">Adepta <em>SKOG</em></a>
+  <div class="nav-links">
+    <a href="#ominaisuudet">Ominaisuudet</a>
+    <a href="#ukk">UKK</a>
+    <a href="#yhteydenotto" class="nav-cta">Ota yhteyttä</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">Metsätalouden kirjanpito</div>
+  <h1>Metsätalous <em>helposti</em> — olitpa omistaaja tai kirjanpitäjä</h1>
+  <p class="hero-sub">Adepta SKOG palvelee sekä yksityistä metsänomistajaa että tilitoimistoa. ALV, pääomavero, poistot ja metsävähennys — kaikki samassa paikassa, ilman Exceliä.</p>
+  <div class="hero-actions">
+    <a href="#yhteydenotto" class="btn-primary">Ota yhteyttä →</a>
+    <a href="/demo/adepta_skog_demo.html" class="btn-secondary" target="_blank">Katso demo</a>
+  </div>
+  <div class="hero-stats">
+    <div><div class="stat-num">570 000</div><div class="stat-label">Yksityistä metsänomistajaa Suomessa</div></div>
+    <div><div class="stat-num">0</div><div class="stat-label">Kilpailevaa ohjelmistoa markkinoilla</div></div>
+    <div><div class="stat-num">3×</div><div class="stat-label">Nopeampi kuin Excel-pohjainen kirjanpito</div></div>
+  </div>
+</section>
+
+<!-- ONGELMA -->
+<section class="problem">
+  <div class="problem-inner">
+    <div class="section-label">Tunnistuuko tämä?</div>
+    <h2>Metsätalouden kirjanpito vie liikaa aikaa</h2>
+    <p class="problem-lead">Olitpa metsänomistaja joka hoitaa itse kirjanpitonsa tai kirjanpitäjä jolla on kymmeniä metsätalousasiakkaita — Adepta SKOG tekee työn puolestasi.</p>
+    <div class="pain-grid">
+      <div class="pain-card">
+        <div class="pain-icon">🌲</div>
+        <div class="pain-title">Metsänomistaja: itse hoitaen</div>
+        <div class="pain-desc">Teet kirjanpidon itse mutta metsäverotus on monimutkaista — pääomavero, metsävähennys, ALV. Adepta SKOG laskee automaattisesti.</div>
+      </div>
+      <div class="pain-card">
+        <div class="pain-icon">🏢</div>
+        <div class="pain-title">Tilitoimisto: kymmeniä asiakkaita</div>
+        <div class="pain-desc">Metsätalousasiakkaiden kirjanpito vie kohtuuttomasti aikaa. Adepta SKOG mahdollistaa kolminkertaisen asiakaskapasiteetin.</div>
+      </div>
+      <div class="pain-card">
+        <div class="pain-icon">🧮</div>
+        <div class="pain-title">Laskenta on monimutkaista</div>
+        <div class="pain-desc">Portaistettu 30/34 % pääomavero, metsävähennyspohja, hankintatyön verovapaa raja 125 m³ — virheitä sattuu Excelissä.</div>
+      </div>
+      <div class="pain-card">
+        <div class="pain-icon">📅</div>
+        <div class="pain-title">Veroraportti valmiina</div>
+        <div class="pain-desc">Maksutiedote pankkitilinumeroineen, ALV-raportti kvartaaleittain ja verolaskelma — yhdellä napinpainalluksella PDF:nä.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- OMINAISUUDET -->
+<section class="features" id="ominaisuudet">
+  <div class="features-inner">
+    <div class="section-label">Mitä Adepta SKOG tekee</div>
+    <h2>Kaikki metsätalouden kirjanpitoon tarvittava</h2>
+    <p class="features-sub">Toimii sekä metsänomistajalle itselleen että tilitoimistolle. Ei turhia toimintoja — vain se mitä tarvitset.</p>
+    <div class="feat-list">
+      <div class="feat-item">
+        <div class="feat-num">1</div>
+        <div class="feat-body">
+          <div class="feat-title">Kirjanpito ja tapahtumat</div>
+          <div class="feat-desc">Syötä puukauppa, hoitokulut ja vakuutukset — ohjelma laskee automaattisesti ALV:n brutosta, kysyy ennakonpidätyksen ja merkitsee kategorian verolaskentaa varten.</div>
+          <div class="feat-tags"><span class="feat-tag">Pystykauppa</span><span class="feat-tag">Hankintakauppa</span><span class="feat-tag">Hankintatyö</span><span class="feat-tag">ALV 25,5 %</span></div>
+        </div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-num">2</div>
+        <div class="feat-body">
+          <div class="feat-title">Verolaskelma automaattisesti</div>
+          <div class="feat-desc">Portaistettu pääomavero (30 %/34 %), metsävähennys, konepoistot, hankintatyön verovapaa raja — kaikki lasketaan automaattisesti kirjauksista.</div>
+          <div class="feat-tags"><span class="feat-tag">Pääomavero</span><span class="feat-tag">Metsävähennys</span><span class="feat-tag">Konepoistot</span></div>
+        </div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-num">3</div>
+        <div class="feat-body">
+          <div class="feat-title">Koneen vaihto ja myyntivoitto</div>
+          <div class="feat-desc">Vaihdat koneen? Ohjelma laskee myyntivoiton (myyntihinta – menojäännös) ja lisää sen automaattisesti verotettavaan tuloon. Muistuttaa OmaVero-ilmoituksesta.</div>
+          <div class="feat-tags"><span class="feat-tag">Myyntivoitto</span><span class="feat-tag">Menojäännös</span><span class="feat-tag">OmaVero</span></div>
+        </div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-num">4</div>
+        <div class="feat-body">
+          <div class="feat-title">PDF-veroraportti asiakkaalle</div>
+          <div class="feat-desc">Yksi napinpainallus — asiakkaalle lähtee ammattimainen PDF jossa maksutiedote (pankkitilinumerot, viitenumero), ALV-raportti kvartaaleittain ja verolaskelma.</div>
+          <div class="feat-tags"><span class="feat-tag">Maksutiedote</span><span class="feat-tag">ALV-raportti</span><span class="feat-tag">Verolaskelma</span></div>
+        </div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-num">5</div>
+        <div class="feat-body">
+          <div class="feat-title">Muistutukset ja tositteiden keruu</div>
+          <div class="feat-desc">Tammikuun sähköpostimuistutukset asiakkaille tositetoimituksesta lähtevät automaattisesti. Ei enää manuaalista viestittelyä.</div>
+          <div class="feat-tags"><span class="feat-tag">Automaattiset muistutukset</span><span class="feat-tag">Sähköposti</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MITEN TOIMII -->
+<section class="how">
+  <div class="how-inner">
+    <div class="section-label">Näin pääset alkuun</div>
+    <h2>Käytössä viikossa</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-title">Ota yhteyttä</div>
+        <div class="step-desc">Sovitaan lyhyt esittely — käydään läpi tarpeet ja sovitetaan palvelu tilitoimistosi työnkulkuun.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-title">Perustaminen</div>
+        <div class="step-desc">Luomme tunnukset, lisätään asiakkaasi järjestelmään ja konfiguroidaan palvelu tilitoimistosi mukaan.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-title">Kirjaukset alkavat</div>
+        <div class="step-desc">Syötetään avausvuoden kirjaukset tai aloitetaan uudesta verovuodesta. Ohjelma opastaa joka vaiheessa.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-title">Raportit asiakkaille</div>
+        <div class="step-desc">Verovuoden lopussa lähetät ammattimaiset PDF-veroraportti asiakkaille yhdellä klikkauksella.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- UKK -->
+<section class="faq" id="ukk">
+  <div class="faq-inner">
+    <div class="section-label">Usein kysyttyä</div>
+    <h2>Kysymyksiä ja vastauksia</h2>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Kenelle Adepta SKOG sopii?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-a"><div class="faq-a-inner">Adepta SKOG sopii kahdelle ryhmälle: yksityiselle metsänomistajalle joka hoitaa kirjanpitonsa itse, sekä tilitoimistolle jolla on metsätalousasiakkaita. Metsänomistaja hyötyy automaattisesta laskennasta ja selkeistä raporteista. Tilitoimisto hyötyy ajansäästöstä ja skaalautuvuudesta — yksi kirjanpitäjä voi hoitaa kolminkertaisen määrän asiakkaita.</div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Täytyykö asiakkaiden ostaa omat tunnukset?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-a"><div class="faq-a-inner">Ei. Palvelu on tilitoimistolle — kirjanpitäjä hallinnoi kaikkia asiakkaitaan yhdestä näkymästä. Metsänomistajat eivät tarvitse omia tunnuksia eivätkä maksa palvelusta mitään.</div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Miten tiedot ovat suojattu?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-a"><div class="faq-a-inner">Kaikki tiedot tallennetaan EU:ssa (Frankfurt, Saksa) GDPR:n mukaisesti. Liikenne on TLS-salattu. Käyttö vaatii tunnistautumisen. Palvelu ei koskaan luovuta tietoja kolmansille osapuolille.</div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Toimiiko palvelu Verohallinnon kanssa?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-a"><div class="faq-a-inner">Adepta SKOG tuottaa ALV-raportin ja verolaskelman, jotka kirjanpitäjä syöttää OmaVeroon. Suoraa rajapintaa Verohallintoon ei ole — tämä on tietoinen valinta, sillä viranomaisasiointi vaatii aina kirjanpitäjän tarkistuksen.</div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Mitä maksaa?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-a"><div class="faq-a-inner">Palvelu on kuukausimaksullinen ja hinnoiteltu tilitoimiston asiakkaiden määrän mukaan. Ota yhteyttä niin käydään hinnoittelu läpi tilanteesi mukaan. Alkuvaiheessa tarjoamme pilottitoimistoille erityisehtoja.</div></div>
+    </div>
+
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Voinko kokeilla ennen sitoutumista?
+        <span class="faq-icon">+</span>
+      </button>
+      <div class="faq-a"><div class="faq-a-inner">Kyllä — voit kokeilla demoa suoraan selaimessa ilman rekisteröitymistä. Ota yhteyttä niin sovitaan esittely oikeilla tiedoilla.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- YHTEYDENOTTO -->
+<section class="contact" id="yhteydenotto">
+  <div class="contact-inner">
+    <div class="section-label">Kiinnostuitko?</div>
+    <h2>Otetaan yhteyttä</h2>
+    <p class="contact-sub">Kerro tilanteestasi niin palataan sinulle 24 tunnin sisällä.</p>
+    <div class="contact-form">
+      <div id="contact-form">
+        <div class="form-grid">
+          <div class="form-row">
+            <label>Nimi</label>
+            <input type="text" id="f-nimi" placeholder="Matti Meikäläinen">
+          </div>
+          <div class="form-row">
+            <label>Sähköposti</label>
+            <input type="email" id="f-email" placeholder="matti@tilitoimisto.fi">
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Yritys tai tila</label>
+          <input type="text" id="f-toimisto" placeholder="Tilitoimisto Oy tai Koivumäen tila">
+        </div>
+        <div class="form-row">
+          <label>Olen</label>
+          <select id="f-maara">
+            <option value="">Valitse...</option>
+            <option>Yksityinen metsänomistaja</option>
+            <option>Tilitoimisto, 1–10 metsäasiakasta</option>
+            <option>Tilitoimisto, 10–30 metsäasiakasta</option>
+            <option>Tilitoimisto, yli 30 metsäasiakasta</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Viesti (vapaaehtoinen)</label>
+          <textarea id="f-viesti" placeholder="Kerro tilanteestasi..."></textarea>
+        </div>
+        <button class="form-submit" onclick="lahetaYhteydenotto()">Lähetä viesti →</button>
+        <p class="form-note">Vastauksesi odottaa 24 tunnin sisällä. Tietoja ei luovuteta kolmansille.</p>
+      </div>
+      <div class="form-success" id="form-success">
+        <div class="check">✓</div>
+        <strong style="font-size:18px;color:#1c2b1e">Viesti lähetetty!</strong>
+        <p style="margin-top:8px;color:#7a7d72;font-size:14px">Palataan sinulle 24 tunnin sisällä.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-inner">
+    <a href="/" class="footer-logo">Adepta <em>SKOG</em></a>
+    <div class="footer-links">
+      <a href="/demo/adepta_skog_demo.html" target="_blank">Demo</a>
+      <a href="/tietosuojaseloste.html">Tietosuoja</a>
+      <a href="/kayttoehdot.html">Käyttöehdot</a>
+      <a href="mailto:jukka.taskinen@adepta.fi">jukka.taskinen@adepta.fi</a>
+    </div>
+  </div>
+  <div class="footer-inner">
+    <p class="footer-copy">© 2026 Adepta Oy · Y-tunnus 2237131-2 · Vakkapirtti 2, 41660 Toivakka</p>
+  </div>
+</footer>
+
+<script>
+// Navbar scroll
+window.addEventListener('scroll', () => {
+  document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 40);
+});
+
+// FAQ toggle
+function toggleFaq(btn) {
+  const item = btn.closest('.faq-item');
+  const isOpen = item.classList.contains('open');
+  document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+  if (!isOpen) item.classList.add('open');
+}
+
+// Yhteydenottolomake
+function lahetaYhteydenotto() {
+  const nimi    = document.getElementById('f-nimi').value.trim();
+  const email   = document.getElementById('f-email').value.trim();
+  const toimisto= document.getElementById('f-toimisto').value.trim();
+  const maara   = document.getElementById('f-maara').value;
+  const viesti  = document.getElementById('f-viesti').value.trim();
+
+  if (!nimi || !email) {
+    alert('Täytä vähintään nimi ja sähköposti.');
+    return;
+  }
+
+  // Simuloi lähetystä — tuotannossa kytketään oikeaan backendiin
+  const mailtoLink = `mailto:jukka.taskinen@adepta.fi?subject=Yhteydenotto%20Adepta%20SKOG%20-%20${encodeURIComponent(toimisto||nimi)}&body=${encodeURIComponent(`Nimi: ${nimi}\nSähköposti: ${email}\nTilitoimisto: ${toimisto}\nAsiakkaita: ${maara}\n\n${viesti}`)}`;
+  window.location.href = mailtoLink;
+
+  document.getElementById('contact-form').style.display = 'none';
+  document.getElementById('form-success').style.display = 'block';
+}
+</script>
+</body>
+</html>
