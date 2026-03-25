@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Adepta SKOG — Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#1c2b1e;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.card{background:#fafaf7;border-radius:16px;padding:40px 44px 36px;width:430px;box-shadow:0 24px 64px rgba(0,0,0,.4)}
+.logo{font-family:'Fraunces',Georgia,serif;font-size:26px;color:#1a1c18;margin-bottom:4px}
+.logo em{color:#1D9E75;font-style:italic}
+.tagline{font-size:12px;color:#7a7d72;margin-bottom:32px}
+.field label{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#7a7d72;display:block;margin-bottom:4px}
+.field input{width:100%;padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:13px;border:1px solid #dddbd4;border-radius:7px;background:#f5f3ee;color:#1a1c18;outline:none;margin-bottom:12px;transition:border .1s}
+.field input:focus{border-color:#3d6b43;background:#fff}
+.login-btn{width:100%;padding:11px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;border:none;border-radius:8px;background:#3d6b43;color:#fff;cursor:pointer}
+.login-btn:hover{opacity:.88}
+.err{font-size:11px;color:#A32D2D;display:none;margin:-8px 0 10px}
+.err.on{display:block}
+.divider{display:flex;align-items:center;gap:10px;margin:18px 0 14px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:#dddbd4}
+.divider span{font-size:11px;color:#b8bab2}
+.demo-acc{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border:1px solid #dddbd4;border-radius:8px;cursor:pointer;transition:all .1s;margin-bottom:8px}
+.demo-acc:hover{border-color:#3d6b43;background:#f0f7f1}
+.demo-acc .name{font-size:13px;font-weight:500;color:#1a1c18}
+.demo-acc .em{font-size:11px;color:#7a7d72;margin-top:1px}
+.rb{font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px;flex-shrink:0}
+.rp{background:rgba(29,158,117,.12);color:#0F6E56}
+.rk{background:rgba(24,95,165,.12);color:#185FA5}
+.logged-in{display:none}
+.user-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f5f3ee;border-radius:8px;margin-bottom:22px}
+.av{width:34px;height:34px;border-radius:50%;background:#3d6b43;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#fff;flex-shrink:0}
+.uname{font-size:13px;font-weight:500;color:#1a1c18}
+.urole{font-size:11px;color:#7a7d72}
+.lout{margin-left:auto;font-size:11px;color:#7a7d72;background:none;border:none;cursor:pointer;padding:4px 8px;border-radius:4px}
+.lout:hover{background:#e8e6e0}
+.slabel{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#b8bab2;margin-bottom:10px}
+.nav-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.nb{display:flex;flex-direction:column;align-items:flex-start;padding:14px 16px;border:1px solid #dddbd4;border-radius:10px;background:#fff;cursor:pointer;transition:all .12s;text-decoration:none;color:inherit}
+.nb:hover{border-color:#3d6b43;background:#f0f7f1;transform:translateY(-1px);box-shadow:0 2px 8px rgba(61,107,67,.1)}
+.nb .ic{font-size:22px;margin-bottom:8px}
+.nb .nt{font-size:13px;font-weight:600;color:#1a1c18;margin-bottom:2px}
+.nb .ns{font-size:11px;color:#7a7d72;line-height:1.4}
+.nb.dis{opacity:.35;pointer-events:none}
+.fnote{font-size:10px;color:#b8bab2;text-align:center;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">Adepta <em>SKOG</em></div>
+  <div class="tagline">Metsätalouden kirjanpito- ja veropalvelu · Demo 2025</div>
+
+  <div id="lf">
+    <div class="field"><label>Sähköposti</label>
+      <input id="em" type="email" placeholder="merja@metstili.fi" onkeydown="if(event.key==='Enter')lg()">
+    </div>
+    <div class="field"><label>Salasana</label>
+      <input id="pw" type="password" placeholder="demo2025" onkeydown="if(event.key==='Enter')lg()">
+    </div>
+    <div class="err" id="er">Väärä sähköposti tai salasana.</div>
+    <button class="login-btn" onclick="lg()">Kirjaudu sisään</button>
+    <div class="divider"><span>tai valitse demo-tunnus</span></div>
+    <div class="demo-acc" onclick="ql('Merja Korhonen','Pääkäyttäjä')">
+      <div><div class="name">Merja Korhonen</div><div class="em">merja@metstili.fi · demo2025</div></div>
+      <span class="rb rp">Pääkäyttäjä</span>
+    </div>
+    <div class="demo-acc" onclick="ql('Pekka Mäkinen','Kirjanpitäjä')">
+      <div><div class="name">Pekka Mäkinen</div><div class="em">pekka@metstili.fi · demo2025</div></div>
+      <span class="rb rk">Kirjanpitäjä</span>
+    </div>
+  </div>
+
+  <div class="logged-in" id="ld">
+    <div class="user-bar">
+      <div class="av" id="av">MK</div>
+      <div><div class="uname" id="un"></div><div class="urole" id="ur"></div></div>
+      <button class="lout" onclick="lo()">Kirjaudu ulos</button>
+    </div>
+    <div class="slabel">Avaa sivu uuteen välilehteen</div>
+    <div class="nav-grid">
+      <a class="nb" href="adepta_skog_asiakkaat.html" target="_blank">
+        <span class="ic">👥</span><div class="nt">Asiakkaat</div>
+        <div class="ns">Asiakasrekisteri, haku, sähköpostimuistutukset</div>
+      </a>
+      <a class="nb" href="adepta_skog_kirjanpito.html" target="_blank">
+        <span class="ic">📒</span><div class="nt">Kirjanpito</div>
+        <div class="ns">Tapahtumat, puukauppa, EP-modal, ALV</div>
+      </a>
+      <a class="nb" href="adepta_skog_asiakas.html" target="_blank">
+        <span class="ic">🌲</span><div class="nt">Asiakkaan tiedot</div>
+        <div class="ns">Verosuunnittelu, poistot, metsävähennys</div>
+      </a>
+      <a class="nb dis" id="nb-kv" href="adepta_skog_kayttajat.html" target="_blank">
+        <span class="ic">🔑</span><div class="nt">Käyttäjät</div>
+        <div class="ns">Roolit, kutsut, käyttöoikeudet</div>
+      </a>
+    </div>
+    <div class="fnote">
+      Jokainen sivu avautuu omaan välilehteen ja toimii itsenäisesti.<br>
+      Kaikki data on demodata — mitään ei tallenneta oikeasti.
+    </div>
+  </div>
+</div>
+
+<script>
+const U={'merja@metstili.fi':{p:'demo2025',n:'Merja Korhonen',r:'Pääkäyttäjä'},'pekka@metstili.fi':{p:'demo2025',n:'Pekka Mäkinen',r:'Kirjanpitäjä'},'demo@metstili.fi':{p:'demo2025',n:'Demo-käyttäjä',r:'Kirjanpitäjä'}};
+function lg(){
+  const e=document.getElementById('em').value.trim().toLowerCase();
+  const p=document.getElementById('pw').value;
+  const u=U[e];
+  if(!u||u.p!==p){const el=document.getElementById('er');el.classList.add('on');setTimeout(()=>el.classList.remove('on'),2500);document.getElementById('pw').value='';return;}
+  sd(u.n,u.r);
+}
+function ql(n,r){sd(n,r);}
+function sd(n,r){
+  document.getElementById('lf').style.display='none';
+  document.getElementById('ld').style.display='block';
+  document.getElementById('un').textContent=n;
+  document.getElementById('ur').textContent=r;
+  document.getElementById('av').textContent=n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const kv=document.getElementById('nb-kv');
+  if(r==='Kirjanpitäjä'){kv.classList.add('dis');}else{kv.classList.remove('dis');}
+}
+function lo(){
+  document.getElementById('lf').style.display='block';
+  document.getElementById('ld').style.display='none';
+  document.getElementById('em').value='';
+  document.getElementById('pw').value='';
+}
+</script>
+</body>
+</html>

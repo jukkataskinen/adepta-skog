@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adepta SKOG — Asiakas</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,300&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --fd:  #1c2b1e; --fm:  #2d4a31; --fl:  #3d6b43;
+  --fg:  #5DCAA5; --fg2: #1D9E75; --fg3: #0F6E56;
+  --am:  #a05c1a; --aml: #fdf3e8;
+  --ink: #1a1c18; --inm: #3d4039; --inu: #7a7d72; --inf: #b8bab2;
+  --pp:  #fafaf7; --ppw: #f5f3ee;
+  --bd:  #dddbd4; --bd2: #c4c2b8;
+  --rh:  42px;
+  --ffd: 'Fraunces',Georgia,serif;
+  --ffb: 'DM Sans',sans-serif;
+  --ffm: 'DM Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:14px;min-height:100vh}
+
+/* ── Topbar ── */
+.topbar{background:var(--fd);height:56px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.bc{display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,.4);margin-left:20px}
+.bc span.a{color:rgba(255,255,255,.8);cursor:pointer}
+.bc span.a:hover{color:#fff}
+.bc-sep{color:rgba(255,255,255,.18)}
+.tr{display:flex;align-items:center;gap:10px}
+.btn-inv{padding:5px 14px;font-family:var(--ffb);font-size:12px;border:1px solid rgba(255,255,255,.18);border-radius:4px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;transition:all .12s}
+.btn-inv:hover{background:rgba(255,255,255,.08);color:#fff}
+.btn-green{padding:6px 18px;font-family:var(--ffb);font-size:12px;font-weight:500;border:none;border-radius:4px;background:var(--fg);color:var(--fd);cursor:pointer;transition:opacity .12s}
+.btn-green:hover{opacity:.88}
+
+/* ── Layout ── */
+.layout{display:flex;height:calc(100vh - 56px)}
+
+/* ── Nav sidebar ── */
+.nav{width:200px;background:var(--fd);display:flex;flex-direction:column;flex-shrink:0;padding:12px 0}
+.nav-section{padding:6px 14px 4px;font-size:9px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.25)}
+.nav-item{padding:8px 16px;font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;border-left:2px solid transparent;transition:all .1s;display:flex;align-items:center;gap:8px}
+.nav-item:hover{background:rgba(255,255,255,.05);color:rgba(255,255,255,.85)}
+.nav-item.act{background:rgba(93,202,165,.1);border-left-color:var(--fg);color:#fff}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.5;flex-shrink:0}
+.nav-foot{margin-top:auto;padding:12px 14px;border-top:1px solid rgba(255,255,255,.07)}
+
+/* ── Pääsisältö ── */
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+
+/* ── Asiakas-header ── */
+.asiakas-header{background:var(--pp);border-bottom:1px solid var(--bd);padding:20px 28px 0}
+.asiakas-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
+.asiakas-avatar{width:48px;height:48px;border-radius:10px;background:var(--fg3);display:flex;align-items:center;justify-content:center;font-family:var(--ffd);font-size:18px;font-weight:500;color:var(--fg);flex-shrink:0}
+.asiakas-info{margin-left:14px;flex:1}
+.asiakas-nimi{font-family:var(--ffd);font-size:22px;font-weight:300;line-height:1.2}
+.asiakas-tila{font-size:12px;color:var(--inu);margin-top:3px}
+.asiakas-badges{display:flex;gap:8px;margin-top:8px}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:500}
+.badge-green{background:#e4f4ec;color:var(--fg3)}
+.badge-blue{background:#e6f1fb;color:#185FA5}
+.badge-gray{background:var(--ppw);color:var(--inu);border:1px solid var(--bd)}
+
+/* ── Välilehdet ── */
+.tabs{display:flex;gap:0;border-top:1px solid var(--bd);margin-top:16px}
+.tab{padding:10px 20px;font-size:13px;color:var(--inu);cursor:pointer;border-bottom:2px solid transparent;transition:all .1s;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab.act{color:var(--fg3);border-bottom-color:var(--fg3);font-weight:500}
+
+/* ── Sisältöalueet ── */
+.content{padding:24px 28px;flex:1}
+.panel{display:none}
+.panel.act{display:block}
+
+/* ── Infokortit ── */
+.info-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:24px}
+.info-card{background:var(--pp);border:1px solid var(--bd);border-radius:10px;padding:16px 18px}
+.ic-label{font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--inu);margin-bottom:6px}
+.ic-val{font-family:var(--ffm);font-size:18px;font-weight:400;color:var(--ink)}
+.ic-val.green{color:var(--fg2)}
+.ic-val.amber{color:var(--am)}
+.ic-val.blue{color:#185FA5}
+.ic-sub{font-size:11px;color:var(--inu);margin-top:3px}
+
+/* ── Taulukot ── */
+.section-title{font-size:13px;font-weight:500;color:var(--ink);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.section-title .btn-sm{padding:4px 12px;font-size:11px;font-family:var(--ffb);border:1px solid var(--bd);border-radius:4px;background:transparent;color:var(--inu);cursor:pointer}
+.section-title .btn-sm:hover{background:var(--ppw);color:var(--ink)}
+table.dt{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:24px}
+table.dt th{text-align:left;padding:7px 12px;font-size:10px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--inu);border-bottom:1px solid var(--bd2);background:var(--ppw)}
+table.dt td{padding:9px 12px;border-bottom:1px solid var(--bd)}
+table.dt tr:last-child td{border-bottom:none}
+table.dt tr:hover td{background:#f8faf8}
+table.dt td.num{text-align:right;font-family:var(--ffm);font-size:12px}
+table.dt td.green{color:var(--fg2);font-weight:500}
+table.dt td.amber{color:var(--am);font-weight:500}
+.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:500}
+.pill-t{background:#e4f4ec;color:var(--fg3)}
+.pill-m{background:#fdf3e8;color:var(--am)}
+
+/* ── ALV-raportti ── */
+.alv-controls{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.alv-controls label{font-size:12px;color:var(--inu)}
+.alv-controls select,.alv-controls input[type=number]{padding:6px 10px;font-family:var(--ffb);font-size:13px;border:1px solid var(--bd);border-radius:5px;background:var(--pp);color:var(--ink);outline:none}
+.alv-controls select:focus,.alv-controls input:focus{border-color:var(--fg2)}
+.alv-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px}
+.alv-box{background:var(--pp);border:1px solid var(--bd);border-radius:10px;padding:18px 20px}
+.alv-box.highlight{border-color:var(--fg2);border-width:1.5px}
+.alv-box-title{font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--inu);margin-bottom:12px}
+.alv-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;border-bottom:1px solid var(--bd)}
+.alv-row:last-child{border-bottom:none}
+.alv-row.total{font-weight:500;font-size:14px;padding-top:10px;margin-top:4px}
+.alv-num{font-family:var(--ffm);font-size:13px}
+.alv-num.pos{color:var(--fg2)}
+.alv-num.neg{color:var(--am)}
+.alv-num.big{font-size:20px}
+.alv-kvartaalit{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
+.kv-box{background:var(--pp);border:1px solid var(--bd);border-radius:8px;padding:14px;text-align:center;cursor:pointer;transition:all .12s}
+.kv-box:hover{border-color:var(--bd2)}
+.kv-box.act{border-color:var(--fg2);background:#f0f9f4}
+.kv-label{font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--inu);margin-bottom:8px}
+.kv-val{font-family:var(--ffm);font-size:15px;font-weight:400}
+.kv-val.pos{color:var(--fg2)}
+.kv-val.neg{color:var(--am)}
+.kv-sub{font-size:10px;color:var(--inu);margin-top:4px}
+
+/* ── Metsävähennys-paneeli ── */
+.mv-progress-wrap{margin:8px 0 4px}
+.mv-bar-bg{height:8px;background:var(--ppw);border-radius:4px;border:1px solid var(--bd);overflow:hidden}
+.mv-bar{height:100%;background:var(--fg2);border-radius:4px;transition:width .4s}
+.mv-legend{display:flex;justify-content:space-between;font-size:11px;color:var(--inu);margin-top:4px}
+
+/* ── Yhteenveto sidebar ── */
+.two-col{display:grid;grid-template-columns:1fr 280px;gap:20px;align-items:start}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--fd);color:var(--fg);padding:9px 22px;border-radius:24px;font-size:12px;font-weight:500;border:1px solid rgba(93,202,165,.25);opacity:0;transition:all .2s;pointer-events:none;z-index:999}
+.toast.sh{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div style="display:flex;align-items:center">
+    <svg width="176" height="36" viewBox="0 0 176 36" xmlns="http://www.w3.org/2000/svg" style="display:block;flex-shrink:0">
+      <rect x="0"  y="1"  width="12" height="34" rx="2" fill="#5DCAA5"/>
+      <rect x="16" y="1"  width="12" height="21" rx="2" fill="#1D9E75"/>
+      <rect x="16" y="26" width="12" height="9"  rx="2" fill="#0F6E56"/>
+      <text x="34" y="19" font-family="Fraunces,Georgia,serif" font-weight="300" font-size="15" fill="#ffffff" dominant-baseline="middle" letter-spacing="0.2">Adepta</text>
+      <circle cx="88" cy="19" r="2" fill="#5DCAA5"/>
+      <text x="94" y="19" font-family="Fraunces,Georgia,serif" font-weight="500" font-style="italic" font-size="15" fill="#5DCAA5" dominant-baseline="middle" letter-spacing="0.2">SKOG</text>
+    </svg>
+    <div class="bc">
+      <span class="bc-sep">/</span>
+      <span class="a" onclick="toast('Navigoi asiakaslistaan')">Asiakkaat</span>
+      <span class="bc-sep">/</span>
+      <span class="a" id="bc-nimi">Virtanen, Mikko</span>
+    </div>
+  </div>
+  <div class="tr">
+    <button class="btn-inv" onclick="naytaTab('alv')">ALV-raportti</button>
+    <button class="btn-green" onclick="naytaTab('kirjanpito')">+ Uusi tapahtuma</button>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- Nav -->
+  <div class="nav">
+    <div class="nav-section">Valikko</div>
+    <div class="nav-item" onclick="toast('Asiakaslistaan')"><div class="nav-dot"></div>Asiakkaat</div>
+    <div class="nav-item act"><div class="nav-dot"></div>Asiakkaan tiedot</div>
+    <div class="nav-item" onclick="naytaTab('kirjanpito')"><div class="nav-dot"></div>Kirjanpito</div>
+    <div class="nav-item" onclick="naytaTab('alv')"><div class="nav-dot"></div>ALV-raportti</div>
+    <div class="nav-item" onclick="naytaTab('investoinnit')"><div class="nav-dot"></div>Investoinnit</div>
+    <div class="nav-item" onclick="naytaTab('metsavahennys')"><div class="nav-dot"></div>Metsävähennys</div>
+    <div class="nav-item" onclick="naytaTab('verosuunnittelu')" style="color:#7ec488"><div class="nav-dot"></div>Verosuunnittelu</div>
+    <div class="nav-foot">
+      <svg width="110" height="22" viewBox="0 0 176 36" xmlns="http://www.w3.org/2000/svg" style="display:block;opacity:.5">
+        <rect x="0"  y="1"  width="12" height="34" rx="2" fill="#5DCAA5"/>
+        <rect x="16" y="1"  width="12" height="21" rx="2" fill="#1D9E75"/>
+        <rect x="16" y="26" width="12" height="9"  rx="2" fill="#0F6E56"/>
+        <text x="34" y="19" font-family="Fraunces,Georgia,serif" font-weight="300" font-size="15" fill="#ffffff" dominant-baseline="middle">Adepta</text>
+        <circle cx="88" cy="19" r="2" fill="#5DCAA5"/>
+        <text x="94" y="19" font-family="Fraunces,Georgia,serif" font-weight="500" font-style="italic" font-size="15" fill="#5DCAA5" dominant-baseline="middle">SKOG</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Pääsisältö -->
+  <div class="main">
+
+    <!-- Asiakaskortti -->
+    <div class="asiakas-header">
+      <div class="asiakas-top">
+        <div style="display:flex;align-items:flex-start;gap:14px">
+          <div class="asiakas-avatar" id="avatar">MV</div>
+          <div class="asiakas-info">
+            <div class="asiakas-nimi" id="as-nimi">Virtanen, Mikko</div>
+            <div class="asiakas-tila" id="as-tila">Koivumäen tila · Mikkeli</div>
+            <div class="asiakas-badges">
+              <span class="badge badge-green">ALV-rekisterissä</span>
+              <span class="badge badge-blue">Asiakkaana 2019</span>
+              <span class="badge badge-gray" id="as-vuosi">Verovuosi 2025</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-inv" onclick="toast('Muokkaa asiakastietoja')">Muokkaa</button>
+        </div>
+      </div>
+
+      <!-- Välilehdet -->
+      <div class="tabs">
+        <div class="tab act" onclick="naytaTab('yhteenveto')">Yhteenveto</div>
+        <div class="tab" onclick="naytaTab('kirjanpito')">Kirjanpito</div>
+        <div class="tab" onclick="naytaTab('alv')">ALV-raportti</div>
+        <div class="tab" onclick="naytaTab('investoinnit')">Investoinnit</div>
+        <div class="tab" onclick="naytaTab('metsavahennys')">Metsävähennys</div>
+        <div class="tab" onclick="naytaTab('verosuunnittelu')" style="color:var(--fg2);font-weight:500">Verosuunnittelu</div>
+      </div>
+    </div>
+
+    <!-- ═══ YHTEENVETO ═══ -->
+    <div class="content">
+      <div class="panel act" id="panel-yhteenveto">
+        <div class="info-grid">
+          <div class="info-card">
+            <div class="ic-label">Tulot 2025</div>
+            <div class="ic-val green" id="yht-tulot">23 000,00 €</div>
+            <div class="ic-sub">4 tapahtumaa</div>
+          </div>
+          <div class="info-card">
+            <div class="ic-label">Menot 2025</div>
+            <div class="ic-val amber" id="yht-menot">1 950,00 €</div>
+            <div class="ic-sub">3 tapahtumaa</div>
+          </div>
+          <div class="info-card">
+            <div class="ic-label">Tulos 2025</div>
+            <div class="ic-val green" id="yht-tulos">21 050,00 €</div>
+            <div class="ic-sub">Ennen poistoja ja vähennyksiä</div>
+          </div>
+          <div class="info-card">
+            <div class="ic-label">ALV tilitettävä</div>
+            <div class="ic-val blue" id="yht-alv">5 380,50 €</div>
+            <div class="ic-sub">Koko vuosi 2025</div>
+          </div>
+          <div class="info-card">
+            <div class="ic-label">Poistot 2025</div>
+            <div class="ic-val" id="yht-poistot">3 250,00 €</div>
+            <div class="ic-sub">2 investointia</div>
+          </div>
+          <div class="info-card">
+            <div class="ic-label">Metsävähennys käyttämättä</div>
+            <div class="ic-val green" id="yht-mv">58 400,00 €</div>
+            <div class="ic-sub">Max 60% metsämaasta</div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div>
+            <div class="section-title">
+              Viimeisimmät tapahtumat
+              <button class="btn-sm" onclick="naytaTab('kirjanpito')">Kaikki →</button>
+            </div>
+            <table class="dt">
+              <thead><tr><th>Pvm</th><th>Kuvaus</th><th>Tyyppi</th><th class="num">Summa</th><th class="num">Brutto</th></tr></thead>
+              <tbody id="viimeiset-tbody"></tbody>
+            </table>
+          </div>
+          <div>
+            <div class="section-title">Metsätilat</div>
+            <div id="tilat-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ KIRJANPITO ═══ -->
+      <div class="panel" id="panel-kirjanpito">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <label style="font-size:12px;color:var(--inu)">Vuosi</label>
+          <select id="kb-vuosi" onchange="renderKirjanpito()" style="padding:5px 10px;font-family:var(--ffb);font-size:13px;border:1px solid var(--bd);border-radius:5px;background:var(--pp);color:var(--ink);outline:none">
+            <option>2025</option><option>2024</option><option>2023</option>
+          </select>
+          <button class="btn-green" style="margin-left:auto" onclick="toast('Avaa kirjanpitolomake')">+ Uusi tapahtuma</button>
+        </div>
+        <table class="dt">
+          <thead><tr><th>Pvm</th><th>Kuvaus</th><th>Tyyppi</th><th class="num">Alv 0%</th><th class="num">ALV</th><th class="num">Brutto</th></tr></thead>
+          <tbody id="kb-tbody"></tbody>
+        </table>
+        <div style="display:flex;justify-content:flex-end;gap:24px;padding:12px;border-top:1px solid var(--bd);background:var(--pp);border-radius:0 0 8px 8px">
+          <span style="font-size:12px;color:var(--inu)">Tulot: <span style="font-family:var(--ffm);color:var(--fg2)" id="kb-tulot-sum">—</span></span>
+          <span style="font-size:12px;color:var(--inu)">Menot: <span style="font-family:var(--ffm);color:var(--am)" id="kb-menot-sum">—</span></span>
+          <span style="font-size:12px;color:var(--inu)">Tulos: <span style="font-family:var(--ffm);color:var(--fg2);font-weight:500" id="kb-tulos-sum">—</span></span>
+        </div>
+      </div>
+
+      <!-- ═══ ALV-RAPORTTI ═══ -->
+      <div class="panel" id="panel-alv">
+        <div class="alv-controls">
+          <label>Vuosi</label>
+          <select id="alv-vuosi" onchange="renderAlv()"><option>2025</option><option>2024</option></select>
+          <label style="margin-left:8px">Jakso</label>
+          <select id="alv-jakso" onchange="renderAlv()">
+            <option value="all">Koko vuosi</option>
+            <option value="1">Q1 (tammi–maalis)</option>
+            <option value="2">Q2 (huhti–kesä)</option>
+            <option value="3">Q3 (heinä–syys)</option>
+            <option value="4">Q4 (loka–joulu)</option>
+          </select>
+          <button class="btn-inv" style="margin-left:auto;background:var(--pp);color:var(--inm);border:1px solid var(--bd)" onclick="toast('PDF ladataan…')">Lataa PDF</button>
+        </div>
+
+        <!-- Kvartaalit -->
+        <div class="alv-kvartaalit" id="alv-kv"></div>
+
+        <!-- Päälaatikot -->
+        <div class="alv-grid" id="alv-boxes"></div>
+
+        <!-- Erittelytaulukko -->
+        <div class="section-title">Tapahtumaerittely</div>
+        <table class="dt">
+          <thead><tr><th>Pvm</th><th>Kuvaus</th><th>Tyyppi</th><th class="num">Alv 0%</th><th class="num">ALV%</th><th class="num">ALV €</th><th class="num">Brutto</th></tr></thead>
+          <tbody id="alv-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- ═══ INVESTOINNIT ═══ -->
+      <div class="panel" id="panel-investoinnit">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <label style="font-size:12px;color:var(--inu)">Laskentavuosi</label>
+            <select id="inv-vuosi" onchange="renderInv()" style="padding:5px 10px;font-family:var(--ffb);font-size:13px;border:1px solid var(--bd);border-radius:5px;background:var(--pp);color:var(--ink);outline:none">
+              <option>2025</option><option>2024</option><option>2023</option><option>2022</option>
+            </select>
+          </div>
+          <button class="btn-green" onclick="toast('Lisää investointi')">+ Uusi investointi</button>
+        </div>
+        <table class="dt">
+          <thead><tr><th style="width:35%">Kohde</th><th class="num">Hankintahinta</th><th>Poistotapa</th><th class="num">Poisto valitulle vuodelle</th><th class="num">Jäännösarvo</th><th class="num">Kertyneet poistot</th><th>Tila</th></tr></thead>
+          <tbody id="inv-tbody"></tbody>
+        </table>
+        <div style="padding:12px;border-top:1px solid var(--bd);background:var(--pp);border-radius:0 0 8px 8px;display:flex;justify-content:flex-end;gap:8px">
+          <span style="font-size:12px;color:var(--inu)">Poistot yhteensä 2025: <span style="font-family:var(--ffm);font-weight:500" id="inv-sum">—</span></span>
+        </div>
+      </div>
+
+      <!-- ═══ METSÄVÄHENNYS ═══ -->
+      <div class="panel" id="panel-metsavahennys">
+        <div id="mv-content"></div>
+      </div>
+
+      <!-- ═══ VEROSUUNNITTELU ═══ -->
+      <div class="panel" id="panel-verosuunnittelu">
+
+        <!-- Tietolähde-banneri -->
+        <div id="vs-source-banner" style="background:#e4f4ec;border:1px solid #a8dfc4;border-radius:8px;padding:10px 16px;margin-bottom:20px;font-size:12px;color:var(--fg3);display:flex;align-items:center;gap:10px">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0">
+            <circle cx="8" cy="8" r="7" stroke="#1D9E75" stroke-width="1.2"/>
+            <path d="M8 7v5M8 5h.01" stroke="#1D9E75" stroke-width="1.4" stroke-linecap="round"/>
+          </svg>
+          <span>Luvut haettu automaattisesti kirjanpidosta, investoinneista ja metsätilasta — <strong>muutokset päivittyvät reaaliajassa.</strong></span>
+        </div>
+
+        <!-- Kaksi saraketta: syötöt + tulokset -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+
+          <!-- Vasen: syöttöpaneeli -->
+          <div>
+            <div class="section-title" style="margin-top:0">Laskennan lähtöarvot</div>
+
+            <div style="display:flex;flex-direction:column;gap:14px">
+
+              <!-- Tulokset kirjanpidosta (vain luku) -->
+              <div style="background:var(--ppw);border:1px solid var(--bd);border-radius:8px;padding:14px">
+                <div style="font-size:10px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--inu);margin-bottom:10px">Kirjanpidosta (automaattinen)</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                  <div><div style="font-size:11px;color:var(--inu)">Puunmyyntitulot</div><div style="font-family:var(--ffm);font-size:14px;color:var(--fg3)" id="vs-tulot-disp">—</div></div>
+                  <div><div style="font-size:11px;color:var(--inu)">Menot</div><div style="font-family:var(--ffm);font-size:14px;color:var(--am)" id="vs-menot-disp">—</div></div>
+                  <div><div style="font-size:11px;color:var(--inu)">Poistot 2025</div><div style="font-family:var(--ffm);font-size:14px" id="vs-poistot-disp">—</div>
+                    <div id="vs-poistot-detail" style="margin-top:4px"></div>
+                  </div>
+                  <div><div style="font-size:11px;color:var(--inu)">MV-pohja käyttämättä</div><div style="font-family:var(--ffm);font-size:14px;color:var(--fg2)" id="vs-mvpohja-disp">—</div></div>
+                </div>
+              </div>
+
+              <!-- Säädettävät -->
+              <div style="background:var(--pp);border:1px solid var(--bd);border-radius:8px;padding:14px">
+                <div style="font-size:10px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--inu);margin-bottom:12px">Säädettävät</div>
+
+                <div style="margin-bottom:12px">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                    <label style="font-size:12px;color:var(--ink)">Metsävähennys</label>
+                    <span style="font-family:var(--ffm);font-size:13px;font-weight:500;color:var(--fg3)" id="vs-mv-val">0 €</span>
+                  </div>
+                  <input type="range" id="vs-mv-slider" min="0" max="100" step="1" value="100"
+                         oninput="vsLaske()" style="width:100%">
+                  <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--inf);margin-top:2px">
+                    <span>0 €</span>
+                    <span id="vs-mv-max-label">max —</span>
+                  </div>
+                  <div style="font-size:11px;color:var(--inu);margin-top:4px" id="vs-mv-rajoite"></div>
+                </div>
+
+                <div style="margin-bottom:12px">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                    <label style="font-size:12px;color:var(--ink)">Lisäpoistot / perusparannukset</label>
+                    <span style="font-family:var(--ffm);font-size:13px" id="vs-lisapoisto-val">0 €</span>
+                  </div>
+                  <input type="range" id="vs-lisapoisto" min="0" max="100" step="1" value="0"
+                         oninput="vsLaske()" style="width:100%">
+                  <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--inf);margin-top:2px">
+                    <span>0 €</span><span id="vs-lisapoisto-max">max —</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div style="font-size:12px;color:var(--ink);margin-bottom:4px;font-weight:500">Pääomavero</div>
+                  <div style="background:var(--ppw);border:1px solid var(--bd);border-radius:5px;padding:8px 10px;font-size:12px;color:var(--inu);line-height:1.6">
+                    0 – 30 000 € &nbsp;→&nbsp; <strong style="color:var(--ink)">30 %</strong><br>
+                    yli 30 000 € &nbsp;→&nbsp; <strong style="color:var(--ink)">34 %</strong> ylimenevältä osalta
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Oikea: tulospaneeli -->
+          <div>
+            <div class="section-title" style="margin-top:0">Verotustulos</div>
+
+            <!-- Verosäästö-kortti korostettuna -->
+            <div id="vs-saasto-card" style="border:1.5px solid var(--fg2);border-radius:10px;padding:16px 18px;background:#f0f9f4;margin-bottom:14px;text-align:center">
+              <div style="font-size:11px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--fg3);margin-bottom:6px">Verosäästö</div>
+              <div style="font-family:var(--ffm);font-size:28px;font-weight:400;color:#085041" id="vs-saasto">—</div>
+              <div style="font-size:11px;color:var(--fg3);margin-top:4px" id="vs-saasto-sub">—</div>
+            </div>
+
+            <!-- Laskelman erittely -->
+            <div style="background:var(--pp);border:1px solid var(--bd);border-radius:8px;overflow:hidden">
+              <table style="width:100%;border-collapse:collapse;font-size:13px" id="vs-calc-table"></table>
+            </div>
+
+            <!-- Maksetaan vero -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+              <div style="background:#fdf3e8;border:1px solid #f0d8b0;border-radius:8px;padding:14px">
+                <div style="font-size:10px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--am);margin-bottom:4px">Vero ilman vähennyksiä</div>
+                <div style="font-family:var(--ffm);font-size:18px;color:#633806" id="vs-vero-ilman">—</div>
+              </div>
+              <div style="background:#fdf0f0;border:1px solid #f0c8c8;border-radius:8px;padding:14px">
+                <div style="font-size:10px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:#A32D2D;margin-bottom:4px">Maksettava vero</div>
+                <div style="font-family:var(--ffm);font-size:18px;color:#791F1F" id="vs-vero-jalkeen">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Suositusboksi -->
+        <div id="vs-suositus" style="margin-top:20px;background:var(--ppw);border-left:3px solid var(--fg2);border-radius:0 8px 8px 0;padding:12px 16px;font-size:13px;line-height:1.6;color:var(--inu)"></div>
+
+        <!-- Metsävähennyspohjan palkki -->
+        <div style="margin-top:16px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--inu);margin-bottom:4px">
+            <span>Metsävähennyspohjan käyttöaste tämän vuoden jälkeen</span>
+            <span id="vs-bar-pct">—</span>
+          </div>
+          <div style="height:8px;background:var(--ppw);border:1px solid var(--bd);border-radius:4px;overflow:hidden">
+            <div id="vs-bar-fill" style="height:100%;background:var(--fg2);border-radius:4px;transition:width .35s;width:0%"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--inf);margin-top:3px">
+            <span>0 €</span>
+            <span id="vs-bar-sub">—</span>
+          </div>
+        </div>
+
+      </div><!-- /panel-verosuunnittelu -->
+
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const fmt = n => n.toLocaleString('fi-FI',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtE = n => fmt(n) + ' €';
+
+// ── Esimerkkidata ─────────────────────────────────────────
+const TAPAHTUMAT = [
+  {id:1, pvm:'2025-03-15', kuvaus:'Puukauppa (männikkö)', tyyppi:'tulo', summa:15000, alv:25.5, kvartaali:1},
+  {id:2, pvm:'2025-04-02', kuvaus:'Istutustaimet',        tyyppi:'meno', summa:400,   alv:0,    kvartaali:2},
+  {id:3, pvm:'2025-05-20', kuvaus:'Metsänhoitopalvelu',   tyyppi:'meno', summa:1200,  alv:25.5, kvartaali:2},
+  {id:4, pvm:'2025-06-10', kuvaus:'Puukauppa (koivikko)', tyyppi:'tulo', summa:8000,  alv:25.5, kvartaali:2},
+  {id:5, pvm:'2025-09-22', kuvaus:'Taimikonhoito',        tyyppi:'meno', summa:350,   alv:25.5, kvartaali:3},
+  {id:6, pvm:'2025-11-05', kuvaus:'Puukauppa (syyskaato)',tyyppi:'tulo', summa:9500,  alv:25.5, kvartaali:4},
+  {id:7, pvm:'2025-11-28', kuvaus:'Metsätiekorjaus',      tyyppi:'meno', summa:0,     alv:25.5, kvartaali:4},
+];
+
+const INVESTOINNIT = [
+  {id:1, kohde:'Metsätraktori',  pvm:'2022-03-01', hinta:35000, jaannos:5000, aika:10, tapa:'menojannos', kategoria:'Kalusto'},
+  {id:2, kohde:'Moottorisaha',   pvm:'2023-06-15', hinta:1800,  jaannos:0,    aika:5,  tapa:'tasa',       kategoria:'Kalusto'},
+  {id:3, kohde:'Metsäkärry',     pvm:'2024-02-10', hinta:4200,  jaannos:200,  aika:8,  tapa:'menojannos', kategoria:'Kalusto'},
+  {id:4, kohde:'Varastorakennus',pvm:'2021-08-01', hinta:12000, jaannos:1000, aika:20, tapa:'tasa',       kategoria:'Rakennus'},
+];
+
+const METSATILAT = [
+  {nimi:'Koivumäen tila', ha:45.2, mmHa:38.5, hankintahinta:200000, hankintapvm:'2019-04-10'},
+  {nimi:'Harjulan lohko', ha:12.8, mmHa:10.1, hankintahinta:55000,  hankintapvm:'2021-08-22'},
+];
+
+// ── Välilehtinavigointi ───────────────────────────────────
+function naytaTab(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('act'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('act'));
+  document.getElementById('panel-' + id)?.classList.add('act');
+  const labels = {yhteenveto:'yhteenveto',kirjanpito:'kirjanpito',alv:'alv',
+                  investoinnit:'investoinnit',metsavahennys:'metsävähennys',
+                  verosuunnittelu:'verosuunnittelu'};
+  document.querySelectorAll('.tab').forEach(t => {
+    if (t.textContent.trim().toLowerCase().includes(labels[id]||id)) t.classList.add('act');
+  });
+  if (id === 'alv')              renderAlv();
+  if (id === 'kirjanpito')       renderKirjanpito();
+  if (id === 'investoinnit')     renderInv();
+  if (id === 'metsavahennys')    renderMv();
+  if (id === 'verosuunnittelu')  vsInit();
+}
+
+// ── Yhteenveto ────────────────────────────────────────────
+function initYhteenveto() {
+  const tulot = TAPAHTUMAT.filter(t=>t.tyyppi==='tulo').reduce((a,t)=>a+t.summa,0);
+  const menot = TAPAHTUMAT.filter(t=>t.tyyppi==='meno').reduce((a,t)=>a+t.summa,0);
+  const myAlv = TAPAHTUMAT.filter(t=>t.tyyppi==='tulo').reduce((a,t)=>a+t.summa*t.alv/100,0);
+  const osAlv = TAPAHTUMAT.filter(t=>t.tyyppi==='meno').reduce((a,t)=>a+t.summa*t.alv/100,0);
+  document.getElementById('yht-tulot').textContent = fmtE(tulot);
+  document.getElementById('yht-menot').textContent = fmtE(menot);
+  document.getElementById('yht-tulos').textContent = fmtE(tulot - menot);
+  document.getElementById('yht-alv').textContent   = fmtE(myAlv - osAlv);
+
+  const viim = [...TAPAHTUMAT].sort((a,b)=>b.pvm.localeCompare(a.pvm)).slice(0,5);
+  document.getElementById('viimeiset-tbody').innerHTML = viim.map(t => {
+    const b = t.summa * (1 + t.alv/100);
+    return `<tr>
+      <td style="color:var(--inu);font-size:12px">${t.pvm}</td>
+      <td>${t.kuvaus}</td>
+      <td><span class="pill pill-${t.tyyppi[0]}">${t.tyyppi==='tulo'?'Tulo':'Meno'}</span></td>
+      <td class="num">${fmtE(t.summa)}</td>
+      <td class="num ${t.tyyppi==='tulo'?'green':'amber'}">${fmtE(b)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('tilat-list').innerHTML = METSATILAT.map(m => `
+    <div style="background:var(--pp);border:1px solid var(--bd);border-radius:8px;padding:14px 16px;margin-bottom:10px">
+      <div style="font-weight:500;font-size:13px;margin-bottom:4px">${m.nimi}</div>
+      <div style="font-size:12px;color:var(--inu);margin-bottom:8px">${m.ha} ha kokonaisala · ${m.mmHa} ha metsämaata</div>
+      <div style="font-size:12px;display:flex;justify-content:space-between">
+        <span style="color:var(--inu)">Hankintahinta</span>
+        <span style="font-family:var(--ffm)">${fmtE(m.hankintahinta)}</span>
+      </div>
+      <div class="mv-progress-wrap">
+        <div class="mv-bar-bg"><div class="mv-bar" style="width:18%"></div></div>
+        <div class="mv-legend"><span>Metsävähennystä käytetty 18%</span><span>${fmtE(m.hankintahinta*0.6*0.18)} / ${fmtE(m.hankintahinta*0.6)}</span></div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Kirjanpito ────────────────────────────────────────────
+function renderKirjanpito() {
+  const tulot = TAPAHTUMAT.filter(t=>t.tyyppi==='tulo').reduce((a,t)=>a+t.summa,0);
+  const menot = TAPAHTUMAT.filter(t=>t.tyyppi==='meno').reduce((a,t)=>a+t.summa,0);
+  document.getElementById('kb-tbody').innerHTML = [...TAPAHTUMAT]
+    .sort((a,b)=>b.pvm.localeCompare(a.pvm))
+    .map(t => {
+      const alvE = t.summa * t.alv / 100;
+      return `<tr>
+        <td style="color:var(--inu);font-size:12px">${t.pvm}</td>
+        <td>${t.kuvaus}</td>
+        <td><span class="pill pill-${t.tyyppi[0]}">${t.tyyppi==='tulo'?'Tulo':'Meno'}</span></td>
+        <td class="num">${fmtE(t.summa)}</td>
+        <td class="num" style="color:var(--inu)">${fmtE(alvE)}</td>
+        <td class="num ${t.tyyppi==='tulo'?'green':'amber'}">${fmtE(t.summa+alvE)}</td>
+      </tr>`;
+    }).join('');
+  document.getElementById('kb-tulot-sum').textContent = fmtE(tulot);
+  document.getElementById('kb-menot-sum').textContent = fmtE(menot);
+  document.getElementById('kb-tulos-sum').textContent = fmtE(tulot - menot);
+}
+
+// ── ALV-raportti ──────────────────────────────────────────
+function renderAlv() {
+  const jakso = document.getElementById('alv-jakso').value;
+  const filtered = jakso === 'all' ? TAPAHTUMAT
+    : TAPAHTUMAT.filter(t => t.kvartaali === parseInt(jakso));
+
+  const kvData = [1,2,3,4].map(q => {
+    const qt = TAPAHTUMAT.filter(t=>t.kvartaali===q);
+    const mAlv = qt.filter(t=>t.tyyppi==='tulo').reduce((a,t)=>a+t.summa*t.alv/100,0);
+    const oAlv = qt.filter(t=>t.tyyppi==='meno').reduce((a,t)=>a+t.summa*t.alv/100,0);
+    return {q, til: mAlv - oAlv};
+  });
+
+  document.getElementById('alv-kv').innerHTML = kvData.map(({q, til}) => `
+    <div class="kv-box ${jakso===String(q)?'act':''}" onclick="document.getElementById('alv-jakso').value='${q}';renderAlv()">
+      <div class="kv-label">Q${q} · ${['Tammi–maalis','Huhti–kesä','Heinä–syys','Loka–joulu'][q-1]}</div>
+      <div class="kv-val ${til>=0?'pos':'neg'}">${fmtE(Math.abs(til))}</div>
+      <div class="kv-sub">${til>=0?'Tilitettävä':'Palautus'}</div>
+    </div>`).join('');
+
+  const myyntiAlv0 = filtered.filter(t=>t.tyyppi==='tulo').reduce((a,t)=>a+t.summa,0);
+  const myyntiAlv  = filtered.filter(t=>t.tyyppi==='tulo').reduce((a,t)=>a+t.summa*t.alv/100,0);
+  const ostoAlv0   = filtered.filter(t=>t.tyyppi==='meno').reduce((a,t)=>a+t.summa,0);
+  const ostoAlv    = filtered.filter(t=>t.tyyppi==='meno').reduce((a,t)=>a+t.summa*t.alv/100,0);
+  const til = myyntiAlv - ostoAlv;
+
+  document.getElementById('alv-boxes').innerHTML = `
+    <div class="alv-box">
+      <div class="alv-box-title">Suoritettava ALV (myynneistä)</div>
+      <div class="alv-row"><span>Myyntitulot alv 0%</span><span class="alv-num">${fmtE(myyntiAlv0)}</span></div>
+      <div class="alv-row"><span>ALV-prosentti</span><span class="alv-num" style="color:var(--inu)">25,5%</span></div>
+      <div class="alv-row total"><span>Suoritettava ALV</span><span class="alv-num pos">${fmtE(myyntiAlv)}</span></div>
+    </div>
+    <div class="alv-box">
+      <div class="alv-box-title">Vähennettävä ALV (ostoista)</div>
+      <div class="alv-row"><span>Ostot alv 0%</span><span class="alv-num">${fmtE(ostoAlv0)}</span></div>
+      <div class="alv-row total"><span>Vähennettävä ALV</span><span class="alv-num neg">${fmtE(ostoAlv)}</span></div>
+    </div>
+    <div class="alv-box highlight" style="grid-column:1/-1">
+      <div class="alv-box-title">Tilitettävä ALV verohallinnolle</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+        <div>
+          <div class="alv-row" style="border:none;padding:4px 0"><span style="margin-right:24px">Suoritettava</span><span class="alv-num">${fmtE(myyntiAlv)}</span></div>
+          <div class="alv-row" style="border:none;padding:4px 0"><span style="margin-right:24px">Vähennettävä</span><span class="alv-num">− ${fmtE(ostoAlv)}</span></div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:var(--inu);margin-bottom:4px">${til>=0?'Tilitettävä':'Palautettava'}</div>
+          <div class="alv-num big ${til>=0?'pos':'neg'}">${fmtE(Math.abs(til))}</div>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('alv-tbody').innerHTML = filtered.map(t => {
+    const alvE = t.summa * t.alv/100;
+    return `<tr>
+      <td style="color:var(--inu);font-size:12px">${t.pvm}</td>
+      <td>${t.kuvaus}</td>
+      <td><span class="pill pill-${t.tyyppi[0]}">${t.tyyppi==='tulo'?'Tulo':'Meno'}</span></td>
+      <td class="num">${fmtE(t.summa)}</td>
+      <td class="num" style="color:var(--inu)">${t.alv}%</td>
+      <td class="num ${t.tyyppi==='tulo'?'green':'amber'}">${fmtE(alvE)}</td>
+      <td class="num">${fmtE(t.summa+alvE)}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Investoinnit ──────────────────────────────────────────
+function laskePoistoVuosi(inv, vuosi) {
+  const alku = parseInt(inv.pvm.slice(0,4));
+  const kuluneet = vuosi - alku;
+  if (kuluneet < 0) return {poisto:0, jaannos:inv.hinta};
+  if (inv.tapa === 'tasa') {
+    const vp = (inv.hinta - inv.jaannos) / inv.aika;
+    if (kuluneet >= inv.aika) return {poisto:0, jaannos:inv.jaannos};
+    return {poisto:vp, jaannos:inv.hinta - vp*(kuluneet+1)};
+  } else {
+    let j = inv.hinta;
+    for (let y=0; y<kuluneet; y++) j = j*(1-1/inv.aika);
+    if (j <= inv.jaannos) return {poisto:0, jaannos:inv.jaannos};
+    const p = j/inv.aika;
+    return {poisto:p, jaannos:Math.max(j-p, inv.jaannos)};
+  }
+}
+
+function renderInv() {
+  const vuosi = parseInt(document.getElementById('inv-vuosi').value);
+  let sumPoisto = 0;
+
+  // Konekohtainen erittely
+  const rivit = INVESTOINNIT.map(inv => {
+    const {poisto, jaannos} = laskePoistoVuosi(inv, vuosi);
+    sumPoisto += poisto;
+    const aktiivinen = poisto > 0;
+    const alkuVuosi  = parseInt(inv.pvm.slice(0,4));
+    const loppuVuosi = alkuVuosi + inv.aika - 1;
+
+    // Kumulatiivinen poisto tähän mennessä
+    let kertynyt = 0;
+    for (let y = alkuVuosi; y < vuosi; y++) {
+      kertynyt += laskePoistoVuosi(inv, y).poisto;
+    }
+    const kertynytPct = inv.hinta > 0 ? Math.min(100, kertynyt / (inv.hinta - inv.jaannos) * 100) : 0;
+
+    return `
+    <tr style="border-bottom:1px solid var(--bd)">
+      <td style="padding:0">
+        <div style="padding:12px 14px">
+          <div style="font-weight:500;font-size:13px">${inv.kohde}</div>
+          <div style="font-size:11px;color:var(--inu);margin-top:2px">${inv.kategoria} · hankittu ${inv.pvm} · poistoaika ${alkuVuosi}–${loppuVuosi}</div>
+          <div style="margin-top:8px;height:4px;background:var(--ppw);border-radius:2px;overflow:hidden;max-width:180px">
+            <div style="height:100%;border-radius:2px;background:${aktiivinen?'var(--fg2)':'var(--inf)'};width:${kertynytPct.toFixed(1)}%"></div>
+          </div>
+          <div style="font-size:10px;color:var(--inf);margin-top:2px">${Math.round(kertynytPct)} % poistettu</div>
+        </div>
+      </td>
+      <td style="padding:12px 14px;text-align:right;vertical-align:top">
+        <div style="font-size:11px;color:var(--inu)">Hankintahinta</div>
+        <div style="font-family:var(--ffm);font-size:13px">${fmtE(inv.hinta)}</div>
+      </td>
+      <td style="padding:12px 14px;text-align:center;vertical-align:top">
+        <span class="badge ${inv.tapa==='tasa'?'badge-blue':'badge-gray'}" style="font-size:10px">${inv.tapa==='tasa'?'Tasapoisto':'Menojäännös'}</span>
+      </td>
+      <td style="padding:12px 14px;text-align:right;vertical-align:top">
+        <div style="font-size:11px;color:var(--inu)">Poisto ${vuosi}</div>
+        <div style="font-family:var(--ffm);font-size:15px;font-weight:500;color:${aktiivinen?'var(--am)':'var(--inf)'}">${fmtE(poisto)}</div>
+      </td>
+      <td style="padding:12px 14px;text-align:right;vertical-align:top">
+        <div style="font-size:11px;color:var(--inu)">Jäännösarvo</div>
+        <div style="font-family:var(--ffm);font-size:13px">${fmtE(jaannos)}</div>
+      </td>
+      <td style="padding:12px 14px;text-align:right;vertical-align:top">
+        <div style="font-size:11px;color:var(--inu)">Kertyneet poistot</div>
+        <div style="font-family:var(--ffm);font-size:13px;color:var(--fg3)">${fmtE(kertynyt)}</div>
+      </td>
+      <td style="padding:12px 14px;vertical-align:top">
+        <span class="pill ${aktiivinen?'pill-t':'pill-m'}">${aktiivinen?'Aktiivinen':'Poistettu'}</span>
+      </td>
+    </tr>
+    <tr style="border-bottom:2px solid var(--bd2);background:var(--ppw)">
+      <td colspan="7" style="padding:0 14px 10px">
+        <div style="font-size:10px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--inu);margin-bottom:6px;margin-top:8px">Poistoaikataulu</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${buildPoistoaikataulu(inv, vuosi)}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('inv-tbody').innerHTML = rivit;
+  document.getElementById('inv-sum').textContent = fmtE(sumPoisto);
+
+  // Päivitä verosuunnittelu jos auki
+  if (document.getElementById('panel-verosuunnittelu').classList.contains('act')) vsInit();
+}
+
+function buildPoistoaikataulu(inv, valittuVuosi) {
+  const alkuVuosi = parseInt(inv.pvm.slice(0,4));
+  const vuodet = [];
+  for (let y = alkuVuosi; y <= alkuVuosi + inv.aika; y++) {
+    const {poisto} = laskePoistoVuosi(inv, y);
+    if (poisto <= 0 && y > alkuVuosi) break;
+    vuodet.push(y);
+    if (vuodet.length >= 12) break;
+  }
+  return vuodet.map(y => {
+    const {poisto, jaannos} = laskePoistoVuosi(inv, y);
+    const isCurrent = y === valittuVuosi;
+    const bg    = isCurrent ? 'background:var(--fg2);color:#fff'
+                : poisto > 0 ? 'background:var(--ppw);border:1px solid var(--bd);color:var(--ink)'
+                : 'background:var(--ppw);border:1px solid var(--bd);color:var(--inf)';
+    return `<div style="border-radius:6px;padding:5px 8px;font-size:11px;${bg};min-width:68px;text-align:center">
+      <div style="font-weight:500">${y}</div>
+      <div style="font-family:var(--ffm);font-size:10px;margin-top:1px">${poisto>0?Math.round(poisto).toLocaleString('fi-FI')+'€':'—'}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Metsävähennys ─────────────────────────────────────────
+function renderMv() {
+  const tulot2025 = TAPAHTUMAT.filter(t=>t.tyyppi==='tulo').reduce((a,t)=>a+t.summa,0);
+  document.getElementById('mv-content').innerHTML = METSATILAT.map(m => {
+    const pohja = m.hankintahinta * (m.mmHa / m.ha);
+    const maxOikeus = pohja * 0.6;
+    const kaytetty = maxOikeus * 0.18;
+    const kayttamatta = maxOikeus - kaytetty;
+    const maxVuosi = Math.min(tulot2025 * 0.6, kayttamatta);
+    const prosentti = (kaytetty/maxOikeus*100).toFixed(0);
+    return `
+    <div style="background:var(--pp);border:1px solid var(--bd);border-radius:10px;padding:20px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <div>
+          <div style="font-weight:500;font-size:15px">${m.nimi}</div>
+          <div style="font-size:12px;color:var(--inu);margin-top:3px">Hankittu ${m.hankintapvm} · ${m.ha} ha · ${m.mmHa} ha metsämaata</div>
+        </div>
+        <span class="badge badge-green">Aktiivinen</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+        <div><div class="ic-label">Vähennyspohja</div><div style="font-family:var(--ffm);font-size:15px">${fmtE(maxOikeus)}</div><div style="font-size:11px;color:var(--inu)">60% metsämaan arvosta</div></div>
+        <div><div class="ic-label">Käytetty</div><div style="font-family:var(--ffm);font-size:15px;color:var(--am)">${fmtE(kaytetty)}</div><div style="font-size:11px;color:var(--inu)">${prosentti}% pohjastarandom</div></div>
+        <div><div class="ic-label">Käyttämättä</div><div style="font-family:var(--ffm);font-size:15px;color:var(--fg2)">${fmtE(kayttamatta)}</div><div style="font-size:11px;color:var(--inu)">Max tänä vuonna ${fmtE(maxVuosi)}</div></div>
+      </div>
+      <div class="mv-bar-bg" style="height:10px">
+        <div class="mv-bar" style="width:${prosentti}%"></div>
+      </div>
+      <div class="mv-legend"><span>0 €</span><span>${fmtE(kaytetty)} käytetty</span><span>${fmtE(maxOikeus)}</span></div>
+    </div>`;
+  }).join('');
+}
+
+// ── Verosuunnittelu — integroitu dataan ───────────────────
+function vsGetData() {
+  const vuosi = 2025;
+  const tulot   = TAPAHTUMAT.filter(t=>t.tyyppi==='tulo').reduce((a,t)=>a+t.summa,0);
+  const menot   = TAPAHTUMAT.filter(t=>t.tyyppi==='meno').reduce((a,t)=>a+t.summa,0);
+  // Konekohtaiset poistot
+  const poistoKohteet = INVESTOINNIT.map(inv => ({
+    kohde: inv.kohde,
+    poisto: laskePoistoVuosi(inv, vuosi).poisto,
+    jaannos: laskePoistoVuosi(inv, vuosi).jaannos,
+  }));
+  const poistot = poistoKohteet.reduce((a,p)=>a+p.poisto, 0);
+  const mvPohjaMax = METSATILAT.reduce((a,m)=>a+m.hankintahinta*(m.mmHa/m.ha)*0.6,0);
+  const mvKaytetty = mvPohjaMax * 0.18;
+  return { tulot, menot, poistot, poistoKohteet, mvPohjaMax, mvKaytetty };
+}
+
+function vsInit() {
+  const d = vsGetData();
+  document.getElementById('vs-tulot-disp').textContent   = fmtE(d.tulot);
+  document.getElementById('vs-menot-disp').textContent   = fmtE(d.menot);
+  document.getElementById('vs-poistot-disp').textContent = fmtE(d.poistot);
+
+  // Konekohtainen erittelylista
+  document.getElementById('vs-poistot-detail').innerHTML =
+    d.poistoKohteet.filter(p=>p.poisto>0).map(p =>
+      `<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--inu);margin-top:2px">
+        <span>${p.kohde}</span>
+        <span style="font-family:var(--ffm)">${fmtE(p.poisto)}</span>
+      </div>`
+    ).join('');
+
+  const mvKayttamatta = Math.max(0, d.mvPohjaMax - d.mvKaytetty);
+  document.getElementById('vs-mvpohja-disp').textContent = fmtE(mvKayttamatta);
+  const bruttoTulos = d.tulot - d.menot;
+  const mvMax60     = d.tulot * 0.60;
+  const mvAbsMax    = Math.max(0, Math.min(mvMax60, mvKayttamatta, Math.max(0, bruttoTulos - d.poistot)));
+  document.getElementById('vs-mv-max-label').textContent = 'max ' + fmtE(mvAbsMax);
+  const lisaMax = Math.max(0, bruttoTulos * 0.5);
+  document.getElementById('vs-lisapoisto-max').textContent = 'max ' + fmtE(lisaMax);
+  vsLaske();
+}
+
+function vsLaske() {
+  const d        = vsGetData();
+  const tulot    = d.tulot;
+  const menot    = d.menot;
+  const poistot  = d.poistot;
+  const mvKayttamatta = Math.max(0, d.mvPohjaMax - d.mvKaytetty);
+  const bruttoTulos   = tulot - menot;
+
+  // MV-rajoitteet
+  const mvMax60  = tulot * 0.60;
+  const mvAbsMax = Math.max(0, Math.min(mvMax60, mvKayttamatta, Math.max(0, bruttoTulos - poistot)));
+
+  // Slider → euromäärä
+  const mvPct     = parseInt(document.getElementById('vs-mv-slider').value);
+  const mvValittu = Math.round(mvAbsMax * mvPct / 100);
+  document.getElementById('vs-mv-val').textContent = fmtE(mvValittu);
+
+  // Lisäpoisto-slider
+  const lisaMax    = Math.max(0, bruttoTulos * 0.5);
+  const lisaPct    = parseInt(document.getElementById('vs-lisapoisto').value);
+  const lisaPoisto = Math.round(lisaMax * lisaPct / 100);
+  document.getElementById('vs-lisapoisto-val').textContent = fmtE(lisaPoisto);
+
+  // Rajoitteen selite
+  const aktiivinen = mvMax60 < mvKayttamatta ? '60 % tulokatto' : 'vähennyspohjan katto';
+  document.getElementById('vs-mv-rajoite').textContent =
+    `Yläraja ${fmtE(mvAbsMax)} — rajoittava tekijä: ${aktiivinen}`;
+
+  // ── Verolaskelma: 30 % / 34 % portaistus ─────────────────
+  function laskePVM(tulo) {
+    if (tulo <= 0) return 0;
+    const raja = 30000;
+    if (tulo <= raja) return Math.round(tulo * 0.30 * 100) / 100;
+    return Math.round((raja * 0.30 + (tulo - raja) * 0.34) * 100) / 100;
+  }
+  const vahYht      = poistot + lisaPoisto + mvValittu;
+  const verotettava = Math.max(0, bruttoTulos - vahYht);
+  const veroJalkeen = laskePVM(verotettava);
+  const veroIlman   = laskePVM(Math.max(0, bruttoTulos));
+  const saasto      = veroIlman - veroJalkeen;
+  const saastoPct   = veroIlman > 0 ? (saasto / veroIlman * 100) : 0;
+  // Portaiden erittely erittelytaulukkoon
+  const osa30 = Math.min(verotettava, 30000);
+  const osa34 = Math.max(0, verotettava - 30000);
+
+  // Päivitä kortit
+  document.getElementById('vs-saasto').textContent    = fmtE(saasto);
+  document.getElementById('vs-saasto-sub').textContent =
+    saasto > 0 ? `${Math.round(saastoPct)} % vähemmän veroa` : 'Ei vähennyksiä käytössä';
+  document.getElementById('vs-vero-ilman').textContent  = fmtE(veroIlman);
+  document.getElementById('vs-vero-jalkeen').textContent = fmtE(veroJalkeen);
+
+  // Erittely taulukko — poistot konekohtaisesti
+  const poistoRivit = d.poistoKohteet
+    .filter(p => p.poisto > 0)
+    .map(p => ({label: `  └ ${p.kohde}`, val: -p.poisto, cls:'neg kone'}));
+
+  const rivit = [
+    {label:'Puunmyyntitulot',            val:tulot,       cls:''},
+    {label:'Vähennyskelpoiset menot',    val:-menot,      cls:'neg'},
+    {label:'Tulos ennen vähennyksiä',    val:bruttoTulos, cls:'sub'},
+    {label:'Poistot yhteensä',           val:-poistot,    cls: poistot>0?'neg':'dim'},
+    ...poistoRivit,
+    {label:'Lisäpoistot / perusparannus',val:-lisaPoisto, cls: lisaPoisto>0?'neg':'dim'},
+    {label:'Metsävähennys',              val:-mvValittu,  cls: mvValittu>0?'neg':'dim'},
+    {label:'Vähennykset yhteensä',       val:-vahYht,     cls:'sub neg'},
+    {label:'Verotettava pääomatulo',     val:verotettava, cls:'sub'},
+    {label: osa34>0 ? `Pääomavero (30 % × ${Math.round(osa30).toLocaleString('fi-FI')} € + 34 % × ${Math.round(osa34).toLocaleString('fi-FI')} €)` : `Pääomavero 30 % × ${Math.round(osa30).toLocaleString('fi-FI')} €`, val:veroJalkeen, cls:'total'},
+  ];
+  document.getElementById('vs-calc-table').innerHTML = rivit.map(r => {
+    const isTotal = r.cls.includes('total');
+    const isSub   = r.cls.includes('sub');
+    const isDim   = r.cls.includes('dim');
+    const isNeg   = r.cls.includes('neg');
+    const isKone  = r.cls.includes('kone');
+    const style   = isTotal
+      ? 'border-top:2px solid var(--bd2);font-weight:500;font-size:14px'
+      : isSub ? 'border-top:1px solid var(--bd);font-weight:500' : '';
+    const valColor = isTotal ? 'color:#A32D2D' : isNeg&&!isKone ? 'color:#0F6E56' : isDim||isKone ? 'color:var(--inf)' : '';
+    const labelColor = isKone ? 'color:var(--inf);font-style:italic' : isDim ? 'color:var(--inf)' : 'color:var(--ink)';
+    const sign    = r.val < 0 ? '− ' : '';
+    const display = (r.val === 0 && (isDim||isKone)) ? '—' : fmtE(Math.abs(r.val));
+    return `<tr style="${style}">
+      <td style="padding:${isKone?'3px':'7px'} 14px;font-size:13px;${labelColor}">${r.label}</td>
+      <td style="padding:${isKone?'3px':'7px'} 14px;text-align:right;font-family:var(--ffm);font-size:12px;${valColor}">${sign}${display}</td>
+    </tr>`;
+  }).join('');
+
+  // Vähennyspohjan käyttöaste-palkki
+  const kaytettyNyt = d.mvKaytetty + mvValittu;
+  const barPct = d.mvPohjaMax > 0 ? Math.min(100, kaytettyNyt / d.mvPohjaMax * 100) : 0;
+  document.getElementById('vs-bar-fill').style.width = barPct + '%';
+  document.getElementById('vs-bar-fill').style.background = barPct > 90 ? '#BA7517' : '#1D9E75';
+  document.getElementById('vs-bar-pct').textContent = Math.round(barPct) + ' %';
+  document.getElementById('vs-bar-sub').textContent =
+    fmtE(kaytettyNyt) + ' käytetty / ' + fmtE(d.mvPohjaMax) + ' pohja';
+
+  // Suositus
+  vsSuositus(tulot, mvAbsMax, mvValittu, poistot, lisaPoisto, bruttoTulos, saasto, mvKayttamatta, aktiivinen);
+}
+
+function vsSuositus(tulot, mvAbsMax, mvValittu, poistot, lisaPoisto, bruttoTulos, saasto, mvKayttamatta, rajoite) {
+  const el = document.getElementById('vs-suositus');
+  const lines = [];
+  const isMax = mvValittu >= mvAbsMax - 1;
+
+  if (mvAbsMax <= 0) {
+    el.style.borderLeftColor = '#BA7517';
+    el.innerHTML = '<strong>Metsävähennyspohja on käytetty loppuun</strong> tai tulokatto estää vähennyksen tänä vuonna. Pohja ei vanhene — se siirtyy seuraaville vuosille.';
+    return;
+  }
+  el.style.borderLeftColor = '#1D9E75';
+
+  if (!isMax) {
+    const raja=30000, jo=mvValittu+poistot+lisaPoisto, lisaSaasto = (Math.min(Math.max(0,bruttoTulos-jo),raja)*0.30+Math.max(0,bruttoTulos-jo-raja)*0.34) - (Math.min(Math.max(0,bruttoTulos-jo-(mvAbsMax-mvValittu)),raja)*0.30+Math.max(0,bruttoTulos-jo-(mvAbsMax-mvValittu)-raja)*0.34);
+    lines.push(`<strong>Suositus:</strong> nosta metsävähennys maksimiin (${fmtE(mvAbsMax)}). Lisäverosäästö olisi <strong>${fmtE(lisaSaasto)}</strong>.`);
+  } else {
+    lines.push(`Metsävähennys on optimissa. Rajoittava tekijä on <strong>${rajoite}</strong>.`);
+  }
+
+  const verotettavaNyt = Math.max(0, bruttoTulos - poistot - lisaPoisto - mvValittu);
+  if (verotettavaNyt > 30000) {
+    lines.push(`Verotettava tulo ylittää 30 000 € — harkitse verokannaksi 34 % tai lisää vähennyksiä.`);
+  }
+  if (mvKayttamatta > tulot * 2) {
+    lines.push(`Vähennyspohjaaa riittää useammalle vuodelle (${fmtE(mvKayttamatta)}). Pohja ei vanhene.`);
+  }
+  if (saasto > 5000) {
+    lines.push(`Kokonaisverosäästö <strong>${fmtE(saasto)}</strong> on merkittävä — varmista kirjaukset kirjanpitäjän kanssa ennen veroilmoitusta.`);
+  }
+
+  el.innerHTML = lines.join('<br><br>');
+}
+
+// ── Toast ─────────────────────────────────────────────────
+let tT;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('sh');
+  clearTimeout(tT); tT = setTimeout(()=>t.classList.remove('sh'), 2400);
+}
+
+// ── Init ──────────────────────────────────────────────────
+initYhteenveto();
+</script>
+</body>
+</html>

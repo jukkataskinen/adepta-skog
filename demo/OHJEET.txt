@@ -1,0 +1,21 @@
+ADEPTA SKOG — Demo
+==================
+
+KÄYNNISTYS:
+-----------
+Vaihtoehto A — Python (suositeltava):
+  1. Avaa Command Prompt tässä kansiossa
+     (Shift + hiiren oikea nappi → Avaa PowerShell/Command Prompt tässä)
+  2. Kirjoita: python -m http.server 8080
+  3. Avaa selaimessa: http://localhost:8080/adepta_skog_demo.html
+
+Vaihtoehto B — Local by Flywheel:
+  1. Kopioi kaikki tiedostot Local-sivuston app/public/demo/ -kansioon
+  2. Avaa: http://adeptatilat.local/demo/adepta_skog_demo.html
+
+KIRJAUTUMINEN:
+--------------
+Sahkoposit:  merja@metstili.fi  tai  pekka@metstili.fi
+Salasana:    demo2025
+
+Tai klikkaa demo-tunnusta suoraan kirjautumissivulla.
