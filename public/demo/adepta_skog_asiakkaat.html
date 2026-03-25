@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adepta SKOG — Asiakkaat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --fd:#1c2b1e;--fm:#2d4a31;--fl:#3d6b43;
+  --fg:#5DCAA5;--fg2:#1D9E75;--fg3:#0F6E56;
+  --am:#a05c1a;--aml:#fdf3e8;
+  --ink:#1a1c18;--inm:#3d4039;--inu:#7a7d72;--inf:#b8bab2;
+  --pp:#fafaf7;--ppw:#f5f3ee;--bd:#dddbd4;--bd2:#c4c2b8;
+  --red:#A32D2D;--redl:#FCEBEB;
+  --ffd:'Fraunces',Georgia,serif;--ffb:'DM Sans',sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:14px;min-height:100vh}
+
+/* Topbar */
+.topbar{background:var(--fd);height:56px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.bc{display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,.45);margin-left:20px}
+.bc span.a{color:rgba(255,255,255,.8)}
+.bc-sep{color:rgba(255,255,255,.2)}
+.tr{display:flex;align-items:center;gap:10px}
+.btn-inv{padding:5px 14px;font-family:var(--ffb);font-size:12px;border:1px solid rgba(255,255,255,.18);border-radius:4px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;transition:all .12s}
+.btn-inv:hover{background:rgba(255,255,255,.08);color:#fff}
+.btn-green{padding:6px 18px;font-family:var(--ffb);font-size:12px;font-weight:500;border:none;border-radius:4px;background:var(--fg);color:var(--fd);cursor:pointer;display:flex;align-items:center;gap:6px}
+.btn-green:hover{opacity:.88}
+
+/* Layout */
+.layout{display:flex;height:calc(100vh - 56px)}
+
+/* Nav */
+.nav{width:200px;background:var(--fd);display:flex;flex-direction:column;flex-shrink:0;padding:12px 0}
+.nav-section{padding:6px 14px 4px;font-size:9px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.25)}
+.nav-item{padding:8px 16px;font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;border-left:2px solid transparent;transition:all .1s;display:flex;align-items:center;gap:8px}
+.nav-item:hover{background:rgba(255,255,255,.05);color:rgba(255,255,255,.85)}
+.nav-item.act{background:rgba(93,202,165,.1);border-left-color:var(--fg);color:#fff}
+.nav-dot{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.5;flex-shrink:0}
+.nav-foot{margin-top:auto;padding:12px 14px;border-top:1px solid rgba(255,255,255,.07);font-size:11px;color:rgba(255,255,255,.3)}
+
+/* Pääsisältö */
+.main{flex:1;overflow-y:auto}
+.content{padding:28px 32px 48px}
+
+/* Otsikkorivi */
+.page-hdr{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:24px;gap:16px}
+.page-title{font-family:var(--ffd);font-weight:300;font-size:26px;color:var(--ink);line-height:1.2}
+.page-sub{font-size:12px;color:var(--inu);margin-top:3px}
+
+/* Tilastopalkki */
+.stat-row{display:flex;gap:12px;margin-bottom:22px}
+.stat{background:var(--pp);border:1px solid var(--bd);border-radius:9px;padding:13px 18px;min-width:110px}
+.stat-val{font-size:22px;font-weight:400;color:var(--ink)}
+.stat-lbl{font-size:10px;color:var(--inu);margin-top:3px;letter-spacing:.03em}
+
+/* Hakupalkki */
+.toolbar{display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap}
+.search-wrap{position:relative;min-width:260px;flex:1;max-width:380px}
+.search-wrap input{width:100%;padding:8px 12px 8px 34px;font-family:var(--ffb);font-size:13px;border:1px solid var(--bd);border-radius:7px;background:var(--pp);color:var(--ink);outline:none;transition:border .1s}
+.search-wrap input:focus{border-color:var(--fl);background:#fff}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--inf);pointer-events:none;font-size:15px}
+.filter-sel{padding:8px 10px;font-family:var(--ffb);font-size:12px;border:1px solid var(--bd);border-radius:7px;background:var(--pp);color:var(--ink);outline:none;cursor:pointer}
+.sort-btn{padding:7px 12px;font-family:var(--ffb);font-size:12px;border:1px solid var(--bd);border-radius:7px;background:var(--pp);color:var(--inu);cursor:pointer;transition:all .1s;white-space:nowrap}
+.sort-btn.act{border-color:var(--fl);color:var(--fl);background:#f0f7f1}
+.toolbar-right{display:flex;gap:8px;margin-left:auto}
+.view-btn{padding:7px 10px;border:1px solid var(--bd);border-radius:7px;background:var(--pp);color:var(--inu);cursor:pointer;font-size:14px;transition:all .1s}
+.view-btn.act{background:var(--fd);color:#fff;border-color:var(--fd)}
+
+/* Taulukkonäkymä */
+.client-table{width:100%;border-collapse:collapse;background:var(--pp);border:1px solid var(--bd);border-radius:10px;overflow:hidden}
+.client-table thead th{background:var(--fd);color:rgba(255,255,255,.55);font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;padding:11px 16px;text-align:left;white-space:nowrap;cursor:pointer;user-select:none;transition:color .1s}
+.client-table thead th:hover{color:rgba(255,255,255,.9)}
+.client-table thead th.sort-asc::after{content:' ↑';color:var(--fg)}
+.client-table thead th.sort-desc::after{content:' ↓';color:var(--fg)}
+.client-table tbody tr{border-bottom:1px solid var(--bd);cursor:pointer;transition:background .07s}
+.client-table tbody tr:last-child{border-bottom:none}
+.client-table tbody tr:hover{background:var(--ppw)}
+.client-table tbody tr:hover .row-arrow{opacity:1}
+.client-table td{padding:13px 16px;font-size:13px;vertical-align:middle}
+.client-init{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:#fff;flex-shrink:0}
+.client-cell{display:flex;align-items:center;gap:11px}
+.client-name{font-weight:500;color:var(--ink)}
+.client-id{font-size:10px;color:var(--inf);margin-top:1px}
+.tila-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500}
+.tila-a{background:#e4f4ec;color:var(--fg3)}
+.tila-p{background:var(--aml);color:var(--am)}
+.tila-i{background:var(--ppw);color:var(--inu);border:1px solid var(--bd)}
+.row-arrow{opacity:0;color:var(--inf);transition:opacity .1s;font-size:16px}
+.meta-val{font-size:13px;color:var(--ink)}
+.meta-sub{font-size:11px;color:var(--inu);margin-top:1px}
+
+/* Korttinäkymä */
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+.client-card{background:var(--pp);border:1px solid var(--bd);border-radius:10px;padding:18px 20px;cursor:pointer;transition:all .12s;position:relative}
+.client-card:hover{border-color:var(--bd2);box-shadow:0 2px 12px rgba(0,0,0,.07);transform:translateY(-1px)}
+.card-hdr{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.card-init{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;color:#fff;flex-shrink:0}
+.card-name{font-weight:500;font-size:14px;color:var(--ink)}
+.card-id{font-size:10px;color:var(--inf);margin-top:2px}
+.card-tila{position:absolute;top:16px;right:16px}
+.card-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:2px}
+.cs{background:var(--ppw);border-radius:6px;padding:8px 10px}
+.cs-val{font-size:14px;font-weight:400;color:var(--ink)}
+.cs-lbl{font-size:10px;color:var(--inu);margin-top:2px}
+.card-foot{margin-top:12px;padding-top:10px;border-top:1px solid var(--bd);font-size:11px;color:var(--inu);display:flex;justify-content:space-between}
+.card-foot span{color:var(--ink)}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(28,43,30,.6);display:flex;align-items:center;justify-content:center;z-index:500;opacity:0;pointer-events:none;transition:opacity .18s}
+.overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--pp);border:1px solid var(--bd);border-radius:12px;width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.18);transform:translateY(10px);transition:transform .18s}
+.overlay.open .modal{transform:translateY(0)}
+.modal-hdr{padding:22px 26px 0;border-bottom:1px solid var(--bd);padding-bottom:18px;margin-bottom:22px;position:sticky;top:0;background:var(--pp);z-index:1}
+.modal-title{font-family:var(--ffd);font-weight:300;font-size:20px;color:var(--ink)}
+.modal-sub{font-size:12px;color:var(--inu);margin-top:3px}
+.modal-body{padding:0 26px 22px}
+.section-hdr{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--inu);margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--bd)}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.field label{font-size:11px;font-weight:500;color:var(--inu);letter-spacing:.03em}
+.field label span.req{color:var(--fg2)}
+.field input,.field select,.field textarea{padding:9px 11px;font-family:var(--ffb);font-size:13px;border:1px solid var(--bd);border-radius:7px;background:var(--ppw);color:var(--ink);outline:none;transition:border .1s;width:100%}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--fl);background:#fff;box-shadow:0 0 0 3px rgba(61,107,67,.1)}
+.field input.err{border-color:var(--red)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field-row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.field textarea{min-height:72px;resize:vertical}
+.hint{font-size:11px;color:var(--inu);margin-top:3px;line-height:1.5}
+.modal-foot{padding:16px 26px;border-top:1px solid var(--bd);display:flex;gap:10px;justify-content:flex-end;position:sticky;bottom:0;background:var(--pp)}
+.btn-modal-cancel{padding:8px 18px;font-family:var(--ffb);font-size:13px;border:1px solid var(--bd);border-radius:7px;background:transparent;color:var(--inu);cursor:pointer}
+.btn-modal-ok{padding:8px 22px;font-family:var(--ffb);font-size:13px;font-weight:500;border:none;border-radius:7px;background:var(--fl);color:#fff;cursor:pointer}
+.btn-modal-ok:hover{opacity:.88}
+.progress-bar{height:5px;background:var(--bd);border-radius:3px;overflow:hidden;margin-bottom:20px}
+.progress-fill{height:100%;background:var(--fg2);border-radius:3px;transition:width .3s}
+.step-dots{display:flex;gap:6px;justify-content:center;margin-bottom:18px}
+.step-dot{width:7px;height:7px;border-radius:50%;background:var(--bd);transition:background .2s}
+.step-dot.act{background:var(--fg2)}
+
+/* Tyhjä tila */
+.empty{text-align:center;padding:60px 24px;color:var(--inu)}
+.empty-icon{font-size:48px;margin-bottom:12px;opacity:.25}
+.empty-title{font-size:15px;font-weight:500;color:var(--ink);margin-bottom:6px}
+
+
+/* Verotiliviite-badge */
+.vtv-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:20px;font-size:11px;font-weight:500;background:var(--ppw);border:1px solid var(--bd);color:var(--ink);font-family:monospace;letter-spacing:.03em}
+.vtv-badge svg{flex-shrink:0}
+
+/* Muistutuspaneeli */
+.muistutus-panel{background:var(--pp);border:1px solid var(--bd);border-radius:10px;margin-bottom:22px;overflow:hidden}
+.muistutus-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--bd);background:var(--fd)}
+.muistutus-title{font-weight:500;font-size:14px;color:#fff;display:flex;align-items:center;gap:8px}
+.muistutus-badge{font-size:10px;font-weight:600;letter-spacing:.06em;padding:2px 8px;border-radius:20px}
+.m-badge-wait{background:rgba(232,168,106,.2);color:#e8a86a}
+.m-badge-ok{background:rgba(93,202,165,.2);color:var(--fg)}
+.muistutus-tabs{display:flex;border-bottom:1px solid var(--bd);background:var(--ppw)}
+.m-tab{padding:10px 18px;font-size:12px;font-weight:500;color:var(--inu);cursor:pointer;border-bottom:2px solid transparent;transition:all .1s;display:flex;align-items:center;gap:6px;user-select:none}
+.m-tab:hover{color:var(--ink)}
+.m-tab.act{color:var(--fl);border-bottom-color:var(--fl);background:var(--pp)}
+.m-tab-badge{font-size:10px;padding:1px 6px;border-radius:20px;background:var(--ppw);border:1px solid var(--bd)}
+.m-tab.act .m-tab-badge{background:#e4f4ec;border-color:#a8dfc4;color:var(--fl)}
+.muistutus-toolbar{display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--bd);background:var(--pp)}
+.m-search{flex:1;max-width:260px;padding:6px 10px 6px 28px;font-family:var(--ffb);font-size:12px;border:1px solid var(--bd);border-radius:6px;background:var(--ppw);color:var(--ink);outline:none;transition:border .1s}
+.m-search:focus{border-color:var(--fl);background:#fff}
+.m-search-wrap{position:relative}
+.m-search-icon{position:absolute;left:8px;top:50%;transform:translateY(-50%);color:var(--inf);font-size:13px;pointer-events:none}
+.m-filter{padding:6px 10px;font-family:var(--ffb);font-size:12px;border:1px solid var(--bd);border-radius:6px;background:var(--ppw);color:var(--ink);outline:none;cursor:pointer}
+.muistutus-body{padding:0}
+.muistutus-list{display:flex;flex-direction:column}
+.muistutus-row{display:flex;align-items:center;gap:10px;padding:10px 18px;font-size:13px;border-bottom:1px solid var(--bd);transition:background .07s}
+.muistutus-row:last-child{border-bottom:none}
+.muistutus-row:hover{background:var(--ppw)}
+.muistutus-row.lahetetty{background:#f4fcf8}
+.muistutus-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:#fff;flex-shrink:0}
+.muistutus-info{flex:1;min-width:0}
+.muistutus-nimi{font-weight:500;color:var(--ink);font-size:13px}
+.muistutus-email{font-size:11px;color:var(--inu);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.muistutus-vtv{font-size:10px;font-family:monospace;color:var(--inu);padding:1px 6px;border:1px solid var(--bd);border-radius:10px;flex-shrink:0}
+.muistutus-status{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0;min-width:100px}
+.ms-label{font-size:11px;font-weight:500;display:flex;align-items:center;gap:4px}
+.ms-ok{color:var(--fg2)}
+.ms-wait{color:var(--am)}
+.ms-ei-sposti{color:var(--inf)}
+.ms-aika{font-size:10px;color:var(--inu)}
+.btn-send{padding:5px 12px;font-family:var(--ffb);font-size:11px;font-weight:500;border:none;border-radius:5px;background:var(--fl);color:#fff;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.btn-send:hover{opacity:.88}
+.btn-send:disabled{opacity:.35;cursor:not-allowed;background:var(--bd)}
+.btn-send-all{padding:7px 16px;font-family:var(--ffb);font-size:12px;font-weight:500;border:none;border-radius:6px;background:var(--fg2);color:#fff;cursor:pointer;display:flex;align-items:center;gap:6px}
+.btn-send-all:hover{opacity:.88}
+.preview-btn{padding:6px 12px;font-family:var(--ffb);font-size:11px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer}
+.preview-btn:hover{background:rgba(255,255,255,.08);color:#fff}
+.m-stats{display:flex;gap:16px;padding:10px 18px;border-bottom:1px solid var(--bd);background:var(--ppw)}
+.m-stat{display:flex;align-items:center;gap:6px;font-size:12px}
+.m-stat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.m-empty{text-align:center;padding:28px 18px;font-size:13px;color:var(--inu)}
+
+/* Sähköpostin esikatselu-modal */
+.email-preview{background:var(--pp);border:1px solid var(--bd);border-radius:12px;width:520px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.18);transform:translateY(10px);transition:transform .18s}
+.overlay.open .email-preview{transform:translateY(0)}
+.ep-hdr{padding:18px 22px;border-bottom:1px solid var(--bd)}
+.ep-meta{font-size:12px;color:var(--inu);margin-bottom:4px}
+.ep-meta span{color:var(--ink);font-weight:500}
+.email-body{padding:22px;font-size:13px;line-height:1.7;color:var(--ink)}
+.email-body p{margin-bottom:12px}
+.email-body .em-logo{font-family:var(--ffd);font-size:16px;color:var(--fg3);margin-bottom:16px}
+.email-body .em-footer{margin-top:20px;padding-top:16px;border-top:1px solid var(--bd);font-size:11px;color:var(--inu)}
+
+/* Toast */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(12px);background:var(--fd);color:var(--fg);padding:9px 22px;border-radius:24px;font-size:12px;font-weight:500;border:1px solid rgba(93,202,165,.25);opacity:0;transition:all .2s;pointer-events:none;z-index:999}
+.toast.sh{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div style="display:flex;align-items:center">
+    <svg width="176" height="36" viewBox="0 0 176 36" xmlns="http://www.w3.org/2000/svg" style="display:block;flex-shrink:0">
+      <rect x="0"  y="1"  width="12" height="34" rx="2" fill="#5DCAA5"/>
+      <rect x="16" y="1"  width="12" height="21" rx="2" fill="#1D9E75"/>
+      <rect x="16" y="26" width="12" height="9"  rx="2" fill="#0F6E56"/>
+      <text x="34" y="19" font-family="Fraunces,Georgia,serif" font-weight="300" font-size="15" fill="#ffffff" dominant-baseline="middle">Adepta</text>
+      <circle cx="88" cy="19" r="2" fill="#5DCAA5"/>
+      <text x="94" y="19" font-family="Fraunces,Georgia,serif" font-weight="500" font-style="italic" font-size="15" fill="#5DCAA5" dominant-baseline="middle">SKOG</text>
+    </svg>
+    <div class="bc"><span class="bc-sep">/</span><span class="a">Asiakkaat</span></div>
+  </div>
+  <div class="tr">
+    <button class="btn-inv" onclick="toast('Tulosta asiakasraportti…')">Tulosta raportti</button>
+    <button class="btn-green" onclick="avaaModal()"><span style="font-size:18px;line-height:1">+</span> Uusi asiakas</button>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- Nav -->
+  <nav class="nav">
+    <div class="nav-section">Valikko</div>
+    <div class="nav-item act"><div class="nav-dot"></div>Asiakkaat</div>
+    <div class="nav-item" onclick="toast('Kirjanpito')"><div class="nav-dot"></div>Kirjanpito</div>
+    <div class="nav-item" onclick="toast('ALV-raportti')"><div class="nav-dot"></div>ALV-raportti</div>
+    <div class="nav-item" onclick="toast('Verosuunnittelu')"><div class="nav-dot"></div>Verosuunnittelu</div>
+    <div class="nav-section" style="margin-top:8px">Hallinta</div>
+    <div class="nav-item" onclick="toast('Käyttäjähallinta')"><div class="nav-dot"></div>Käyttäjät</div>
+    <div class="nav-item" onclick="toast('Asetukset')"><div class="nav-dot"></div>Asetukset</div>
+    <div class="nav-foot">Metsä-Tili Oy · Merja Korhonen</div>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="content">
+
+      <!-- Otsikko -->
+      <div class="page-hdr">
+        <div>
+          <div class="page-title">Asiakkaat</div>
+          <div class="page-sub" id="page-sub">Ladataan…</div>
+        </div>
+      </div>
+
+      <!-- Sähköpostimuistutuspaneeli -->
+      <div class="muistutus-panel" id="muistutus-panel">
+        <div class="muistutus-hdr">
+          <div class="muistutus-title">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 4l6 4.5L14 4" stroke="rgba(255,255,255,.7)" stroke-width="1.2" stroke-linecap="round"/><rect x="1" y="3" width="14" height="10" rx="2" stroke="rgba(255,255,255,.7)" stroke-width="1.2"/></svg>
+            Sähköpostimuistutukset
+            <span class="muistutus-badge" id="m-badge">—</span>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="preview-btn" onclick="avaaEmailEsikatselu()">Esikatsele viesti</button>
+            <button class="btn-send-all" onclick="lahetaKaikki()">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M14 2L2 7l4.5 1.5L8 14l2-4.5L14 2z" stroke="#fff" stroke-width="1.3" stroke-linejoin="round"/></svg>
+              Lähetä kaikille
+            </button>
+          </div>
+        </div>
+        <!-- Välilehdet -->
+        <div class="muistutus-tabs">
+          <div class="m-tab act" id="tab-tositteet" onclick="vaihdaMuistutusTyyppi('tositteet')">
+            Tositteet (tammikuu) <span class="m-tab-badge" id="tb-tositteet">—</span>
+          </div>
+          <div class="m-tab" id="tab-alv" onclick="vaihdaMuistutusTyyppi('alv')">
+            ALV-ilmoitus (helmikuu) <span class="m-tab-badge" id="tb-alv">—</span>
+          </div>
+          <div class="m-tab" id="tab-pika" onclick="vaihdaMuistutusTyyppi('pika')">
+            Pikamuistutus (3 pv ennen) <span class="m-tab-badge" id="tb-pika">—</span>
+          </div>
+        </div>
+        <!-- Yhteenveto-stats -->
+        <div class="m-stats" id="m-stats"></div>
+        <!-- Haku ja suodatus -->
+        <div class="muistutus-toolbar">
+          <div class="m-search-wrap">
+            <span class="m-search-icon">⌕</span>
+            <input type="text" class="m-search" id="m-search" placeholder="Hae nimellä tai sähköpostilla…" oninput="renderMuistutus()">
+          </div>
+          <select class="m-filter" id="m-filter" onchange="renderMuistutus()">
+            <option value="">Kaikki</option>
+            <option value="lahetetty">Lähetetty</option>
+            <option value="odottaa">Odottaa lähetystä</option>
+            <option value="ei-sposti">Ei sähköpostia</option>
+          </select>
+          <div style="margin-left:auto;font-size:12px;color:var(--inu)" id="m-ohje"></div>
+        </div>
+        <div class="muistutus-body">
+          <div class="muistutus-list" id="muistutus-list"></div>
+        </div>
+      </div>
+
+      <!-- Tilastopalkki -->
+      <div class="stat-row">
+        <div class="stat"><div class="stat-val" id="s-all">—</div><div class="stat-lbl">Asiakkaita yhteensä</div></div>
+        <div class="stat"><div class="stat-val" style="color:var(--fg2)" id="s-act">—</div><div class="stat-lbl">Aktiivisia</div></div>
+        <div class="stat"><div class="stat-val" style="color:var(--am)" id="s-pas">—</div><div class="stat-lbl">Passiivisia</div></div>
+        <div class="stat"><div class="stat-val" id="s-ha">—</div><div class="stat-lbl">Hehtaaria yhteensä</div></div>
+        <div class="stat"><div class="stat-val" id="s-alv">—</div><div class="stat-lbl">Tulot tänä vuonna €</div></div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="search-wrap">
+          <span class="search-icon">⌕</span>
+          <input type="text" id="q" placeholder="Hae nimellä, tilalla tai kunnalla…" oninput="hae()" autocomplete="off">
+        </div>
+        <select class="filter-sel" id="f-tila" onchange="hae()">
+          <option value="">Kaikki tilat</option>
+          <option value="active">Aktiivinen</option>
+          <option value="passiivinen">Passiivinen</option>
+        </select>
+        <select class="filter-sel" id="f-kb" onchange="hae()">
+          <option value="">Kaikki kirjanpitäjät</option>
+          <option value="Merja Korhonen">Merja Korhonen</option>
+          <option value="Pekka Mäkinen">Pekka Mäkinen</option>
+          <option value="Liisa Salo">Liisa Salo</option>
+        </select>
+        <div class="toolbar-right">
+          <button class="view-btn act" id="vb-table" onclick="setView('table')" title="Taulukkonäkymä">☰</button>
+          <button class="view-btn" id="vb-card"  onclick="setView('card')"  title="Korttinäkymä">⊞</button>
+        </div>
+      </div>
+
+      <!-- Sisältö -->
+      <div id="view-area"></div>
+
+    </div>
+  </main>
+</div>
+
+
+<!-- Sähköpostin esikatselu -->
+<div class="overlay" id="email-overlay">
+  <div class="email-preview">
+    <div class="ep-hdr">
+      <div style="font-size:15px;font-weight:500;color:var(--ink);margin-bottom:8px">Viestin esikatselu</div>
+      <div class="ep-meta">Lähettäjä: <span>Metsä-Tili Oy &lt;<a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="553e3c273f343b253c213a1538302126213c393c7b333c">[email&#160;protected]</a>&gt;</span></div>
+      <div class="ep-meta">Vastaanottaja: <span>Asiakas &lt;<a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="bfdeccd6ded4deccffdad2ded6d391d9d6">[email&#160;protected]</a>&gt;</span></div>
+      <div class="ep-meta">Aihe: <span>Muistutus: verovuoden 2025 tositteet — toimita tammikuun loppuun mennessä</span></div>
+    </div>
+    <div class="email-body">
+      <div class="em-logo">Adepta <em>SKOG</em></div>
+      <p>Hei,</p>
+      <p>
+        verovuosi 2025 on päättynyt ja on aika kasata metsätalouden kirjanpitoaineisto
+        veroilmoitusta varten.
+      </p>
+      <p><strong>Toimita meille viimeistään 31. tammikuuta 2026:</strong></p>
+      <ul style="margin:0 0 12px 18px;line-height:2">
+        <li>Puukaupan tositteet ja laskut</li>
+        <li>Metsänhoitokulujen tositteet (istutus, taimikonhoito, jne.)</li>
+        <li>Konehankintojen laskut ja maksukuitit</li>
+        <li>Vakuutuskorvausten päätökset</li>
+        <li>Mahdolliset metsätalouden tukipäätökset</li>
+      </ul>
+      <p>
+        Tositteet voi toimittaa skannattuna sähköpostitse tai tuoda toimistollemme.
+        Voit myös ladata skannatun aineiston suoraan Adepta SKOG -palveluun.
+      </p>
+      <p>
+        Verotiliviitteesi OmaVerossa: <strong style="font-family:monospace;letter-spacing:.05em">[VEROTILIVIITE]</strong><br>
+        Vastuukirjanpitäjäsi: <strong>[KIRJANPITÄJÄ]</strong>
+      </p>
+      <p>
+        Jos sinulla on kysyttävää tai haluat sopia tapaamisen,
+        vastaa tähän sähköpostiin tai soita toimistollemme.
+      </p>
+      <p>Hyvää vuodenvaihdetta!<br>
+      <strong>Metsä-Tili Oy</strong></p>
+      <div class="em-footer">
+        Tämä viesti on lähetetty automaattisesti Adepta SKOG -järjestelmästä.
+        Metsä-Tili Oy · puh. 015 000 0000 · <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="c6adafb4aca7a8b6afb2a986aba3b2b5b2afaaafe8a0af">[email&#160;protected]</a>
+      </div>
+    </div>
+    <div style="padding:14px 22px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:10px">
+      <button class="btn-modal-cancel" onclick="document.getElementById('email-overlay').classList.remove('open')">Sulje</button>
+      <button class="btn-modal-ok" onclick="lahetaKaikki();document.getElementById('email-overlay').classList.remove('open')">Lähetä kaikille</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Uusi asiakas -modal (2 vaihetta) -->
+<div class="overlay" id="overlay">
+  <div class="modal" id="modal">
+    <div class="modal-hdr">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div class="modal-title" id="modal-title">Uusi asiakas</div>
+          <div class="modal-sub" id="modal-sub">Vaihe 1 / 2 — Perustiedot</div>
+        </div>
+        <button onclick="suljeModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--inu);padding:0 4px;line-height:1">×</button>
+      </div>
+      <div class="step-dots" style="margin-top:12px">
+        <div class="step-dot act" id="dot1"></div>
+        <div class="step-dot" id="dot2"></div>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progress" style="width:50%"></div></div>
+    </div>
+    <div class="modal-body">
+      <!-- Vaihe 1 -->
+      <div id="step1">
+        <div class="section-hdr">Henkilötiedot</div>
+        <div class="field-row">
+          <div class="field">
+            <label>Sukunimi <span class="req">*</span></label>
+            <input type="text" id="f-snimi" placeholder="Virtanen" onkeydown="formKey(event)">
+          </div>
+          <div class="field">
+            <label>Etunimi <span class="req">*</span></label>
+            <input type="text" id="f-enimi" placeholder="Mikko" onkeydown="formKey(event)">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Henkilötunnus <span class="req">*</span></label>
+            <input type="text" id="f-hetu" placeholder="000000-0000" onkeydown="formKey(event)" maxlength="11">
+            <span class="hint">Tallennetaan salattuna — ei näy käyttäjille</span>
+          </div>
+          <div class="field">
+            <label>Syntymäaika</label>
+            <input type="text" id="f-syntyma" placeholder="Täyttyy hetusta automaattisesti" readonly style="color:var(--inu)">
+          </div>
+        </div>
+        <div class="section-hdr">Yhteystiedot</div>
+        <div class="field-row">
+          <div class="field">
+            <label>Katuosoite</label>
+            <input type="text" id="f-osoite" placeholder="Metsätie 12" onkeydown="formKey(event)">
+          </div>
+          <div class="field">
+            <label>Y-tunnus</label>
+            <input type="text" id="f-ytunnus" placeholder="1234567-8" onkeydown="formKey(event)" maxlength="9">
+            <span class="hint">Täytä jos metsätalous harjoitetaan yrityksen kautta</span>
+          </div>
+        </div>
+        <div class="field-row3">
+          <div class="field">
+            <label>Postinumero</label>
+            <input type="text" id="f-pnro" placeholder="50100" onkeydown="formKey(event)" maxlength="5">
+          </div>
+          <div class="field">
+            <label>Postitoimipaikka</label>
+            <input type="text" id="f-ptmk" placeholder="Mikkeli" onkeydown="formKey(event)">
+          </div>
+          <div class="field">
+            <label>Kunta</label>
+            <input type="text" id="f-kunta" placeholder="Mikkeli" onkeydown="formKey(event)">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Puhelin</label>
+            <input type="tel" id="f-puh" placeholder="+358 40 000 0000" onkeydown="formKey(event)">
+          </div>
+          <div class="field">
+            <label>Sähköposti</label>
+            <input type="email" id="f-sposti" placeholder="mikko.virtanen@email.fi" onkeydown="formKey(event)">
+          </div>
+        </div>
+        <div class="field">
+          <label>Vastuukirjanpitäjä</label>
+          <select id="f-kb2">
+            <option value="Merja Korhonen">Merja Korhonen</option>
+            <option value="Pekka Mäkinen">Pekka Mäkinen</option>
+            <option value="Liisa Salo">Liisa Salo</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Vaihe 2 -->
+      <div id="step2" style="display:none">
+        <div class="section-hdr">Metsätila</div>
+        <div class="field">
+          <label>Tilan nimi <span class="req">*</span></label>
+          <input type="text" id="f-tila" placeholder="Koivumäen tila" onkeydown="formKey(event)">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Pinta-ala (ha) <span class="req">*</span></label>
+            <input type="text" id="f-ha" placeholder="45,2" onkeydown="formKey(event)">
+          </div>
+          <div class="field">
+            <label>Metsähehtaaria (ha)</label>
+            <input type="text" id="f-mha" placeholder="38,5" onkeydown="formKey(event)">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Hankintahinta (€)</label>
+            <input type="text" id="f-hinta" placeholder="200 000" onkeydown="formKey(event)">
+            <span class="hint">Käytetään metsävähennyksen laskentaan</span>
+          </div>
+          <div class="field">
+            <label>Hankintavuosi</label>
+            <input type="text" id="f-hankvuosi" placeholder="2010" maxlength="4" onkeydown="formKey(event)">
+          </div>
+        </div>
+        <div class="section-hdr">Verotus</div>
+        <div class="field-row">
+          <div class="field">
+            <label>Verotiliviite</label>
+            <input type="text" id="f-verotiliviite" placeholder="12345-6" onkeydown="formKey(event)" maxlength="10">
+            <span class="hint">OmaVeron verotiliviite — löytyy veron.fi:stä kirjautumisen jälkeen</span>
+          </div>
+          <div class="field">
+            <label>Sähköposti (muistutukset)</label>
+            <input type="email" id="f-sposti2" placeholder="asiakas@email.fi" onkeydown="formKey(event)">
+            <span class="hint">Veromuistutukset lähetetään tähän osoitteeseen</span>
+          </div>
+        </div>
+        <div class="section-hdr">ALV ja verotus</div>
+        <div class="field-row">
+          <div class="field">
+            <label>ALV-velvollisuus</label>
+            <select id="f-alv">
+              <option value="kylla">Kyllä — alv-velvollinen</option>
+              <option value="ei">Ei — ei alv-velvollisuutta</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Verovuosi alkaa</label>
+            <input type="text" id="f-verovuosi" placeholder="2025" maxlength="4" value="2025" onkeydown="formKey(event)">
+          </div>
+        </div>
+        <div class="field">
+          <label>Lisätietoja</label>
+          <textarea id="f-lisatiedot" placeholder="Vapaamuotoisia huomioita asiakkaasta tai tilasta…"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-modal-cancel" id="btn-back" onclick="vaiheTaakse()" style="display:none">← Takaisin</button>
+      <button class="btn-modal-cancel" id="btn-cancel" onclick="suljeModal()">Peruuta</button>
+      <button class="btn-modal-ok" id="btn-next" onclick="vaihePäin()">Seuraava →</button>
+    </div>
+  </div>
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+// ── Data ──────────────────────────────────────────────────────
+let ASIAKKAAT = [
+  {id:1,  snimi:'Virtanen',  enimi:'Mikko',   tila:'Koivumäen tila',     kunta:'Mikkeli',
+   ha:45.2, mha:38.5, kb:'Merja Korhonen', status:'active',
+   tulot:32500, alv_velv:true,  hankintahinta:200000, hetu:'****', viim_kirj:'15.11.2025',
+   osoite:'Metsätie 12',      postiosoite:'50100 Mikkeli',      ytunnus:'',
+   verotiliviite:'12345-6', sposti:'mikko.virtanen@email.fi', muistutus_lahetetty:false},
+  {id:2,  snimi:'Mäkinen',   enimi:'Sirpa',   tila:'Havumetsän tila',    kunta:'Pieksämäki',
+   ha:28.7, mha:22.1, kb:'Pekka Mäkinen',  status:'active',
+   tulot:18200, alv_velv:true,  hankintahinta:120000, hetu:'****', viim_kirj:'02.10.2025',
+   osoite:'Havukuja 3',       postiosoite:'76100 Pieksämäki',   ytunnus:'',
+   verotiliviite:'23456-7', sposti:'sirpa.makinen@email.fi', muistutus_lahetetty:false},
+  {id:3,  snimi:'Korhonen',  enimi:'Juhani',  tila:'Leppärannan tila',   kunta:'Savonlinna',
+   ha:62.4, mha:55.0, kb:'Merja Korhonen', status:'active',
+   tulot:54100, alv_velv:true,  hankintahinta:310000, hetu:'****', viim_kirj:'05.12.2025',
+   osoite:'Rantatie 7',       postiosoite:'57100 Savonlinna',   ytunnus:'1234567-8',
+   verotiliviite:'34567-8', sposti:'juhani.korhonen@email.fi', muistutus_lahetetty:true},
+  {id:4,  snimi:'Leinonen',  enimi:'Aino',    tila:'Mäntyniemen tila',   kunta:'Joroinen',
+   ha:15.3, mha:12.8, kb:'Liisa Salo',    status:'active',
+   tulot:8900,  alv_velv:false, hankintahinta:68000,  hetu:'****', viim_kirj:'18.09.2025',
+   osoite:'Männistöntie 4',   postiosoite:'79100 Joroinen',     ytunnus:'',
+   verotiliviite:'45678-9', sposti:'aino.leinonen@email.fi', muistutus_lahetetty:false},
+  {id:5,  snimi:'Peltonen',  enimi:'Tapio',   tila:'Harjulan tila',      kunta:'Juva',
+   ha:33.1, mha:28.4, kb:'Pekka Mäkinen',  status:'passiivinen',
+   tulot:0,     alv_velv:false, hankintahinta:155000, hetu:'****', viim_kirj:'12.11.2024',
+   osoite:'Kuusitie 21',      postiosoite:'51900 Juva',         ytunnus:'',
+   verotiliviite:'56789-0', sposti:'tapio.peltonen@email.fi', muistutus_lahetetty:false},
+  {id:6,  snimi:'Heikkinen', enimi:'Ritva',   tila:'Suvirannan tila',    kunta:'Hirvensalmi',
+   ha:19.8, mha:16.2, kb:'Liisa Salo',    status:'active',
+   tulot:11400, alv_velv:true,  hankintahinta:88000,  hetu:'****', viim_kirj:'22.09.2025',
+   osoite:'Koivukuja 9',      postiosoite:'52300 Hirvensalmi',  ytunnus:'',
+   verotiliviite:'67890-1', sposti:'ritva.heikkinen@email.fi', muistutus_lahetetty:false},
+  {id:7,  snimi:'Räsänen',   enimi:'Erkki',   tila:'Petäjäniemen tila',  kunta:'Kangasniemi',
+   ha:78.3, mha:69.4, kb:'Merja Korhonen', status:'active',
+   tulot:87300, alv_velv:true,  hankintahinta:420000, hetu:'****', viim_kirj:'28.11.2025',
+   osoite:'Järventie 44',     postiosoite:'51200 Kangasniemi',  ytunnus:'2345678-9',
+   verotiliviite:'78901-2', sposti:'erkki.rasanen@email.fi', muistutus_lahetetty:false},
+  {id:8,  snimi:'Hämäläinen',enimi:'Leena',   tila:'Kuusimäen tila',     kunta:'Pertunmaa',
+   ha:24.6, mha:19.8, kb:'Pekka Mäkinen',  status:'active',
+   tulot:14600, alv_velv:true,  hankintahinta:105000, hetu:'****', viim_kirj:'14.10.2025',
+   osoite:'Metsänreuna 5',    postiosoite:'19430 Pertunmaa',    ytunnus:'',
+   verotiliviite:'89012-3', sposti:'leena.hamalainen@email.fi', muistutus_lahetetty:false},
+  {id:9,  snimi:'Nousiainen', enimi:'Veikko', tila:'Honkamäen tila',     kunta:'Mäntyharju',
+   ha:41.5, mha:35.2, kb:'Liisa Salo',    status:'active',
+   tulot:29800, alv_velv:true,  hankintahinta:188000, hetu:'****', viim_kirj:'03.12.2025',
+   osoite:'Honkatie 8',       postiosoite:'52700 Mäntyharju',   ytunnus:'',
+   verotiliviite:'90123-4', sposti:'veikko.nousiainen@email.fi', muistutus_lahetetty:true},
+  {id:10, snimi:'Turunen',   enimi:'Kaija',   tila:'Ilvesrinteen tila',  kunta:'Puumala',
+   ha:17.2, mha:14.1, kb:'Merja Korhonen', status:'active',
+   tulot:6200,  alv_velv:false, hankintahinta:74000,  hetu:'****', viim_kirj:'07.08.2025',
+   osoite:'Rantakuja 2',      postiosoite:'52200 Puumala',      ytunnus:'',
+   verotiliviite:'01234-5', sposti:'kaija.turunen@email.fi', muistutus_lahetetty:false},
+];
+
+let nakyma = 'table';
+let sortCol = 'snimi';
+let sortDir = 1;
+let vaihe = 1;
+
+// ── Apufunktiot ───────────────────────────────────────────────
+const nimi = a => `${a.snimi}, ${a.enimi}`;
+const fmt = n => n.toLocaleString('fi-FI');
+const fmtE = n => n > 0 ? n.toLocaleString('fi-FI',{minimumFractionDigits:0})+'  €' : '—';
+const colors = ['#2d4a31','#185FA5','#0F6E56','#633806','#3d4039','#6b3d6b'];
+const av = a => (a.snimi[0]+a.enimi[0]).toUpperCase();
+const avBg = a => colors[a.id % colors.length];
+const tilaPill = s => s === 'active'
+  ? '<span class="tila-pill tila-a">Aktiivinen</span>'
+  : '<span class="tila-pill tila-i">Passiivinen</span>';
+
+
+// ── Sähköpostimuistutus ────────────────────────────────────────
+const MUISTUTUSTYYPIT = {
+  tositteet: {
+    otsikko: 'Tositteet (tammikuu)',
+    ohje: 'Lähetetään 15.1. — asiakkaan pitää toimittaa tositteet 31.1. mennessä',
+    aihe: 'Tositteet'
+  },
+  alv: {
+    otsikko: 'ALV-ilmoitusmuistutus (helmikuu)',
+    ohje: 'Lähetetään 14.2. — kaksi viikkoa ennen ALV-eräpäivää 2.3.',
+    aihe: 'ALV'
+  },
+  pika: {
+    otsikko: 'Pikamuistutus (3 pv ennen)',
+    ohje: 'Lähetetään 27.2. — kolme päivää ennen ALV-eräpäivää 2.3.',
+    aihe: 'ALV pikaviestti'
+  },
+};
+let aktiivinen_tyyppi = 'tositteet';
+
+// Muistutushistoria (per tyyppi, demo)
+const HISTORIA = {
+  tositteet: {3: {aika:'15.1.2026 08:14'}, },  // Juhani on saanut
+  alv: {},
+  pika: {},
+};
+
+const avBgM = a => ['#2d4a31','#185FA5','#0F6E56','#633806','#3d4039','#6b3d6b'][a.id % 6];
+const avM   = a => (a.snimi[0]+a.enimi[0]).toUpperCase();
+
+function vaihdaMuistutusTyyppi(tyyppi){
+  aktiivinen_tyyppi = tyyppi;
+  ['tositteet','alv','pika'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('act', t===tyyppi);
+  });
+  renderMuistutus();
+}
+
+function renderMuistutus(){
+  const tyyppi  = aktiivinen_tyyppi;
+  const historia = HISTORIA[tyyppi] || {};
+  const q       = (document.getElementById('m-search')?.value||'').toLowerCase();
+  const filter  = document.getElementById('m-filter')?.value||'';
+  const info    = MUISTUTUSTYYPIT[tyyppi];
+
+  // Ohjeteksti
+  const ohjeEl = document.getElementById('m-ohje');
+  if(ohjeEl) ohjeEl.textContent = info.ohje;
+
+  // Kaikki asiakkaat jaettuna kategorioihin
+  const kaikki = ASIAKKAAT.filter(a => a.status==='active');
+  const lahetetty_lkm  = kaikki.filter(a=>historia[a.id]).length;
+  const odottaa_lkm    = kaikki.filter(a=>a.sposti && !historia[a.id]).length;
+  const ei_sposti_lkm  = kaikki.filter(a=>!a.sposti).length;
+
+  // Tab-luvut
+  ['tositteet','alv','pika'].forEach(t=>{
+    const h   = HISTORIA[t]||{};
+    const od  = ASIAKKAAT.filter(a=>a.status==='active'&&a.sposti&&!h[a.id]).length;
+    const tb  = document.getElementById('tb-'+t);
+    if(tb) tb.textContent = od > 0 ? od+' odottaa' : '✓ kaikki';
+  });
+
+  // Badge pääotsikossa
+  const badge = document.getElementById('m-badge');
+  if(badge){
+    if(odottaa_lkm>0){
+      badge.textContent = odottaa_lkm+' odottaa';
+      badge.className = 'muistutus-badge m-badge-wait';
+    } else {
+      badge.textContent = 'Kaikki lähetetty ✓';
+      badge.className = 'muistutus-badge m-badge-ok';
+    }
+  }
+
+  // Stats-palkki
+  const stats = document.getElementById('m-stats');
+  if(stats) stats.innerHTML = `
+    <div class="m-stat"><div class="m-stat-dot" style="background:#1D9E75"></div>${lahetetty_lkm} lähetetty</div>
+    <div class="m-stat"><div class="m-stat-dot" style="background:#E8A86A"></div>${odottaa_lkm} odottaa</div>
+    <div class="m-stat"><div class="m-stat-dot" style="background:var(--bd2)"></div>${ei_sposti_lkm} ei sähköpostia</div>
+    <div style="margin-left:auto;font-size:11px;color:var(--inu)">${kaikki.length} asiakasta yhteensä</div>
+  `;
+
+  // Suodata ja hae
+  let lista = kaikki.filter(a=>{
+    const matchQ = !q || (a.snimi+' '+a.enimi).toLowerCase().includes(q)
+      || (a.sposti||'').toLowerCase().includes(q);
+    const onLahetetty = !!historia[a.id];
+    const matchF = !filter
+      || (filter==='lahetetty'  && onLahetetty)
+      || (filter==='odottaa'    && a.sposti && !onLahetetty)
+      || (filter==='ei-sposti'  && !a.sposti);
+    return matchQ && matchF;
+  });
+
+  // Järjestä: odottavat ensin, sitten lähetetyt, sitten ei spostia
+  lista.sort((a,b)=>{
+    const pa = !a.sposti ? 2 : historia[a.id] ? 1 : 0;
+    const pb = !b.sposti ? 2 : historia[b.id] ? 1 : 0;
+    return pa-pb || (a.snimi+a.enimi).localeCompare(b.snimi+b.enimi);
+  });
+
+  if(!lista.length){
+    document.getElementById('muistutus-list').innerHTML =
+      '<div class="m-empty">Ei asiakkaita hakuehdoilla.</div>';
+    return;
+  }
+
+  document.getElementById('muistutus-list').innerHTML = lista.map(a => {
+    const hist       = historia[a.id];
+    const onLah      = !!hist;
+    const eiSposti   = !a.sposti;
+    return `
+    <div class="muistutus-row ${onLah?'lahetetty':''}">
+      <div class="muistutus-av" style="background:${avBgM(a)}">${avM(a)}</div>
+      <div class="muistutus-info">
+        <div class="muistutus-nimi">${a.snimi}, ${a.enimi}</div>
+        <div class="muistutus-email">${a.sposti||'<em>Ei sähköpostiosoitetta</em>'}</div>
+      </div>
+      ${a.verotiliviite?`<span class="muistutus-vtv">${a.verotiliviite}</span>`:''}
+      <div class="muistutus-status">
+        ${onLah
+          ? `<div class="ms-label ms-ok">✓ Lähetetty</div><div class="ms-aika">${hist.aika}</div>`
+          : eiSposti
+            ? `<div class="ms-label ms-ei-sposti">Ei sähköpostia</div>`
+            : `<div class="ms-label ms-wait">⏳ Odottaa</div>`
+        }
+      </div>
+      <button class="btn-send"
+        ${onLah||eiSposti?'disabled':''}
+        onclick="lahetaMuistutus(${a.id})">
+        ${onLah?'Lähetetty':eiSposti?'—':'Lähetä'}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function lahetaMuistutus(id){
+  const a = ASIAKKAAT.find(a=>a.id===id);
+  if(!a||!a.sposti) return;
+  const nyt = new Date();
+  const aika = `${nyt.getDate()}.${nyt.getMonth()+1}.${nyt.getFullYear()} ${String(nyt.getHours()).padStart(2,'0')}:${String(nyt.getMinutes()).padStart(2,'0')}`;
+  if(!HISTORIA[aktiivinen_tyyppi]) HISTORIA[aktiivinen_tyyppi]={};
+  HISTORIA[aktiivinen_tyyppi][a.id] = {aika};
+  renderMuistutus();
+  toast(`✓ ${MUISTUTUSTYYPIT[aktiivinen_tyyppi].aihe}-muistutus lähetetty: ${a.sposti}`);
+}
+
+function lahetaKaikki(){
+  const tyyppi   = aktiivinen_tyyppi;
+  const historia = HISTORIA[tyyppi]||{};
+  const odottavat = ASIAKKAAT.filter(a=>a.status==='active'&&a.sposti&&!historia[a.id]);
+  if(!odottavat.length){ toast('Kaikki muistutukset on jo lähetetty ✓'); return; }
+  const nyt = new Date();
+  const aika = `${nyt.getDate()}.${nyt.getMonth()+1}.${nyt.getFullYear()} ${String(nyt.getHours()).padStart(2,'0')}:${String(nyt.getMinutes()).padStart(2,'0')}`;
+  if(!HISTORIA[tyyppi]) HISTORIA[tyyppi]={};
+  odottavat.forEach(a=>{ HISTORIA[tyyppi][a.id]={aika}; });
+  renderMuistutus();
+  toast(`✓ ${odottavat.length} ${MUISTUTUSTYYPIT[tyyppi].aihe}-muistutusta lähetetty`);
+}
+
+function avaaEmailEsikatselu(){
+  document.getElementById('email-overlay').classList.add('open');
+}
+
+// ── Statistiikat ──────────────────────────────────────────────
+function updateStats(lista){
+  const all = ASIAKKAAT;
+  document.getElementById('s-all').textContent = all.length;
+  document.getElementById('s-act').textContent = all.filter(a=>a.status==='active').length;
+  document.getElementById('s-pas').textContent = all.filter(a=>a.status==='passiivinen').length;
+  document.getElementById('s-ha').textContent  = fmt(Math.round(all.reduce((s,a)=>s+a.ha,0)*10)/10);
+  document.getElementById('s-alv').textContent = fmtE(all.reduce((s,a)=>s+a.tulot,0));
+  document.getElementById('page-sub').textContent =
+    `${lista.length} asiakasta näkyvissä · Metsä-Tili Oy · verovuosi 2025`;
+}
+
+// ── Haku & suodatus ───────────────────────────────────────────
+function hae(){
+  const q   = document.getElementById('q').value.toLowerCase();
+  const ft  = document.getElementById('f-tila').value;
+  const fkb = document.getElementById('f-kb').value;
+  let lista = ASIAKKAAT.filter(a => {
+    const matchQ = !q || nimi(a).toLowerCase().includes(q)
+      || a.tila.toLowerCase().includes(q) || a.kunta.toLowerCase().includes(q);
+    const matchT = !ft || a.status === ft;
+    const matchK = !fkb || a.kb === fkb;
+    return matchQ && matchT && matchK;
+  });
+  // Järjestys
+  lista.sort((x,y) => {
+    let xv = x[sortCol], yv = y[sortCol];
+    if(typeof xv === 'string') xv = xv.toLowerCase(), yv = yv.toLowerCase();
+    return (xv < yv ? -1 : xv > yv ? 1 : 0) * sortDir;
+  });
+  updateStats(lista);
+  nakyma === 'table' ? renderTable(lista) : renderCards(lista);
+}
+
+// ── Taulukkonäkymä ────────────────────────────────────────────
+function renderTable(lista){
+  const cols = [
+    {key:'snimi', label:'Asiakas'},
+    {key:'tila',  label:'Metsätila'},
+    {key:'kunta', label:'Kunta'},
+    {key:'ha',    label:'Ha'},
+    {key:'osoite',label:'Osoite'},
+    {key:'kb',    label:'Kirjanpitäjä'},
+    {key:'tulot', label:'Tulot 2025'},
+    {key:'status',label:'Tila'},
+  ];
+  const thHtml = cols.map(c => {
+    const cls = sortCol===c.key ? (sortDir===1?'sort-asc':'sort-desc') : '';
+    return `<th class="${cls}" onclick="sortBy('${c.key}')">${c.label}</th>`;
+  }).join('') + '<th></th>';
+
+  if(!lista.length){
+    document.getElementById('view-area').innerHTML =
+      `<div class="empty"><div class="empty-icon">🌲</div><div class="empty-title">Ei asiakkaita hakuehdoilla</div><p style="font-size:13px">Muuta hakusuodattimia tai lisää uusi asiakas.</p></div>`;
+    return;
+  }
+
+  const rows = lista.map(a => `
+    <tr onclick="avaaAsiakas(${a.id})">
+      <td><div class="client-cell">
+        <div class="client-init" style="background:${avBg(a)}">${av(a)}</div>
+        <div><div class="client-name">${nimi(a)}</div><div class="client-id">#${String(a.id).padStart(4,'0')}</div></div>
+      </div></td>
+      <td>${a.tila}</td>
+      <td>${a.kunta}</td>
+      <td><div class="meta-val">${a.osoite||'—'}</div><div class="meta-sub">${a.postiosoite||''}</div></td>
+      <td><div class="meta-val">${a.ha} ha</div><div class="meta-sub">${a.mha} ha metsää</div></td>
+      <td>${a.kb}</td>
+      <td><div class="meta-val">${fmtE(a.tulot)}</div><div class="meta-sub">alv 0%</div></td>
+      <td>${tilaPill(a.status)}</td>
+      <td><span class="row-arrow">›</span></td>
+    </tr>`).join('');
+
+  document.getElementById('view-area').innerHTML =
+    `<table class="client-table"><thead><tr>${thHtml}</tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function sortBy(col){
+  if(sortCol === col) sortDir *= -1;
+  else { sortCol = col; sortDir = 1; }
+  hae();
+}
+
+// ── Korttinäkymä ──────────────────────────────────────────────
+function renderCards(lista){
+  if(!lista.length){
+    document.getElementById('view-area').innerHTML =
+      `<div class="empty"><div class="empty-icon">🌲</div><div class="empty-title">Ei asiakkaita hakuehdoilla</div></div>`;
+    return;
+  }
+  document.getElementById('view-area').innerHTML =
+    `<div class="card-grid">${lista.map(a => `
+      <div class="client-card" onclick="avaaAsiakas(${a.id})">
+        <div class="card-tila">${tilaPill(a.status)}</div>
+        <div class="card-hdr">
+          <div class="card-init" style="background:${avBg(a)}">${av(a)}</div>
+          <div>
+            <div class="card-name">${nimi(a)}</div>
+            <div class="card-id">#${String(a.id).padStart(4,'0')} · ${a.kunta}</div>
+          </div>
+        </div>
+        <div class="card-stats">
+          <div class="cs"><div class="cs-val">${a.ha} ha</div><div class="cs-lbl">Pinta-ala</div></div>
+          <div class="cs"><div class="cs-val">${fmtE(a.tulot)}</div><div class="cs-lbl">Tulot 2025</div></div>
+          <div class="cs" style="grid-column:span 2"><div class="cs-val" style="font-size:13px">${a.tila}</div><div class="cs-lbl">Metsätila</div></div>
+        </div>
+        <div class="card-foot">
+          <span>${a.kb}</span>
+          <span style="color:var(--inu)">${a.osoite ? a.osoite+', '+a.postiosoite : '—'}</span>
+        </div>
+      </div>`).join('')}</div>`;
+}
+
+// ── Näkymänvaihto ─────────────────────────────────────────────
+function setView(v){
+  nakyma = v;
+  document.getElementById('vb-table').classList.toggle('act', v==='table');
+  document.getElementById('vb-card').classList.toggle('act',  v==='card');
+  hae();
+}
+
+// ── Asiakas avataan ───────────────────────────────────────────
+function avaaAsiakas(id){
+  toast(`Avataan asiakas #${String(id).padStart(4,'0')}…`);
+  // Tuotannossa: window.location = `/asiakkaat/${id}`
+}
+
+// ── Modal: uusi asiakas ───────────────────────────────────────
+function avaaModal(){
+  vaihe = 1;
+  naytaVaihe(1);
+  // Tyhjennä kentät
+  ['f-snimi','f-enimi','f-hetu','f-ytunnus','f-osoite','f-pnro','f-ptmk','f-kunta',
+   'f-puh','f-sposti','f-tila','f-ha','f-mha','f-hinta','f-hankvuosi','f-lisatiedot','f-verotiliviite','f-sposti2']
+    .forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('f-syntyma').value = '';
+  document.getElementById('f-verovuosi').value = '2025';
+  document.getElementById('overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('f-snimi').focus(), 100);
+
+  // Hetu → syntymäaika automaattisesti
+  document.getElementById('f-hetu').oninput = function(){
+    const h = this.value;
+    if(h.length >= 6){
+      const d = h.slice(0,2), m = h.slice(2,4), y = h.slice(4,6);
+      const vuosisata = parseInt(y) > 24 ? '19' : '20';
+      document.getElementById('f-syntyma').value = `${d}.${m}.${vuosisata}${y}`;
+    }
+  };
+}
+
+function naytaVaihe(v){
+  vaihe = v;
+  document.getElementById('step1').style.display = v===1 ? '' : 'none';
+  document.getElementById('step2').style.display = v===2 ? '' : 'none';
+  document.getElementById('modal-sub').textContent = `Vaihe ${v} / 2 — ${v===1?'Perustiedot':'Metsätila ja verotus'}`;
+  document.getElementById('progress').style.width  = v===1 ? '50%' : '100%';
+  document.getElementById('dot1').classList.toggle('act', true);
+  document.getElementById('dot2').classList.toggle('act', v===2);
+  document.getElementById('btn-back').style.display   = v===2 ? '' : 'none';
+  document.getElementById('btn-cancel').style.display = v===1 ? '' : 'none';
+  document.getElementById('btn-next').textContent = v===1 ? 'Seuraava →' : 'Tallenna asiakas';
+}
+
+function vaihePäin(){
+  if(vaihe === 1){
+    // Validointi
+    const snimi = document.getElementById('f-snimi').value.trim();
+    const enimi = document.getElementById('f-enimi').value.trim();
+    const hetu  = document.getElementById('f-hetu').value.trim();
+    let ok = true;
+    [['f-snimi',snimi],['f-enimi',enimi],['f-hetu',hetu]].forEach(([id,val])=>{
+      const el = document.getElementById(id);
+      el.classList.toggle('err', !val);
+      if(!val) ok = false;
+    });
+    if(!ok) return;
+    naytaVaihe(2);
+    setTimeout(()=>document.getElementById('f-tila').focus(), 60);
+  } else {
+    tallennaAsiakas();
+  }
+}
+
+function vaiheTaakse(){
+  naytaVaihe(1);
+  setTimeout(()=>document.getElementById('f-snimi').focus(), 60);
+}
+
+function suljeModal(){
+  document.getElementById('overlay').classList.remove('open');
+}
+
+function tallennaAsiakas(){
+  const snimi = document.getElementById('f-snimi').value.trim();
+  const enimi = document.getElementById('f-enimi').value.trim();
+  const tilaV = document.getElementById('f-tila').value.trim();
+  const haVal = parseFloat(document.getElementById('f-ha').value.replace(',','.')) || 0;
+  if(!tilaV || !haVal){
+    if(!tilaV) document.getElementById('f-tila').classList.add('err');
+    if(!haVal) document.getElementById('f-ha').classList.add('err');
+    return;
+  }
+  const uusi = {
+    id: Math.max(...ASIAKKAAT.map(a=>a.id)) + 1,
+    snimi, enimi,
+    tila: tilaV,
+    kunta: document.getElementById('f-kunta').value.trim() || '—',
+    ha:   haVal,
+    mha:  parseFloat(document.getElementById('f-mha').value.replace(',','.')) || 0,
+    kb:   document.getElementById('f-kb2').value,
+    status: 'active',
+    tulot: 0,
+    alv_velv: document.getElementById('f-alv').value === 'kylla',
+    hankintahinta: parseInt(document.getElementById('f-hinta').value.replace(/\s/g,'')) || 0,
+    hetu: '****',
+    viim_kirj: '—',
+    osoite: document.getElementById('f-osoite').value.trim(),
+    postiosoite: (document.getElementById('f-pnro').value.trim()+' '+document.getElementById('f-ptmk').value.trim()).trim(),
+    ytunnus: document.getElementById('f-ytunnus').value.trim(),
+    verotiliviite: document.getElementById('f-verotiliviite').value.trim() || '',
+    sposti: document.getElementById('f-sposti2').value.trim() || '',
+    muistutus_lahetetty: false,
+  };
+  ASIAKKAAT.unshift(uusi);
+  suljeModal();
+  hae();
+  toast(`${snimi} ${enimi} lisätty asiakkaaksi ✓`);
+  renderMuistutus();
+}
+
+function formKey(e){
+  if(e.key === 'Escape') suljeModal();
+}
+
+document.getElementById('overlay').addEventListener('click', e=>{
+  if(e.target === document.ge

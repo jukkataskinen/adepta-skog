@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adepta SKOG — Kirjanpito</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --fd:   #1c2b1e;
+  --fm:   #2d4a31;
+  --fl:   #3d6b43;
+  --fg:   #7ec488;
+  --fmist:#e8efe9;
+  --fpale:#f2f6f2;
+  --moss: #6b8f4e;
+  --am:   #a05c1a;
+  --aml:  #fdf3e8;
+  --ink:  #1a1c18;
+  --inm:  #3d4039;
+  --inu:  #7a7d72;
+  --inf:  #b8bab2;
+  --pp:   #fafaf7;
+  --ppw:  #f5f3ee;
+  --bd:   #dddbd4;
+  --bd2:  #c4c2b8;
+  --rh:   44px;
+  --ffd:  'Fraunces',Georgia,serif;
+  --ffb:  'DM Sans',sans-serif;
+  --ffm:  'DM Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:14px;min-height:100vh}
+
+.topbar{background:var(--fd);color:#fff;height:56px;padding:0 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+
+.bc{display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,.45);margin-left:20px}
+.bc span.a{color:rgba(255,255,255,.8)}
+.bc-sep{color:rgba(255,255,255,.2)}
+.tr{display:flex;align-items:center;gap:10px}
+.cnt{font-family:var(--ffm);font-size:11px;color:rgba(255,255,255,.4);padding:2px 8px;border:1px solid rgba(255,255,255,.1);border-radius:20px}
+.bg{padding:5px 14px;font-family:var(--ffb);font-size:12px;border:1px solid rgba(255,255,255,.18);border-radius:4px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;transition:all .12s}
+.bg:hover{background:rgba(255,255,255,.08);color:#fff}
+.bs{padding:6px 18px;font-family:var(--ffb);font-size:12px;font-weight:500;border:none;border-radius:4px;background:var(--fg);color:var(--fd);cursor:pointer;transition:all .12s;letter-spacing:.01em}
+.bs:hover{background:#95d1a0}
+.bs:disabled{opacity:.3;cursor:not-allowed}
+
+.layout{display:flex;height:calc(100vh - 56px)}
+
+.sb{width:236px;background:var(--fd);display:flex;flex-direction:column;flex-shrink:0}
+.sbh{padding:16px 14px 12px}
+.sbl{font-size:9px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3);display:block;margin-bottom:8px}
+.asrch{width:100%;padding:7px 10px;font-family:var(--ffb);font-size:13px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#fff;outline:none;transition:all .12s}
+.asrch::placeholder{color:rgba(255,255,255,.28)}
+.asrch:focus{background:rgba(255,255,255,.11);border-color:var(--fg)}
+.alist{overflow-y:auto;flex:1;padding:4px 0}
+.ai{padding:9px 14px;cursor:pointer;border-left:3px solid transparent;transition:all .08s}
+.ai:hover{background:rgba(255,255,255,.05)}
+.ai.act{background:rgba(126,196,136,.11);border-left-color:var(--fg)}
+.an{font-size:13px;font-weight:400;color:rgba(255,255,255,.82)}
+.am2{font-size:11px;color:rgba(255,255,255,.33);margin-top:2px}
+.sbf{padding:12px 14px;border-top:1px solid rgba(255,255,255,.07);font-size:11px;color:rgba(255,255,255,.28)}
+.sbf strong{color:rgba(255,255,255,.55);font-weight:500}
+
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--pp)}
+
+.kb{background:var(--ppw);border-bottom:1px solid var(--bd);padding:7px 20px;display:flex;gap:18px;align-items:center;font-size:11px;color:var(--inu);flex-wrap:wrap}
+.kb-i{display:flex;align-items:center;gap:5px}
+kbd{font-family:var(--ffm);font-size:10px;background:var(--pp);border:1px solid var(--bd2);border-bottom-width:2px;border-radius:3px;padding:1px 6px;color:var(--inm);font-weight:400}
+
+.uh{font-size:11px;color:var(--inu);padding:5px 20px;background:#fffbf2;border-bottom:1px solid #f0e8cc;display:none}
+.uh.vis{display:block}
+
+.tw{flex:1;overflow-y:auto}
+table.lg{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+col.cr{width:36px}col.cp{width:108px}col.ck{width:auto}col.ckat{width:150px}col.cs{width:100px}col.ca{width:70px}col.cb{width:106px}col.ct{width:64px}col.cd{width:36px}
+thead.lh th{background:var(--ppw);border-bottom:1px solid var(--bd2);padding:0 10px;height:31px;text-align:left;font-size:9px;font-weight:500;color:var(--inu);letter-spacing:.08em;text-transform:uppercase;position:sticky;top:0;z-index:10;white-space:nowrap}
+thead.lh th.num{text-align:right}
+tbody tr.lr{border-bottom:1px solid var(--bd);transition:background .06s}
+tbody tr.lr:hover{background:#f8faf8}
+tbody tr.lr.tr-t{border-left:3px solid var(--moss)}
+tbody tr.lr.tr-m{border-left:3px solid var(--am)}
+td.rn{text-align:center;font-size:10px;color:var(--inf);padding:0;user-select:none;vertical-align:middle}
+td.c{padding:0;vertical-align:middle}
+input.ci,select.cs2{width:100%;height:var(--rh);padding:0 10px;font-family:var(--ffb);font-size:13px;color:var(--ink);background:transparent;border:none;outline:none;transition:background .08s}
+input.ci::placeholder{color:var(--inf)}
+input.ci:focus,select.cs2:focus{background:#f0f7f1;box-shadow:inset 0 0 0 2px var(--fm);position:relative;z-index:2}
+input.ci.num{text-align:right;font-size:13px}
+input.ci.mono{font-size:13px}
+select.cs2{cursor:pointer;appearance:none;padding-right:22px}
+.csw{position:relative}
+.csw::after{content:'▾';position:absolute;right:7px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--inf);pointer-events:none}
+.tb{width:100%;height:var(--rh);border:none;cursor:pointer;outline:none;font-family:var(--ffm);font-size:9px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;background:transparent;transition:all .1s}
+.tb.tt{color:var(--moss)}
+.tb.tm{color:var(--am)}
+.tb:focus{box-shadow:inset 0 0 0 2px var(--fm)}
+.tb:focus.tt{background:var(--fmist)}
+.tb:focus.tm{background:var(--aml)}
+.bc2{text-align:right;padding:0 10px;font-size:13px;color:var(--inu)}
+tr.tr-t .bc2{color:var(--fm)}
+tr.tr-m .bc2{color:var(--am)}
+.db{width:36px;height:var(--rh);border:none;background:transparent;cursor:pointer;color:var(--bd2);font-size:16px;transition:color .1s;outline:none}
+.db:hover,.db:focus{color:#8b2020}
+tr.ar td{height:36px;border-bottom:1px solid var(--bd)}
+.arb{width:100%;height:36px;background:transparent;border:none;cursor:pointer;font-family:var(--ffb);font-size:12px;color:var(--inu);text-align:left;padding:0 14px;display:flex;align-items:center;gap:8px;transition:all .08s}
+.arb:hover,.arb:focus{background:var(--fmist);color:var(--fm);outline:none}
+
+.fb{border-top:1px solid var(--bd2);background:var(--fd);padding:12px 24px;display:flex;justify-content:flex-end;align-items:center;gap:24px;flex-shrink:0}
+.si{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.sl{font-size:9px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.38)}
+.sv{font-size:16px;font-weight:400;color:rgba(255,255,255,.7)}
+.sv.t{color:#7ec488}
+.sv.m{color:#e8a86a}
+.sv.p{color:#7ec488}
+.sv.n{color:#e8706a}
+.sv.al{color:#7ab8e8}
+.sd{width:1px;height:30px;background:rgba(255,255,255,.1)}
+
+
+/* ── Kategoria custom dropdown ── */
+.kat-wrap{position:relative;width:100%;height:var(--rh);display:flex;align-items:center}
+.kat-input{width:100%;height:var(--rh);padding:0 22px 0 8px;font-family:var(--ffb);font-size:12px;color:var(--ink);background:transparent;border:none;outline:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .08s}
+.kat-input:focus,.kat-input.open{background:#f0f7f1;box-shadow:inset 0 0 0 2px var(--fm);position:relative;z-index:2}
+.kat-arrow{position:absolute;right:7px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--inf);pointer-events:none}
+.kat-list{position:absolute;top:calc(100% + 2px);left:0;min-width:220px;background:var(--pp);border:1px solid var(--bd2);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);z-index:200;display:none;padding:3px 0;max-height:260px;overflow-y:auto}
+.kat-list.vis{display:block}
+.kat-list.up{top:auto;bottom:calc(100% + 2px)}
+.kat-group{padding:4px 10px 2px;font-size:9px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--inu);margin-top:4px}
+.kat-item{padding:7px 12px;font-size:12px;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.kat-item:hover,.kat-item.hi{background:var(--fmist)}
+.kat-item .kat-tm{font-size:9px;font-weight:700;letter-spacing:.06em;padding:1px 6px;border-radius:10px}
+.kat-nro{display:inline-block;width:14px;font-size:11px;font-weight:600;color:var(--moss);margin-right:3px}
+.kat-item.nro-match{background:var(--fmist)}
+.kat-tm-t{background:#e4f4ec;color:var(--moss)}
+.kat-tm-m{background:#fdf3e8;color:var(--am)}
+
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(12px);background:var(--fd);color:var(--fg);padding:9px 22px;border-radius:24px;font-size:12px;font-weight:500;border:1px solid rgba(126,196,136,.25);opacity:0;transition:all .2s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.sh{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.mo{position:fixed;inset:0;background:rgba(28,43,30,.6);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .15s}
+.mo.op{opacity:1;pointer-events:all}
+.md{background:var(--pp);border:1px solid var(--bd);border-radius:10px;padding:28px;width:380px;transform:translateY(8px);transition:transform .15s}
+.mo.op .md{transform:translateY(0)}
+.ml{font-family:var(--ffd);font-size:13px;color:var(--inu);margin-bottom:12px}
+.ml em{font-style:italic;color:var(--moss)}
+.md h3{font-family:var(--ffd);font-weight:400;font-size:20px;margin-bottom:6px}
+.md p{font-size:13px;color:var(--inu);margin-bottom:22px;line-height:1.6}
+.mdb{display:flex;justify-content:flex-end}
+.bm{padding:8px 22px;font-family:var(--ffb);font-size:13px;font-weight:500;border:none;border-radius:5px;background:var(--fd);color:var(--fg);cursor:pointer}
+.bm:hover{opacity:.85}
+
+.es{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px;color:var(--inu);font-size:13px}
+.ei{font-family:var(--ffd);font-style:italic;font-size:52px;color:var(--inf);font-weight:300;line-height:1}
+
+
+/* ── Hankintatyö-modal ── */
+.ht-overlay{position:fixed;inset:0;background:rgba(28,43,30,.6);display:flex;align-items:center;justify-content:center;z-index:600;opacity:0;pointer-events:none;transition:opacity .18s}
+.ht-overlay.open{opacity:1;pointer-events:all}
+.ht-modal{background:var(--pp);border:1px solid var(--bd);border-radius:12px;padding:24px 26px 20px;width:560px;max-height:88vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2);transform:translateY(10px);transition:transform .18s}
+.ht-overlay.open .ht-modal{transform:translateY(0)}
+.ht-title{font-family:var(--ffd);font-weight:400;font-size:18px;color:var(--ink);margin-bottom:2px}
+.ht-sub{font-size:12px;color:var(--inu);margin-bottom:18px;line-height:1.5}
+.ht-section{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--inu);margin:14px 0 6px}
+.ht-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.ht-field{display:flex;flex-direction:column;gap:4px}
+.ht-field label{font-size:11px;font-weight:500;color:var(--inu);letter-spacing:.03em}
+.ht-field input{padding:8px 10px;font-family:var(--ffb);font-size:13px;border:1px solid var(--bd);border-radius:6px;background:var(--ppw);color:var(--ink);outline:none;transition:border .1s}
+.ht-field input:focus{border-color:var(--fl);background:#fff;box-shadow:0 0 0 3px rgba(29,158,117,.12)}
+.ht-taksa-grid{display:grid;grid-template-columns:auto 90px 90px 80px 90px;gap:0;border:1px solid var(--bd);border-radius:8px;overflow:hidden;margin-bottom:14px;font-size:12px}
+.ht-taksa-hdr{background:var(--fd);color:rgba(255,255,255,.7);font-size:10px;font-weight:600;letter-spacing:.06em;padding:7px 10px;text-align:right}
+.ht-taksa-hdr:first-child{text-align:left}
+.ht-taksa-row{display:contents}
+.ht-taksa-row > div{padding:7px 10px;border-top:1px solid var(--bd);background:var(--pp)}
+.ht-taksa-row:nth-child(even) > div{background:var(--ppw)}
+.ht-taksa-row > div:not(:first-child){text-align:right}
+.ht-taksa-row > div:first-child{font-weight:500;color:var(--ink)}
+.ht-input-m3{width:72px;padding:4px 6px;font-family:var(--ffb);font-size:12px;border:1px solid var(--bd);border-radius:4px;background:#fff;color:var(--ink);outline:none;text-align:right}
+.ht-input-m3:focus{border-color:var(--fl);box-shadow:0 0 0 2px rgba(29,158,117,.1)}
+.ht-taksa-summa{font-weight:600;color:var(--moss)}
+.ht-total{display:flex;justify-content:space-between;align-items:center;background:var(--fmist);border-radius:8px;padding:12px 16px;margin-bottom:16px}
+.ht-total-lbl{font-size:13px;font-weight:500;color:var(--ink)}
+.ht-total-val{font-size:20px;font-weight:400;color:var(--moss)}
+.ht-veroton{font-size:11px;color:var(--inu);text-align:right;margin-top:2px}
+.ht-btns{display:flex;gap:10px;justify-content:flex-end}
+.ht-skip{padding:8px 16px;font-family:var(--ffb);font-size:13px;border:1px solid var(--bd);border-radius:6px;background:transparent;color:var(--inu);cursor:pointer}
+.ht-ok{padding:8px 22px;font-family:var(--ffb);font-size:13px;font-weight:500;border:none;border-radius:6px;background:var(--fl);color:#fff;cursor:pointer}
+.ht-ok:hover{opacity:.88}
+.ht-huom{font-size:11px;color:var(--inu);line-height:1.5;margin-bottom:14px;padding:8px 10px;background:var(--aml);border-radius:6px;border-left:3px solid var(--am)}
+
+/* ── Ennakonpidätys-modal ── */
+.ep-overlay{position:fixed;inset:0;background:rgba(28,43,30,.6);display:flex;align-items:center;justify-content:center;z-index:500;opacity:0;pointer-events:none;transition:opacity .18s}
+.ep-overlay.open{opacity:1;pointer-events:all}
+.ep-modal{background:var(--pp);border:1px solid var(--bd);border-radius:12px;padding:26px 28px 20px;width:400px;box-shadow:0 8px 32px rgba(0,0,0,.18);transform:translateY(10px);transition:transform .18s}
+.ep-overlay.open .ep-modal{transform:translateY(0)}
+.ep-title{font-family:var(--ffd);font-weight:400;font-size:18px;color:var(--ink);margin-bottom:4px}
+.ep-sub{font-size:12px;color:var(--inu);margin-bottom:16px;line-height:1.5;word-break:break-word}
+.ep-row{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.ep-row label{font-size:11px;font-weight:500;color:var(--inu);letter-spacing:.04em;text-transform:uppercase}
+.ep-row input{padding:9px 12px;font-family:var(--ffb);font-size:15px;border:1px solid var(--bd);border-radius:6px;background:var(--ppw);color:var(--ink);outline:none;transition:border .1s}
+.ep-row input:focus{border-color:var(--fl);background:#fff;box-shadow:0 0 0 3px rgba(29,158,117,.12)}
+.ep-hint{font-size:11px;color:var(--inu);margin-bottom:16px;line-height:1.5}
+.ep-btns{display:flex;gap:10px;justify-content:flex-end}
+.ep-skip{padding:8px 16px;font-family:var(--ffb);font-size:13px;border:1px solid var(--bd);border-radius:6px;background:transparent;color:var(--inu);cursor:pointer;transition:all .1s}
+.ep-skip:hover{border-color:var(--bd2);color:var(--ink)}
+.ep-ok{padding:8px 22px;font-family:var(--ffb);font-size:13px;font-weight:500;border:none;border-radius:6px;background:var(--fl);color:#fff;cursor:pointer;transition:opacity .1s}
+.ep-ok:hover{opacity:.88}
+.ep-ok:focus{outline:2px solid var(--fl);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div style="display:flex;align-items:center">
+    <svg width="176" height="36" viewBox="0 0 176 36" xmlns="http://www.w3.org/2000/svg" style="display:block;flex-shrink:0">
+      <rect x="0"  y="1"  width="12" height="34" rx="2" fill="#5DCAA5"/>
+      <rect x="16" y="1"  width="12" height="21" rx="2" fill="#1D9E75"/>
+      <rect x="16" y="26" width="12" height="9"  rx="2" fill="#0F6E56"/>
+      <text x="34" y="19" font-family="Fraunces,Georgia,serif" font-weight="300" font-size="15" fill="#ffffff" dominant-baseline="middle" letter-spacing="0.2">Adepta</text>
+      <circle cx="88" cy="19" r="2" fill="#5DCAA5"/>
+      <text x="94" y="19" font-family="Fraunces,Georgia,serif" font-weight="500" font-style="italic" font-size="15" fill="#5DCAA5" dominant-baseline="middle" letter-spacing="0.2">SKOG</text>
+    </svg>
+    <div class="bc">
+      <span class="bc-sep">/</span>
+      <span>Kirjanpito</span>
+      <span class="bc-sep">/</span>
+      <span class="a" id="bc-as">Valitse asiakas</span>
+    </div>
+  </div>
+  <div class="tr">
+    <span class="cnt" id="row-count"></span>
+    <button class="bg" onclick="tulostaRaportti()">Tulosta PDF</button>
+    <button class="bs" id="save-btn" onclick="tallenna()" disabled>Tallenna</button>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="sb">
+    <div class="sbh">
+      <span class="sbl">Asiakkaat</span>
+      <input class="asrch" type="text" placeholder="Hae nimellä…" id="asrch"
+             oninput="filterAs(this.value)" onkeydown="asKey(event)">
+    </div>
+    <div class="alist" id="alist"></div>
+    <div class="sbf">
+      <svg width="120" height="24" viewBox="0 0 176 36" xmlns="http://www.w3.org/2000/svg" style="display:block;margin-bottom:5px;opacity:.7">
+        <rect x="0"  y="2"  width="14" height="32" rx="2" fill="#5DCAA5"/>
+        <rect x="18" y="2"  width="14" height="19" rx="2" fill="#1D9E75"/>
+        <rect x="18" y="24" width="14" height="10" rx="2" fill="#0F6E56"/>
+        <text x="40" y="19" font-family="Fraunces,Georgia,serif" font-weight="300" font-size="15" fill="#ffffff" dominant-baseline="middle" letter-spacing="0.2">Adepta</text>
+        <circle cx="96" cy="18" r="2.5" fill="#5DCAA5"/>
+        <text x="102" y="19" font-family="Fraunces,Georgia,serif" font-weight="500" font-style="italic" font-size="15" fill="#5DCAA5" dominant-baseline="middle" letter-spacing="0.2">SKOG</text>
+      </svg>
+      Metsätalouden kirjanpito
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="kb">
+      <div class="kb-i"><kbd>Tab</kbd> seuraava kenttä</div>
+      <div class="kb-i"><kbd>Shift+Tab</kbd> edellinen</div>
+      <div class="kb-i"><kbd>Enter</kbd> uusi rivi</div>
+      <div class="kb-i"><kbd>↑</kbd><kbd>↓</kbd> rivit</div>
+      <div class="kb-i"><kbd>↓</kbd> avaa kategoria</div><div class="kb-i"><kbd>1–9</kbd> valitse suoraan</div><div class="kb-i"><kbd>T</kbd> tulo/meno</div>
+      <div class="kb-i"><kbd>Del</kbd> poista rivi</div>
+      <div class="kb-i"><kbd>Ctrl S</kbd> tallenna</div>
+      <div class="kb-i"><kbd>Ctrl Z</kbd> kumoa</div>
+    </div>
+    <div class="uh" id="uh">Rivi poistettu — <kbd>Ctrl Z</kbd> kumoa.</div>
+
+    <div class="tw">
+      <table class="lg">
+        <colgroup>
+          <col class="cr"><col class="cp"><col class="ck"><col class="ckat">
+          <col class="cs"><col class="ca"><col class="cb"><col class="ct"><col class="cd">
+        </colgroup>
+        <thead class="lh">
+          <tr>
+            <th></th><th>Päivämäärä</th><th>Kuvaus</th><th>Kategoria</th>
+            <th class="num">Brutto €</th><th class="num">ALV %</th>
+            <th class="num">Veroton €</th><th>Tyyppi</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="lb"></tbody>
+      </table>
+    </div>
+
+    <!-- Lisäkentät: ennakonpidätys ja vanhat tappiot -->
+    <div class="fb-extra">
+      <div style="display:flex;align-items:center;gap:10px">
+        <label>Aiemmat tappiot</label>
+        <input type="text" id="tappiot-input" value="0,00"
+               placeholder="0,00"
+               onfocus="this.select()"
+               onblur="tappiotBlur(this)"
+               oninput="totals()"
+               title="Aiemmilta vuosilta siirtyvät vahvistetut tappiot">
+      </div>
+      <div class="sep"></div>
+      <div class="vero-box">
+        <span class="vero-lbl">Veroarvio</span>
+        <span class="vero-val" id="vero-arvio" style="color:#7ec488">0,00 €</span>
+      </div>
+      <div class="sep"></div>
+      <div class="vero-box">
+        <span class="vero-lbl">Ennakon jälkeen</span>
+        <span class="vero-val" id="vero-ennakko" style="color:#7ab8e8">0,00 €</span>
+      </div>
+    </div>
+    <div class="fb">
+      <div class="si"><span class="sl">Tulot (0%)</span><span class="sv t" id="st">0,00</span></div>
+      <div class="sd"></div>
+      <div class="si"><span class="sl">Menot (0%)</span><span class="sv m" id="sm">0,00</span></div>
+      <div class="sd"></div>
+      <div class="si"><span class="sl">ALV tilitettävä</span><span class="sv al" id="sa">0,00</span></div>
+      <div class="sd"></div>
+      <div class="si"><span class="sl">Tulos</span><span class="sv" id="stu">0,00</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="mo" id="modal">
+  <div class="md">
+    <div class="ml">Adepta <em>SKOG</em></div>
+    <h3>Tallennettu</h3>
+    <p id="modal-p">Kirjanpitotapahtumat tallennettu onnistuneesti.</p>
+    <div class="mdb"><button class="bm" onclick="closeModal()">Jatka</button></div>
+  </div>
+</div>
+
+<script>
+const ASIAKKAAT=[
+  {id:1,nimi:'Virtanen, Mikko',  tila:'Koivumäen tila'},
+  {id:2,nimi:'Mäkinen, Sirpa',   tila:'Havumetsän tila'},
+  {id:3,nimi:'Korhonen, Juhani', tila:'Leppärannan tila'},
+  {id:4,nimi:'Leinonen, Aino',   tila:'Mäntyniemen tila'},
+  {id:5,nimi:'Peltonen, Tapio',  tila:'Harjulan tila'},
+];
+const AVR=[0,10,14,25.5];
+let rows=[],nid=1,curAs=null,undo=[],dirty=false;
+const NC=6;
+let epPendingIdx=null; // rivi-indeksi jolle EP-kysely on auki
+
+
+const fmt=n=>n.toLocaleString('fi-FI',{minimumFractionDigits:2,maximumFractionDigits:2});
+const pn=s=>parseFloat(String(s).replace(',','.'))||0;
+const td=()=>new Date().toISOString().slice(0,10);
+const bru=r=>r.summa;
+const netto=r=>r.alv>0?r.summa/(1+r.alv/100):r.summa;
+const alvEuro=r=>r.summa-netto(r);
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+
+
+// ── Kategoriat ────────────────────────────────────────────────
+const KATEGORIAT = [
+  {ryhma:'Puukauppatulot', items:[
+    {nro:1, nimi:'Pystykauppa',       tyyppi:'tulo', alv:25.5},
+    {nro:2, nimi:'Hankintakauppa',    tyyppi:'tulo', alv:25.5},
+    {nro:3, nimi:'Polttopuukauppa',   tyyppi:'tulo', alv:25.5},
+  ]},
+  {ryhma:'Korvaukset ja tuet', items:[
+    {nro:4, nimi:'Vakuutuskorvaukset',     tyyppi:'tulo', alv:0},
+    {nro:5, nimi:'Hirvivahinkokorvaukset', tyyppi:'tulo', alv:0},
+    {nro:6, nimi:'Metsätalouden tuet',     tyyppi:'tulo', alv:0},
+  ]},
+  {ryhma:'Menot', items:[
+    {nro:7, nimi:'Palkkausmenot',   tyyppi:'meno', alv:0},
+    {nro:8, nimi:'Matkakulut',      tyyppi:'meno', alv:25.5},
+    {nro:9, nimi:'Muut vuosimenot', tyyppi:'meno', alv:25.5},
+  ]},
+];
+const KAT_FLAT = KATEGORIAT.flatMap(g=>g.items);
+
+function katTyyppi(nimi){
+  const k=KAT_FLAT.find(k=>k.nimi===nimi);
+  return k?k.tyyppi:null;
+}
+function katAlv(nimi){
+  const k=KAT_FLAT.find(k=>k.nimi===nimi);
+  return k!=null?k.alv:null;
+}
+
+// Dropdown-tila per rivi (indeksi KAT_FLAT:ssa, -1=suljettu)
+let katOpen = null;   // {rowIdx, highlightIdx}
+
+function renderKatList(rowIdx, hakuNro){
+  const id='kat-list-'+rows[rowIdx].id;
+  let html='';
+  let flatIdx=0;
+  for(const g of KATEGORIAT){
+    html+=`<div class="kat-group">${g.ryhma}</div>`;
+    for(const item of g.items){
+      const fi=flatIdx;
+      const hiClass=(katOpen&&katOpen.rowIdx===rowIdx&&katOpen.hi===fi)?'hi':'';
+      const nroMatch=hakuNro&&String(item.nro)===String(hakuNro);
+      html+=`<div class="kat-item ${hiClass}${nroMatch?' nro-match':''}" data-fi="${fi}" onmousedown="katSelect(${rowIdx},${fi})">
+        <span><span class="kat-nro">${item.nro}</span> ${item.nimi}</span>
+        <span class="kat-tm ${item.tyyppi==='tulo'?'kat-tm-t':'kat-tm-m'}">${item.tyyppi==='tulo'?'TULO':'MENO'}</span>
+      </div>`;
+      flatIdx++;
+    }
+  }
+  const el=document.getElementById(id);
+  if(el){
+    el.innerHTML=html;
+    const hi=el.querySelector('.kat-item.hi');
+    if(hi) hi.scrollIntoView({block:'nearest'});
+  }
+}
+
+function katOpen2(rowIdx){
+  katOpen={rowIdx,hi:0};
+  const el=document.getElementById('kat-list-'+rows[rowIdx].id);
+  if(el){
+    // Tarkista onko tilaa alas vai avataan ylöspäin
+    el.classList.remove('up');
+    el.classList.add('vis');
+    const r=el.getBoundingClientRect();
+    const spaceBelow=window.innerHeight - r.top;
+    if(spaceBelow < r.height + 8) el.classList.add('up');
+    renderKatList(rowIdx);
+  }
+  const inp=document.querySelector(`#r-${rows[rowIdx].id} .kat-input`);
+  if(inp)inp.classList.add('open');
+}
+function katClose(rowIdx){
+  if(katOpen&&katOpen.rowIdx===rowIdx){
+    const el=document.getElementById('kat-list-'+rows[rowIdx].id);
+    if(el){el.classList.remove('vis');el.classList.remove('up');}
+    const inp=document.querySelector(`#r-${rows[rowIdx].id} .kat-input`);
+    if(inp)inp.classList.remove('open');
+    katOpen=null;
+  }
+}
+const KAT_PUUKAUPPA = ['Pystykauppa','Hankintakauppa','Polttopuukauppa'];
+const KAT_HANKINTA = ['Hankintakauppa'];
+
+function katSelect(rowIdx,fi){
+  const k=KAT_FLAT[fi];
+  rows[rowIdx].kategoria=k.nimi;
+  rows[rowIdx].tyyppi=k.tyyppi;
+  rows[rowIdx].alv=k.alv;
+  katClose(rowIdx);
+  setD(true); render();
+  if(KAT_HANKINTA.includes(k.nimi)){
+    // Hankintakauppa → syötä ensin hankintakaupan arvo, HT-modal tulee sen jälkeen
+    setTimeout(()=>focusC(rowIdx,3), 30);
+  } else if(KAT_PUUKAUPPA.includes(k.nimi)){
+    setTimeout(()=>{
+      if(rows[rowIdx].summa > 0){ avaaEP(rowIdx); }
+      else { focusC(rowIdx,3); }
+    },30);
+  } else {
+    setTimeout(()=>focusC(rowIdx,3),30);
+  }
+}
+
+
+// ── Hankintatyö ───────────────────────────────────────────────
+const HT_TAKSAT = [
+  {laji:'Mäntytukki',    val:6.49,  kulj:2.55},
+  {laji:'Mäntykuitu',    val:15.00, kulj:2.63},
+  {laji:'Kuusitukki',    val:8.38,  kulj:2.58},
+  {laji:'Kuusikuitu',    val:15.69, kulj:2.79},
+  {laji:'Koivutukki',    val:6.19,  kulj:2.93},
+  {laji:'Koivukuitu',    val:13.87, kulj:3.07},
+  {laji:'Energiapuu',    val:9.25,  kulj:4.80},
+  {laji:'Halot/klapit',  val:31.44, kulj:3.07},
+];
+const HT_VEROVAPAA = 125;
+let htPendingIdx = null;
+let htKuljetus = true;  // oletuksena kuljetus mukana
+
+function htAvaa(rowIdx){
+  htPendingIdx = rowIdx;
+  document.getElementById('ht-nimi').value = '';
+  document.getElementById('ht-hetu').value = '';
+  // Rakenna taksataulukko
+  const grid = document.getElementById('ht-grid');
+  // Poista vanhat rivit (säilytä otsikot = 5 ekaa lasta)
+  while(grid.children.length > 5) grid.removeChild(grid.lastChild);
+  HT_TAKSAT.forEach((t,i) => {
+    const fmtN2 = n => n.toLocaleString('fi-FI',{minimumFractionDigits:2,maximumFractionDigits:2});
+    ['<span>'+t.laji+'</span>',
+     fmtN2(t.val),
+     fmtN2(t.kulj),
+     `<input class="ht-input-m3" type="text" id="ht-m3-${i}" value="" placeholder="0"
+       oninput="htLaske()" onkeydown="htGridKey(event,${i})">`,
+     `<span class="ht-taksa-summa" id="ht-sum-${i}">—</span>`
+    ].forEach((html,ci) => {
+      const div = document.createElement('div');
+      div.innerHTML = html;
+      if(ci===0||ci===1||ci===2) div.style.display='flex';
+      if(ci===0) div.style.alignItems='center';
+      grid.appendChild(div);
+    });
+  });
+  htKuljetus = true;
+  htSetKuljetus(true);
+  htLaske();
+  document.getElementById('ht-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('ht-nimi').focus(), 80);
+}
+
+function htGridKey(e, i){
+  if(e.key==='Enter'){
+    e.preventDefault();
+    const next = document.getElementById('ht-m3-'+(i+1));
+    if(next) next.focus(); else document.getElementById('ht-ok-btn').focus();
+  }
+  if(e.key==='Tab' && !e.shiftKey && i === HT_TAKSAT.length-1){
+    e.preventDefault();
+    document.getElementById('ht-ok-btn').focus();
+  }
+}
+
+function htKey(e, fieldId){
+  if(e.key==='Enter'){
+    e.preventDefault();
+    if(fieldId==='ht-nimi') document.getElementById('ht-hetu').focus();
+    else document.getElementById('ht-m3-0').focus();
+  }
+}
+
+function htSetKuljetus(val){
+  htKuljetus = val;
+  const kBtn = document.getElementById('ht-kulj-kylla');
+  const eBtn = document.getElementById('ht-kulj-ei');
+  if(kBtn && eBtn){
+    kBtn.style.background = val ? 'var(--fl)' : 'var(--ppw)';
+    kBtn.style.color      = val ? '#fff'      : 'var(--inu)';
+    kBtn.style.fontWeight = val ? '500'       : '400';
+    eBtn.style.background = val ? 'var(--ppw)': 'var(--fl)';
+    eBtn.style.color      = val ? 'var(--inu)': '#fff';
+    eBtn.style.fontWeight = val ? '400'       : '500';
+  }
+  htLaske();
+}
+
+function htLaske(){
+  const fmtN2 = n => n.toLocaleString('fi-FI',{minimumFractionDigits:2,maximumFractionDigits:2});
+  let total = 0, totalM3 = 0;
+  HT_TAKSAT.forEach((t,i) => {
+    const inp = document.getElementById('ht-m3-'+i);
+    const sumEl = document.getElementById('ht-sum-'+i);
+    if(!inp||!sumEl) return;
+    const m3 = parseFloat(inp.value.replace(',','.')) || 0;
+    totalM3 += m3;
+    const arvo = m3 > 0 ? m3 * (t.val + (htKuljetus ? t.kulj : 0)) : 0;
+    total += arvo;
+    sumEl.textContent = m3 > 0 ? fmtN2(arvo)+' €' : '—';
+  });
+  document.getElementById('ht-total').textContent = fmtN2(total)+' €';
+  // Veroton huomio
+  const huom = document.getElementById('ht-veroton-huom');
+  if(totalM3 > HT_VEROVAPAA){
+    const ylitys = totalM3 - HT_VEROVAPAA;
+    huom.textContent = `⚠ Ylittää verovapaan 125 m³ rajan — ${Math.round(ylitys)} m³ on ansiotuloa`;
+    huom.style.color = 'var(--am)';
+  } else if(totalM3 > 0){
+    huom.textContent = `✓ Alle 125 m³ — koko hankintatyön arvo verovapaata`;
+    huom.style.color = 'var(--moss)';
+  } else {
+    huom.textContent = '';
+  }
+}
+
+function htTallenna(){
+  const fmtN2 = n => n.toLocaleString('fi-FI',{minimumFractionDigits:2,maximumFractionDigits:2});
+  let total = 0;
+  HT_TAKSAT.forEach((t,i) => {
+    const inp = document.getElementById('ht-m3-'+i);
+    const m3 = parseFloat(inp?.value.replace(',','.')) || 0;
+    total += m3 > 0 ? m3 * (t.val + (htKuljetus ? t.kulj : 0)) : 0;
+  });
+  const nimi = document.getElementById('ht-nimi').value.trim();
+  const hetu = document.getElementById('ht-hetu').value.trim();
+  const idx = htPendingIdx;
+  htSulje();
+  if(idx !== null && total > 0){
+    // Lisää hankintatyö UUTENA RIVINÄ hankintakaupan alapuolelle
+    const htRivi = {
+      id: nid++,
+      pvm: rows[idx]?.pvm || td(),
+      kuvaus: 'Hankintatyö' + (nimi ? ' — ' + nimi : ''),
+      summa: Math.round(total*100)/100,
+      alv: 0,
+      tyyppi: 'meno',   // hankintatyö vähennetään hankintakauppatulosta
+      ennakko: 0,
+      kategoria: 'Hankintatyö',
+      hankintatyo: {arvo: Math.round(total*100)/100, nimi, hetu, kuljetus: htKuljetus}
+    };
+    rows.splice(idx + 1, 0, htRivi);
+    setD(true); render();
+    toast('Hankintatyö ' + fmtN2(total) + ' € lisätty uudelle riville');
+    setTimeout(()=>{
+      const htIdx = idx + 1;
+      if(htIdx < rows.length - 1) focusC(htIdx + 1, 0); else addRow(htIdx);
+    }, 120);
+  } else if(idx !== null){
+    setTimeout(()=>{
+      if(idx < rows.length - 1) focusC(idx + 1, 0); else addRow(idx);
+    }, 80);
+  }
+}
+
+
+function htTarkistaRivi(i){
+  // Avaa HT-modal jos kyseessä on hankintakaupparivi jolla ei vielä HT-riviä alla
+  const r = rows[i];
+  if(!r || !KAT_HANKINTA.includes(r.kategoria) || r.summa <= 0) return false;
+  // Tarkista onko HT-rivi jo alla
+  const alla = rows[i+1];
+  if(alla && alla.kategoria === 'Hankintatyö') return false;
+  // Avaa HT-modal
+  setTimeout(()=>htAvaa(i), 80);
+  return true;
+}
+
+function htSulje(){
+  document.getElementById('ht-overlay').classList.remove('open');
+  htPendingIdx = null;
+}
+
+// Asiakkaat
+let fAs=[...ASIAKKAAT],asHL=-1;
+function renderAs(){
+  document.getElementById('alist').innerHTML=fAs.map((a,i)=>`
+    <div class="ai ${curAs?.id===a.id?'act':''}" onclick="selAs(${a.id})">
+      <div class="an">${a.nimi}</div><div class="am2">${a.tila}</div>
+    </div>`).join('');
+}
+function filterAs(q){
+  fAs=ASIAKKAAT.filter(a=>a.nimi.toLowerCase().includes(q.toLowerCase()));
+  asHL=0; renderAs();
+}
+function asKey(e){
+  if(e.key==='ArrowDown'){e.preventDefault();asHL=Math.min(asHL+1,fAs.length-1);renderAs();}
+  else if(e.key==='ArrowUp'){e.preventDefault();asHL=Math.max(asHL-1,0);renderAs();}
+  else if(e.key==='Enter'&&fAs[asHL]) selAs(fAs[asHL].id);
+}
+function selAs(id){
+  curAs=ASIAKKAAT.find(a=>a.id===id);
+  document.getElementById('bc-as').textContent=curAs.nimi;
+  document.getElementById('asrch').value='';
+  fAs=[...ASIAKKAAT]; asHL=-1; renderAs();
+  if(!rows.length) demoData();
+  render(); setTimeout(()=>focusC(0,0),80);
+}
+function demoData(){
+  rows=[
+    {id:nid++,pvm:'2025-03-15',kuvaus:'Puukauppa (männikkö)',summa:18825,alv:25.5,tyyppi:'tulo',ennakko:3900,kategoria:'Pystykauppa'},
+    {id:nid++,pvm:'2025-04-02',kuvaus:'Istutustaimet',       summa:400,  alv:0,   tyyppi:'meno',ennakko:0,kategoria:'Muut vuosimenot'},
+    {id:nid++,pvm:'2025-05-20',kuvaus:'Metsänhoitopalvelu',  summa:1506, alv:25.5,tyyppi:'meno',ennakko:0,kategoria:'Muut vuosimenot'},
+    {id:nid++,pvm:'2025-06-10',kuvaus:'Puukauppa (koivikko)',summa:10040,alv:25.5,tyyppi:'tulo',ennakko:2080,kategoria:'Hankintakauppa'},
+  ];
+}
+
+// Rivit
+const newR=()=>({id:nid++,pvm:td(),kuvaus:'',summa:0,alv:25.5,tyyppi:'tulo',ennakko:0,kategoria:''});
+function addRow(ai){
+  const idx=ai!==undefined?ai+1:rows.length;
+  rows.splice(idx,0,newR()); setD(true); render();
+  setTimeout(()=>focusC(idx,0),30);
+}
+
+function avaaEP(i){
+  epPendingIdx=i;
+  const r=rows[i];
+  // Otsikko ja kuvaus
+  document.getElementById('ep-sub').textContent =
+    `${r.kategoria||'Puukauppa'}: ${r.kuvaus||'—'}  ·  ${fmt(r.summa)} € (brutto)  ·  veroton ${fmt(netto(r))} €`;
+  document.getElementById('ep-input').value = r.ennakko>0 ? fmt(r.ennakko) : '';
+  // Näytä vaihe 1
+  epNaytaVaihe(1);
+  document.getElementById('ep-overlay').classList.add('open');
+  setTimeout(()=>document.getElementById('ep-input').focus(),80);
+}
+
+function epNaytaVaihe(n){
+  document.getElementById('ep-phase1').style.display = n===1 ? '' : 'none';
+  document.getElementById('ep-phase2').style.display = n===2 ? '' : 'none';
+  if(n===2) setTimeout(()=>document.getElementById('ep-confirm-btn').focus(),60);
+}
+
+function epTakaisin(){
+  epNaytaVaihe(1);
+  setTimeout(()=>document.getElementById('ep-input').focus(),60);
+}
+
+function epKey(e){
+  if(e.key==='Enter'){
+    e.preventDefault();
+    const n=pn(document.getElementById('ep-input').value)||0;
+    if(n===0){
+      // Nolla → siirry vahvistusvaiheeseen
+      epNaytaVaihe(2);
+    } else {
+      epTallenna();
+    }
+  }
+  if(e.key==='Escape'){e.preventDefault();epSulje();}
+}
+
+function epConfirmKey(e){
+  if(e.key==='Enter'){e.preventDefault();epVahvistaNolla();}
+  if(e.key==='Escape'){e.preventDefault();epSulje();}
+}
+
+function epTallenna(){
+  const n=pn(document.getElementById('ep-input').value)||0;
+  if(n===0){ epNaytaVaihe(2); return; }
+  epTallennaArvo(n);
+}
+
+function epVahvistaNolla(){
+  epTallennaArvo(0);
+}
+
+function epTallennaArvo(n){
+  const idx = epPendingIdx;
+  if(idx !== null){ rows[idx].ennakko = n; setD(true); render(); }
+  epPendingIdx = null;
+  document.getElementById('ep-overlay').classList.remove('open');
+  totals();
+  toast(n > 0 ? `Ennakonpidätys ${fmt(n)} € tallennettu` : 'Ei ennakonpidätystä — kirjattu');
+  if(idx !== null){
+    setTimeout(()=>{
+      if(KAT_HANKINTA.includes(rows[idx]?.kategoria)){
+        // Hankintakauppa: avaa HT-modal EP:n jälkeen
+        if(!htTarkistaRivi(idx)){
+          idx < rows.length-1 ? focusC(idx+1,0) : addRow(idx);
+        }
+      } else {
+        idx < rows.length-1 ? focusC(idx+1,0) : addRow(idx);
+      }
+    }, 120);
+  }
+}
+
+function epOhita(){
+  // "Ei ennakonpidätystä" -nappi vaiheessa 1 → siirry vahvistusvaiheeseen
+  epNaytaVaihe(2);
+}
+
+function epSulje(){
+  document.getElementById('ep-overlay').classList.remove('open');
+  epPendingIdx = null;
+}
+function delRow(i){
+  if(!rows.length)return;
+  undo.push({a:'del',i,r:{...rows[i]}});
+  rows.splice(i,1); setD(true); render(); showUH(true);
+  const ni=Math.min(i,rows.length-1);
+  if(ni>=0)setTimeout(()=>focusC(ni,1),30);
+}
+function undoL(){
+  const op=undo.pop(); if(!op)return;
+  if(op.a==='del'){rows.splice(op.i,0,op.r);setD(true);render();setTimeout(()=>focusC(op.i,1),30);toast('Rivi palautettu');}
+  if(!undo.length)showUH(false);
+}
+
+// Render
+function render(){
+  if(!curAs){
+    document.getElementById('lb').innerHTML=`<tr><td colspan="8"><div class="es"><span class="ei">SKOG</span><span>Valitse asiakas vasemmalta aloittaaksesi</span></div></td></tr>`;
+    return;
+  }
+  document.getElementById('lb').innerHTML=rows.map((r,i)=>`
+    <tr class="lr tr-${r.tyyppi[0]}" data-i="${i}" id="r-${r.id}">
+      <td class="rn">${i+1}</td>
+      <td class="c"><input class="ci mono" type="date" value="${r.pvm}" data-i="${i}" data-col="0" onchange="upd(${i},'pvm',this.value)" onkeydown="ck(event,${i},0)"></td>
+      <td class="c"><input class="ci" type="text" value="${esc(r.kuvaus)}" placeholder="Kuvauksen tekstiä…" data-i="${i}" data-col="1" oninput="upd(${i},'kuvaus',this.value)" onkeydown="ck(event,${i},1)"></td>
+      <td class="c"><div class="kat-wrap">
+        <button class="kat-input" data-i="${i}" data-col="2"
+          onkeydown="ck(event,${i},2)"
+          onfocus="katOpen2(${i})"
+          onblur="setTimeout(()=>katClose(${i}),120)"
+          >${r.kategoria||'— valitse —'}</button>
+        <span class="kat-arrow">▾</span>
+        <div class="kat-list" id="kat-list-${r.id}"></div>
+      </div></td>
+      <td class="c"><input class="ci num" type="text" value="${r.summa>0?fmt(r.summa):''}" placeholder="0,00" data-i="${i}" data-col="3" onfocus="this.select()" onblur="fmtS(this,${i})" onkeydown="ck(event,${i},3)"></td>
+      <td class="c csw"><select class="cs2" data-i="${i}" data-col="4" onchange="upd(${i},'alv',parseFloat(this.value))" onkeydown="ck(event,${i},4)">${AVR.map(v=>`<option value="${v}"${v===r.alv?' selected':''}>${v}%</option>`).join('')}</select></td>
+      <td class="c"><span class="bc2">${fmt(netto(r))}${r.ennakko>0?`<span class="ep-badge">EP ${fmt(r.ennakko)}</span>`:''}${r.hankintatyo?`<span class="ep-badge" style="background:rgba(160,92,26,.18);color:#a05c1a">HT ${r.hankintatyo.nimi||''}</span>`:''}</span></td>
+      <td class="c"><button class="tb t${r.tyyppi[0]}" data-i="${i}" data-col="5" onclick="togT(${i})" onkeydown="ck(event,${i},5)">${r.tyyppi==='tulo'?'TULO':'MENO'}</button></td>
+      <td class="c"><button class="db" onclick="delRow(${i})" title="Poista">×</button></td>
+    </tr>`).join('')+`
+    <tr class="ar"><td colspan="8"><button class="arb" id="arb" onclick="addRow(rows.length-1)" onkeydown="arbK(event)"><span style="font-size:18px;line-height:1;color:var(--moss)">+</span> Lisää tapahtuma &nbsp;<kbd>Enter</kbd></button></td></tr>`;
+  totals(); rCount();
+}
+
+function upd(i,f,v){
+  rows[i][f]=v; setD(true);
+  if(f==='kategoria'){
+    const t=katTyyppi(v), a=katAlv(v);
+    if(t){rows[i].tyyppi=t;}
+    if(a!=null){rows[i].alv=a;}
+    rbru(i);totals();
+  }
+  if(f==='summa'||f==='alv'||f==='tyyppi'){rbru(i);totals();}
+}
+function fmtS(inp,i){
+  const n=pn(inp.value); rows[i].summa=n;
+  inp.value=n>0?fmt(n):''; setD(true); rbru(i); totals();
+  if(n>0 && KAT_PUUKAUPPA.includes(rows[i].kategoria)){
+    setTimeout(()=>avaaEP(i),150);
+  }
+}
+function rbru(i){
+  const tr=document.querySelector(`#r-${rows[i].id}`); if(!tr)return;
+  tr.querySelector('.bc2').textContent=fmt(netto(rows[i]));
+  tr.className=`lr tr-${rows[i].tyyppi[0]}`;
+  const b=tr.querySelector('.tb');
+  b.className=`tb t${rows[i].tyyppi[0]}`;
+  b.textContent=rows[i].tyyppi==='tulo'?'TULO':'MENO';
+}
+function togT(i){rows[i].tyyppi=rows[i].tyyppi==='tulo'?'meno':'tulo';setD(true);rbru(i);totals();}
+
+function paaomavero(tulo){
+  if(tulo<=0)return 0;
+  const raja=30000;
+  return tulo<=raja ? Math.round(tulo*0.30*100)/100
+                    : Math.round((raja*0.30+(tulo-raja)*0.34)*100)/100;
+}
+function tappiotPn(){
+  const v=document.getElementById('tappiot-input')?.value||'0';
+  return pn(v)||0;
+}
+function tappiotBlur(el){
+  const n=pn(el.value)||0;
+  el.value=n>0?fmt(n):'0,00';
+  totals();
+}
+function totals(){
+  const tl=rows.filter(r=>r.tyyppi==='tulo').reduce((a,r)=>a+netto(r),0);
+  const ml=rows.filter(r=>r.tyyppi==='meno').reduce((a,r)=>a+netto(r),0);
+  const am=rows.filter(r=>r.tyyppi==='tulo').reduce((a,r)=>a+alvEuro(r),0);
+  const ao=rows.filter(r=>r.tyyppi==='meno').reduce((a,r)=>a+alvEuro(r),0);
+  const epYht=rows.filter(r=>r.tyyppi==='tulo').reduce((a,r)=>a+(r.ennakko||0),0);
+  const tappiot=tappiotPn();
+  const ts=tl-ml;
+  // Verotettava = tulos - tappiot (ei vielä poistoja tässä näkymässä)
+  const verotettava=Math.max(0, ts-tappiot);
+  const veroArvio=paaomavero(verotettava);
+  const veroEnnakkoJalkeen=Math.max(0, veroArvio-epYht);
+  document.getElementById('st').textContent=fmt(tl);
+  document.getElementById('sm').textContent=fmt(ml);
+  document.getElementById('sa').textContent=fmt(am-ao);
+  const el=document.getElementById('stu');
+  el.textContent=fmt(ts);
+  el.className=`sv ${ts>=0?'p':'n'}`;
+  // Päivitä EP-yhteensä
+
+  // Päivitä veroarvio
+  const vaEl=document.getElementById('vero-arvio');
+  if(vaEl){vaEl.textContent=fmt(veroArvio);}
+  const veEl=document.getElementById('vero-ennakko');
+  if(veEl){
+    veEl.textContent=fmt(veroEnnakkoJalkeen);
+    veEl.style.color=veroEnnakkoJalkeen<=0?'#7ec488':'#7ab8e8';
+    if(veroEnnakkoJalkeen<=0&&veroArvio>0) veEl.textContent='0,00 € ✓';
+  }
+}
+function rCount(){
+  document.getElementById('row-count').textContent=rows.length?`${rows.length} tapahtumaa`:'';
+}
+
+// Näppäimistö
+function ck(e,i,col){
+  const k=e.key;
+
+  // Kategoria-sarake (col=2): erityinen dropdown-navigointi
+  if(col===2){
+    if(k==='ArrowDown'){
+      e.preventDefault();
+      if(!katOpen||katOpen.rowIdx!==i){katOpen2(i);}
+      else{katOpen.hi=Math.min(katOpen.hi+1,KAT_FLAT.length-1);renderKatList(i);}
+      return;
+    }
+    if(k==='ArrowUp'){
+      e.preventDefault();
+      if(katOpen&&katOpen.rowIdx===i){katOpen.hi=Math.max(katOpen.hi-1,0);renderKatList(i);}
+      return;
+    }
+    // Numerohaku: paina 1-9 → valitsee suoraan ja sulkee
+    if(/^[1-9]$/.test(k)){
+      e.preventDefault();
+      const fi=KAT_FLAT.findIndex(k2=>String(k2.nro)===k);
+      if(fi>=0){
+        if(!katOpen||katOpen.rowIdx!==i) katOpen2(i);
+        katOpen.hi=fi;
+        renderKatList(i, k);
+        setTimeout(()=>katSelect(i,fi),180); // lyhyt viive niin käyttäjä näkee valinnan
+      }
+      return;
+    }
+    if(k==='Enter'){
+      e.preventDefault();
+      if(katOpen&&katOpen.rowIdx===i){
+        katSelect(i,katOpen.hi);
+      } else {
+        col<NC-1?focusC(i,col+1):i<rows.length-1?focusC(i+1,0):addRow(i);
+      }
+      return;
+    }
+    if(k==='Escape'){e.preventDefault();katClose(i);return;}
+    if(k==='Tab'){
+      e.preventDefault();
+      katClose(i);
+      if(!e.shiftKey){ if(col===NC-1){ if(!htTarkistaRivi(i)){ i<rows.length-1?focusC(i+1,0):addRow(i); } } else { focusC(i,col+1); } }
+      else{col>0?focusC(i,col-1):i>0?focusC(i-1,NC-1):void 0;}
+      return;
+    }
+    return;
+  }
+
+  if(k==='Enter'){
+    e.preventDefault();
+    // Rivin viimeisessä kentässä (tyyppi, col=5) Enter → tarkista HT, sitten uusi rivi
+    if(col===NC-1){ if(!htTarkistaRivi(i)){ addRow(i); } return; }
+    col<NC-1?focusC(i,col+1):i<rows.length-1?focusC(i+1,0):addRow(i);
+    return;
+  }
+  if(k==='Tab'){
+    e.preventDefault();
+    if(!e.shiftKey){ if(col===NC-1){ if(!htTarkistaRivi(i)){ i<rows.length-1?focusC(i+1,0):addRow(i); } } else { focusC(i,col+1); } }
+    else{col>0?focusC(i,col-1):i>0?focusC(i-1,NC-1):void 0;}
+    return;
+  }
+  if(k==='ArrowDown'&&col!==1){e.preventDefault();i<rows.length-1?focusC(i+1,col):document.getElementById('arb')?.focus();return;}
+  if(k==='ArrowUp'&&col!==1){e.preventDefault();if(i>0)focusC(i-1,col);return;}
+  if((k==='t'||k==='T')&&col!==1&&col!==2){e.preventDefault();togT(i);return;}
+  if(k==='Delete'&&col===5){e.preventDefault();delRow(i);return;}
+}
+function arbK(e){
+  if(e.key==='Enter'||e.key===' '){e.preventDefault();addRow(rows.length-1);}
+  if(e.key==='ArrowUp'){e.preventDefault();focusC(rows.length-1,0);}
+  if(e.key==='Tab'&&e.shiftKey){e.preventDefault();focusC(rows.length-1,NC-1);}
+}
+function focusC(i,col){
+  if(i<0||i>=rows.length)return;
+  const tr=document.querySelector(`tr.lr[data-i="${i}"]`); if(!tr)return;
+  const el=tr.querySelector(`[data-col="${col}"]`);
+  if(el){
+    el.focus();
+    if(el.tagName==='INPUT')el.select();
+    // Avaa kategoria-dropdown automaattisesti kun fokus saapuu
+    if(col===2){setTimeout(()=>katOpen2(i),50);}
+  }
+  tr.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();tallenna();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undoL();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='n'){e.preventDefault();addRow(rows.length-1);}
+});
+
+function setD(v){dirty=v;document.getElementById('save-btn').disabled=!v||!curAs;}
+function tallenna(){
+  if(!curAs||!dirty)return;
+  setTimeout(()=>{
+    setD(false);
+    document.getElementById('modal-p').textContent=`${rows.length} tapahtumaa tallennettu asiakkaalle ${curAs.nimi}.`;
+    document.getElementById('modal').classList.add('op');
+  },150);
+}
+function closeModal(){
+  document.getElementById('modal').classList.remove('op');
+  toast('Tallennettu ✓');
+}
+document.getElementById('modal').addEventListener('click',e=>{
+  if(e.target===document.getElementById('modal'))closeModal();
+});
+
+let tT;
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('sh');
+  clearTimeout(tT); tT=setTimeout(()=>t.classList.remove('sh'),2600);
+}
+function showUH(s){document.getElementById('uh').classList.toggle('vis',s);}
+function tulostaRaportti(){toast('PDF-tulostus avataan…');}
+
+renderAs(); render();
+</script>
+
+
+<!-- Hankintatyö-modal -->
+<div class="ht-overlay" id="ht-overlay">
+  <div class="ht-modal">
+    <div class="ht-title">Hankintatyön kirjaus</div>
+    <div class="ht-sub">Verohallinnon ohjetaksat 2025 · vero.fi</div>
+
+    <div class="ht-section">Työn tekijä</div>
+    <div class="ht-row">
+      <div class="ht-field">
+        <label>Tekijän nimi</label>
+        <input type="text" id="ht-nimi" placeholder="Etunimi Sukunimi" onkeydown="htKey(event,'ht-nimi')">
+      </div>
+      <div class="ht-field">
+        <label>Henkilötunnus</label>
+        <input type="text" id="ht-hetu" placeholder="000000-0000" onkeydown="htKey(event,'ht-hetu')">
+      </div>
+    </div>
+
+    <div class="ht-section">Valmistettu ja kuljetettu puutavara (m³)</div>
+    <div class="ht-huom">
+      Verovapaa raja 125 m³/maatila/vuosi. Ylittävältä osalta hankintatyön arvo on tekijän ansiotuloa.
+    </div>
+
+    <div class="ht-taksa-grid" id="ht-grid">
+      <div class="ht-taksa-hdr">Puutavaralaji</div>
+      <div class="ht-taksa-hdr">Valmistus €/m³</div>
+      <div class="ht-taksa-hdr">Kuljetus €/m³</div>
+      <div class="ht-taksa-hdr">Määrä m³</div>
+      <div class="ht-taksa-hdr">Arvo €</div>
+    </div>
+
+    <div class="ht-total">
+      <div>
+        <div class="ht-total-lbl">Hankintatyön arvo yhteensä</div>
+        <div class="ht-veroton" id="ht-veroton-huom"></div>
+      </div>
+      <div class="ht-total-val" id="ht-total">0,00 €</div>
+    </div>
+
+    <div style="margin-bottom:14px;padding:12px 14px;background:var(--ppw);border:1px solid var(--bd);border-radius:8px;display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:13px;font-weight:500;color:var(--ink);margin-bottom:2px">Sisältyykö hankintatyöhön myös kuljetus?</div>
+        <div style="font-size:11px;color:var(--inu)">Kuljetus = puutavaran ajo metsästä luovutuspaikalle omalla traktorilla</div>
+      </div>
+      <div style="display:flex;gap:0;border:1px solid var(--bd);border-radius:6px;overflow:hidden;flex-shrink:0;margin-left:16px">
+        <button id="ht-kulj-kylla" onclick="htSetKuljetus(true)"
+          style="padding:7px 16px;font-family:var(--ffb);font-size:13px;border:none;cursor:pointer;background:var(--fl);color:#fff;font-weight:500">
+          Kyllä
+        </button>
+        <button id="ht-kulj-ei" onclick="htSetKuljetus(false)"
+          style="padding:7px 16px;font-family:var(--ffb);font-size:13px;border:none;border-left:1px solid var(--bd);cursor:pointer;background:var(--ppw);color:var(--inu)">
+          Ei
+        </button>
+      </div>
+    </div>
+    <div class="ht-btns">
+      <button class="ht-skip" onclick="htSulje()">Peruuta</button>
+      <button class="ht-ok" onclick="htTallenna()" id="ht-ok-btn">Kirjaa hankintatyö</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ennakonpidätys-modal -->
+<div class="ep-overlay" id="ep-overlay">
+  <div class="ep-modal">
+    <div class="ep-title" id="ep-title">Puukaupan ennakonpidätys</div>
+    <div class="ep-sub" id="ep-sub"></div>
+
+    <!-- Vaihe 1: syötä summa -->
+    <div id="ep-phase1">
+      <div class="ep-row">
+        <label>Ennakonpidätys (€)</label>
+        <input type="text" id="ep-input" placeholder="0,00" autocomplete="off"
+               onkeydown="epKey(event)">
+      </div>
+      <div style="font-size:11px;color:var(--inu);margin-bottom:14px;line-height:1.5">
+        Ennakonpidätys vähennetään maksettavasta verosta suoraan.<br>
+        Metsätalouden ennakonpidätys on yleensä 26–30 % puukaupan arvosta.
+      </div>
+      <div class="ep-btns">
+        <button class="ep-skip" onclick="epOhita()">Ei ennakonpidätystä</button>
+        <button class="ep-ok"   onclick="epTallenna()">Tallenna</button>
+      </div>
+    </div>
+
+    <!-- Vaihe 2: vahvistus kun nolla -->
+    <div id="ep-phase2" style="display:none">
+      <div style="font-size:13px;color:var(--ink);margin-bottom:18px;line-height:1.6">
+        Syötit <strong>0 €</strong> — haluatko varmistaa, että tähän puukauppaan
+        ei ole tehty ennakonpidätystä?
+      </div>
+      <div class="ep-btns">
+        <button class="ep-skip" onclick="epTakaisin()">← Muuta summaa</button>
+        <button class="ep-ok"   id="ep-confirm-btn" onkeydown="epConfirmKey(event)" onclick="epVahvistaNolla()">Ei ennakonpidätystä</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
