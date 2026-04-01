@@ -581,17 +581,20 @@ async function lataaData(asiakas_id) {
 
       html4 +=
         '<table class="rtbl" style="margin-bottom:16px"><thead>' +
-        '<tr style="background:var(--ppd)">' +
-        '<th>Kohde</th><th colspan="3">' + esc(inv.kuvaus || '') + '</th>' +
-        '<th>Poistotapa</th><th>' + tapa + '</th>' +
+        '<tr style="background:#1a3320">' +
+        '<th colspan="2" style="font-size:13px;font-weight:600;color:#e8f0e9;padding:10px 1rem">' + esc(inv.kuvaus || '') + '</th>' +
+        '<th colspan="2" style="font-size:12px;font-weight:400;color:#9ab89e;text-align:right;padding:10px 1rem">' + tapa + '</th>' +
         '</tr>' +
-        '<tr>' +
-        '<th>Vuosi</th><th class="num">Hankintahinta</th><th class="num">Poisto</th><th colspan="3" class="num">Menojäännös vuoden lopussa</th>' +
+        '<tr style="background:#162318">' +
+        '<th style="color:#7a9e7e;font-weight:500">Vuosi</th>' +
+        '<th class="num" style="color:#7a9e7e;font-weight:500">Hankintahinta</th>' +
+        '<th class="num" style="color:#7a9e7e;font-weight:500">Poisto</th>' +
+        '<th class="num" style="color:#7a9e7e;font-weight:500">Menojäännös vuoden lopussa</th>' +
         '</tr>' +
         '</thead><tbody>';
 
       if (rivit.length === 0) {
-        html4 += '<tr><td colspan="6" style="color:var(--inu);font-size:11px;padding:10px">Ei toteutuneita poistoja — vahvista verosuunnitelma</td></tr>';
+        html4 += '<tr><td colspan="4" style="color:var(--inu);font-size:11px;padding:10px">Ei toteutuneita poistoja — vahvista verosuunnitelma</td></tr>';
       } else {
         rivit.forEach((p, idx) => {
           html4 +=
@@ -599,7 +602,7 @@ async function lataaData(asiakas_id) {
             '<td>' + p.verovuosi + '</td>' +
             '<td class="num">' + (idx === 0 ? hinta.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) : '—') + '</td>' +
             '<td class="num">' + Number(p.poistomaara || 0).toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-            '<td colspan="3" class="num">' + Number(p.jaannosarvo_vuoden_lopussa || 0).toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
+            '<td class="num">' + Number(p.jaannosarvo_vuoden_lopussa || 0).toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
             '</tr>';
         });
       }
