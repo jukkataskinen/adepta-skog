@@ -1,5 +1,6 @@
 import { auth0 } from '@/lib/auth0'
 import { supabase } from '@/lib/supabase'
+import LogoutButton from './components/LogoutButton'
 
 export default async function Home() {
   const session = await auth0.getSession()
@@ -100,21 +101,7 @@ export default async function Home() {
           <span style={{ fontSize: '0.875rem', color: '#9ab89e' }}>
             {user?.name ?? user?.email}
           </span>
-          <a
-            href="/auth/logout?returnTo=https://skog.adepta.fi"
-            style={{
-              fontSize: '0.8rem',
-              padding: '0.4rem 1rem',
-              backgroundColor: 'transparent',
-              color: '#9ab89e',
-              border: '1px solid #2e4a32',
-              borderRadius: '0.4rem',
-              textDecoration: 'none',
-              transition: 'color 0.2s',
-            }}
-          >
-            Kirjaudu ulos
-          </a>
+          <LogoutButton />
         </div>
       </header>
 
