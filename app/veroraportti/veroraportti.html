@@ -352,7 +352,7 @@ async function lataaData(asiakas_id) {
       .select('nimi, pinta_ala_ha, hankintahinta, metsämaan_osuus_prosentti, vahennyspohjaa_kaytetty')
       .eq('asiakas_id', asiakas_id),
     _sb.from('investoinnit')
-      .select('kuvaus, hankintahinta, poistoaika_vuotta, poistotapa, jaannosarvo')
+      .select('id, kuvaus, hankintahinta, poistoaika_vuotta, poistotapa, jaannosarvo, aktiivinen')
       .eq('asiakas_id', asiakas_id).eq('aktiivinen', true),
     _sb.from('asiakkaat')
       .select('etunimi, sukunimi, osoite, postinumero, postitoimipaikka, y_tunnus, verotiliviite, avoin_vuosi')
