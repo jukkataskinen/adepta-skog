@@ -12,11 +12,17 @@ export async function GET(request: NextRequest) {
   const { data: kayttaja } = await supabase!
     .from('kayttajat').select('organisaatio_id').eq('auth_sub', session.user.sub).single()
   const orgId = kayttaja?.organisaatio_id ?? ''
+
+  const { data: org } = await supabase!
+    .from('organisaatiot').select('avoin_vuosi').eq('id', orgId).single()
+  const avoinVuosi = org?.avoin_vuosi ?? 2025
+
   const htmlPath = path.join(process.cwd(), 'app', 'kirjanpito-sivu', 'kirjanpito.html')
   let html = fs.readFileSync(htmlPath, 'utf-8')
   const configScript = `<script>
 window._SKOG = ${JSON.stringify({
   orgId,
+  avoinVuosi,
   supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
   supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
 })};
