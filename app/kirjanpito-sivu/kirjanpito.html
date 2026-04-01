@@ -651,6 +651,13 @@ function asKey(e){
   else if(e.key==='Enter'&&fAs[asHL]) selAs(fAs[asHL].id);
 }
 function selAs(id){
+  if(dirty && curAs){
+    tallenna().then(()=>_selAs(id));
+  } else {
+    _selAs(id);
+  }
+}
+function _selAs(id){
   curAs=ASIAKKAAT.find(a=>a.id===id);
   document.getElementById('bc-as').textContent=curAs.nimi;
   document.getElementById('asrch').value='';
@@ -1037,6 +1044,9 @@ function showUH(s){document.getElementById('uh').classList.toggle('vis',s);}
 function tulostaRaportti(){toast('PDF-tulostus avataan…');}
 
 lataaAsiakkaat(); render();
+window.addEventListener('beforeunload', function(e){
+  if(dirty){ e.preventDefault(); e.returnValue=''; }
+});
 </script>
 
 
