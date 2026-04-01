@@ -149,6 +149,7 @@ input[type=range]:disabled{opacity:.4;cursor:not-allowed}
   <div style="display:flex;gap:10px">
     <button onclick="setKaikkiMax()" style="padding:5px 14px;font-family:var(--ffb);font-size:12px;border:1px solid rgba(255,255,255,.18);border-radius:4px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer">Optimoi kaikki</button>
     <button onclick="nollaaKaikki()" style="padding:5px 14px;font-family:var(--ffb);font-size:12px;border:1px solid rgba(255,255,255,.12);border-radius:4px;background:transparent;color:rgba(255,255,255,.4);cursor:pointer">Nollaa</button>
+    <button onclick="tallennaVerosuunnitelma()" style="padding:6px 18px;font-family:var(--ffb);font-size:12px;font-weight:500;border:none;border-radius:4px;background:var(--fg2);color:#fff;cursor:pointer">Vahvista ja tallenna</button>
   </div>
 </div>
 
@@ -509,6 +510,61 @@ function laske() {
   hm.push('ℹ️ Tämä laskelma on suuntaa-antava. Lopullinen veroilmoitus tarkistetaan aina kirjanpitäjän kanssa.');
   document.getElementById('vh-not').innerHTML =
     '<ul style="margin-left:18px">' + hm.map(h => '<li style="margin-bottom:7px">' + h + '</li>').join('') + '</ul>';
+}
+
+// ── Tallenna verosuunnitelma ──────────────────────────────────
+async function tallennaVerosuunnitelma() {
+  if (!aktiivinenId) { alert('Valitse ensin asiakas'); return; }
+  const vuosi = AVOIN_VUOSI;
+
+  // Lue arvot liukusäätimistä
+  const mv = parseInt(document.getElementById('mv-s').value) || 0;
+  const ht = parseInt(document.getElementById('ht-s').value) || 0;
+
+  // Tallenna metsävähennys jos > 0
+  if (mv > 0) {
+    const { data: tilat } = await _sb.from('metsatilat')
+      .select('id, vahennyspohjaa_kaytetty').eq('asiakas_id', aktiivinenId);
+    if (tilat && tilat.length > 0) {
+      await _sb.from('metsavahennykset').upsert({
+        asiakas_id: aktiivinenId,
+        metsatila_id: tilat[0].id,
+        verovuosi: vuosi,
+        kaytettava_vahennys: mv,
+      }, { onConflict: 'metsatila_id,verovuosi' });
+
+      await _sb.from('metsatilat').update({
+        vahennyspohjaa_kaytetty: (Number(tilat[0].vahennyspohjaa_kaytetty || 0)) + mv,
+      }).eq('id', tilat[0].id);
+    }
+  }
+
+  // Tallenna poistot investoinneittain
+  const { data: inv } = await _sb.from('investoinnit')
+    .select('id, kuvaus, hankintahinta, jaannosarvo, poistoaika_vuotta, poistotapa')
+    .eq('asiakas_id', aktiivinenId).eq('aktiivinen', true);
+
+  if (inv && inv.length > 0) {
+    for (let i = 0; i < inv.length; i++) {
+      const slider = document.getElementById('ps-' + i);
+      if (!slider) continue;
+      const poistomaara = parseFloat(slider.value) || 0;
+      if (poistomaara === 0) continue;
+
+      const jaannosNyt = inv[i].poistotapa === 'menojannos'
+        ? Number(inv[i].hankintahinta) * 0.75
+        : Number(inv[i].hankintahinta) - poistomaara;
+
+      await _sb.from('poistot').upsert({
+        investointi_id: inv[i].id,
+        verovuosi: vuosi,
+        poistomaara: poistomaara,
+        jaannosarvo_vuoden_lopussa: Math.max(0, jaannosNyt),
+      }, { onConflict: 'investointi_id,verovuosi' });
+    }
+  }
+
+  alert('Verosuunnitelma tallennettu! Vuosi voidaan nyt sulkea.');
 }
 
 // Alustus
