@@ -54,21 +54,33 @@ export default async function Home() {
   const navItems = [
     {
       label: 'Asiakkaat',
-      href: '/asiakkaat',
+      href: '/demo/adepta_skog_asiakkaat.html',
       icon: '👥',
       desc: 'Hallinnoi asiakkaita ja tiloja',
     },
     {
+      label: 'Asiakkaan tiedot',
+      href: '/demo/adepta_skog_asiakas.html',
+      icon: '🌲',
+      desc: 'Asiakkaan tila- ja yhteystiedot',
+    },
+    {
       label: 'Kirjanpito',
-      href: '/kirjanpito',
+      href: '/demo/adepta_skog_kirjanpito.html',
       icon: '📒',
       desc: 'Tulot, menot ja tiliotteet',
     },
     {
       label: 'Vero-optimointi',
-      href: '/vero-optimointi',
+      href: '/demo/adepta_skog_verolaskin.html',
       icon: '📊',
       desc: 'Metsäverotuksen suunnittelu',
+    },
+    {
+      label: 'Verosuunnitelma',
+      href: '/demo/adepta_skog_verosuunnitelma.html',
+      icon: '📋',
+      desc: 'Asiakkaan verosuunnitelma',
     },
     {
       label: 'Kuittiskanneri',
@@ -146,7 +158,7 @@ export default async function Home() {
         gap: '1.25rem',
       }}>
         {navItems.map((item) => (
-          <a key={item.href} href={item.href} className="skog-card">
+          <a key={item.href} href={item.href} className="skog-card" target="_blank" rel="noopener noreferrer">
             <span style={{ fontSize: '1.75rem', display: 'block', marginBottom: '0.75rem' }}>{item.icon}</span>
             <strong style={{
               fontFamily: "'Fraunces', serif",
