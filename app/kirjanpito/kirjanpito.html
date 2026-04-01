@@ -81,6 +81,7 @@ tbody tr.lr{border-bottom:1px solid var(--bd);transition:background .06s}
 tbody tr.lr:hover{background:#f8faf8}
 tbody tr.lr.tr-t{border-left:3px solid var(--moss)}
 tbody tr.lr.tr-m{border-left:3px solid var(--am)}
+tbody tr.lr.tr-i{border-left:3px solid #185FA5}
 td.rn{text-align:center;font-size:10px;color:var(--inf);padding:0;user-select:none;vertical-align:middle}
 td.c{padding:0;vertical-align:middle}
 input.ci,select.cs2{width:100%;height:var(--rh);padding:0 10px;font-family:var(--ffb);font-size:13px;color:var(--ink);background:transparent;border:none;outline:none;transition:background .08s}
@@ -94,6 +95,7 @@ select.cs2{cursor:pointer;appearance:none;padding-right:22px}
 .tb{width:100%;height:var(--rh);border:none;cursor:pointer;outline:none;font-family:var(--ffm);font-size:9px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;background:transparent;transition:all .1s}
 .tb.tt{color:var(--moss)}
 .tb.tm{color:var(--am)}
+.tb.ti{color:#185FA5}
 .tb:focus{box-shadow:inset 0 0 0 2px var(--fm)}
 .tb:focus.tt{background:var(--fmist)}
 .tb:focus.tm{background:var(--aml)}
@@ -312,6 +314,8 @@ tr.ar td{height:36px;border-bottom:1px solid var(--bd)}
       <div class="sd"></div>
       <div class="si"><span class="sl">Menot (0%)</span><span class="sv m" id="sm">0,00</span></div>
       <div class="sd"></div>
+      <div class="si"><span class="sl">Investoinnit (0%)</span><span class="sv" style="color:#185FA5" id="si">0,00</span></div>
+      <div class="sd"></div>
       <div class="si"><span class="sl">ALV tilitettävä</span><span class="sv al" id="sa">0,00</span></div>
       <div class="sd"></div>
       <div class="si"><span class="sl">Tulos</span><span class="sv" id="stu">0,00</span></div>
@@ -375,8 +379,8 @@ const KATEGORIAT = [
     {nro:6, nimi:'Metsätalouden tuet',     tyyppi:'tulo', alv:0},
   ]},
   {ryhma:'Investoinnit', items:[
-    {nro:10, nimi:'Käyttöomaisuuden hankinta', tyyppi:'meno', alv:25.5},
-    {nro:11, nimi:'Käyttöomaisuuden myynti',   tyyppi:'tulo', alv:25.5},
+    {nro:10, nimi:'Käyttöomaisuuden hankinta', tyyppi:'investointi', alv:25.5},
+    {nro:11, nimi:'Käyttöomaisuuden myynti',   tyyppi:'tulo',        alv:25.5},
   ]},
   {ryhma:'Menot', items:[
     {nro:7, nimi:'Palkkausmenot',   tyyppi:'meno', alv:0},
@@ -837,7 +841,7 @@ function render(){
       <td class="c"><input class="ci num" type="text" value="${r.summa>0?fmt(r.summa):''}" placeholder="0,00" data-i="${i}" data-col="3" onfocus="this.select()" onblur="fmtS(this,${i})" onkeydown="ck(event,${i},3)"></td>
       <td class="c csw"><select class="cs2" data-i="${i}" data-col="4" onchange="upd(${i},'alv',parseFloat(this.value))" onkeydown="ck(event,${i},4)">${AVR.map(v=>`<option value="${v}"${v===r.alv?' selected':''}>${v}%</option>`).join('')}</select></td>
       <td class="c"><span class="bc2">${fmt(netto(r))}${r.ennakko>0?`<span class="ep-badge">EP ${fmt(r.ennakko)}</span>`:''}${r.hankintatyo?`<span class="ep-badge" style="background:rgba(160,92,26,.18);color:#a05c1a">HT ${r.hankintatyo.nimi||''}</span>`:''}</span></td>
-      <td class="c"><button class="tb t${r.tyyppi[0]}" data-i="${i}" data-col="5" onclick="togT(${i})" onkeydown="ck(event,${i},5)">${r.tyyppi==='tulo'?'TULO':'MENO'}</button></td>
+      <td class="c"><button class="tb t${r.tyyppi[0]}" data-i="${i}" data-col="5" onclick="togT(${i})" onkeydown="ck(event,${i},5)">${r.tyyppi==='tulo'?'TULO':r.tyyppi==='investointi'?'INVEST':'MENO'}</button></td>
       <td class="c"><button class="db" onclick="delRow(${i})" title="Poista">×</button></td>
     </tr>`).join('')+`
     <tr class="ar"><td colspan="8"><button class="arb" id="arb" onclick="addRow(rows.length-1)" onkeydown="arbK(event)"><span style="font-size:18px;line-height:1;color:var(--moss)">+</span> Lisää tapahtuma &nbsp;<kbd>Enter</kbd></button></td></tr>`;
@@ -871,9 +875,13 @@ function rbru(i){
   tr.className=`lr tr-${rows[i].tyyppi[0]}`;
   const b=tr.querySelector('.tb');
   b.className=`tb t${rows[i].tyyppi[0]}`;
-  b.textContent=rows[i].tyyppi==='tulo'?'TULO':'MENO';
+  b.textContent=rows[i].tyyppi==='tulo'?'TULO':rows[i].tyyppi==='investointi'?'INVEST':'MENO';
 }
-function togT(i){rows[i].tyyppi=rows[i].tyyppi==='tulo'?'meno':'tulo';setD(true);rbru(i);totals();}
+function togT(i){
+  if(rows[i].tyyppi==='investointi') return; // ei kierrä
+  rows[i].tyyppi=rows[i].tyyppi==='tulo'?'meno':'tulo';
+  setD(true);rbru(i);totals();
+}
 
 function paaomavero(tulo){
   if(tulo<=0)return 0;
@@ -893,8 +901,9 @@ function tappiotBlur(el){
 function totals(){
   const tl=rows.filter(r=>r.tyyppi==='tulo').reduce((a,r)=>a+netto(r),0);
   const ml=rows.filter(r=>r.tyyppi==='meno').reduce((a,r)=>a+netto(r),0);
+  const il=rows.filter(r=>r.tyyppi==='investointi').reduce((a,r)=>a+netto(r),0);
   const am=rows.filter(r=>r.tyyppi==='tulo').reduce((a,r)=>a+alvEuro(r),0);
-  const ao=rows.filter(r=>r.tyyppi==='meno').reduce((a,r)=>a+alvEuro(r),0);
+  const ao=rows.filter(r=>r.tyyppi==='meno'||r.tyyppi==='investointi').reduce((a,r)=>a+alvEuro(r),0);
   const epYht=rows.filter(r=>r.tyyppi==='tulo').reduce((a,r)=>a+(r.ennakko||0),0);
   const tappiot=tappiotPn();
   const ts=tl-ml;
@@ -904,6 +913,8 @@ function totals(){
   const veroEnnakkoJalkeen=Math.max(0, veroArvio-epYht);
   document.getElementById('st').textContent=fmt(tl);
   document.getElementById('sm').textContent=fmt(ml);
+  const siEl=document.getElementById('si');
+  if(siEl) siEl.textContent=fmt(il);
   document.getElementById('sa').textContent=fmt(am-ao);
   const el=document.getElementById('stu');
   el.textContent=fmt(ts);
