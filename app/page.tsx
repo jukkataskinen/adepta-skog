@@ -132,6 +132,22 @@ export default async function Home() {
       </section>
 
       {/* Cards */}
+      <style>{`
+        .skog-card {
+          display: block;
+          background-color: #223528;
+          border: 1px solid #2e4a32;
+          border-radius: 0.75rem;
+          padding: 1.5rem;
+          text-decoration: none;
+          color: inherit;
+          transition: border-color 0.2s, background-color 0.2s;
+        }
+        .skog-card:hover {
+          border-color: #1D9E75;
+          background-color: #283f2d;
+        }
+      `}</style>
       <section style={{
         padding: '1rem 2rem 4rem',
         maxWidth: '960px',
@@ -141,28 +157,7 @@ export default async function Home() {
         gap: '1.25rem',
       }}>
         {navItems.map((item) => (
-          <a
-            key={item.href}
-            href={item.href}
-            style={{
-              display: 'block',
-              backgroundColor: '#223528',
-              border: '1px solid #2e4a32',
-              borderRadius: '0.75rem',
-              padding: '1.5rem',
-              textDecoration: 'none',
-              color: 'inherit',
-              transition: 'border-color 0.2s, background-color 0.2s',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLAnchorElement).style.borderColor = '#1D9E75'
-              ;(e.currentTarget as HTMLAnchorElement).style.backgroundColor = '#283f2d'
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLAnchorElement).style.borderColor = '#2e4a32'
-              ;(e.currentTarget as HTMLAnchorElement).style.backgroundColor = '#223528'
-            }}
-          >
+          <a key={item.href} href={item.href} className="skog-card">
             <span style={{ fontSize: '1.75rem', display: 'block', marginBottom: '0.75rem' }}>{item.icon}</span>
             <strong style={{
               fontFamily: "'Fraunces', serif",
