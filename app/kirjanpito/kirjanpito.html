@@ -1216,10 +1216,6 @@ window.addEventListener('beforeunload', function(e){
           <label>Poistoaika (vuotta)</label>
           <input type="number" id="inv-aika" value="5" min="1" max="40" style="padding:8px 10px;border:1px solid var(--bd);border-radius:6px;font-family:var(--ffb);font-size:13px;width:100%">
         </div>
-        <div class="ht-field">
-          <label>Jäännösarvo (€)</label>
-          <input type="number" id="inv-jaannos" value="0" min="0" style="padding:8px 10px;border:1px solid var(--bd);border-radius:6px;font-family:var(--ffb);font-size:13px;width:100%">
-        </div>
       </div>
       <div class="ht-field">
         <label>Maksimipoisto tänä vuonna (€)</label>
@@ -1272,7 +1268,7 @@ let myyntiInvestoinnit = [];
 function invLaskeMaxPoisto() {
   const tapa = document.getElementById('inv-tapa').value;
   const aika = parseInt(document.getElementById('inv-aika').value) || 5;
-  const jaannos = parseFloat(document.getElementById('inv-jaannos').value) || 0;
+  const jaannos = 0;
   if (invPendingIdx === null) return;
   const hinta = rows[invPendingIdx]?.summa || 0;
   let max = 0;
@@ -1291,11 +1287,9 @@ function avaaInv(i) {
   const r = rows[i];
   document.getElementById('inv-sub').textContent = (r.kuvaus || '—') + ' · ' + fmt(r.summa) + ' €';
   document.getElementById('inv-tapa').value = 'menojannos';
-  document.getElementById('inv-jaannos').value = 0;
   document.getElementById('inv-aika').value = 5;
   document.getElementById('inv-tapa').onchange = invLaskeMaxPoisto;
   document.getElementById('inv-aika').oninput = invLaskeMaxPoisto;
-  document.getElementById('inv-jaannos').oninput = invLaskeMaxPoisto;
   invLaskeMaxPoisto();
   document.getElementById('inv-overlay').classList.add('open');
 }
@@ -1307,7 +1301,7 @@ async function invTallenna() {
   rows[idx].investointiTiedot = {
     poistotapa: document.getElementById('inv-tapa').value,
     poistoaika_vuotta: parseInt(document.getElementById('inv-aika').value) || 5,
-    jaannosarvo: parseFloat(document.getElementById('inv-jaannos').value) || 0,
+    jaannosarvo: 0,
   };
   invSulje();
   setD(true);
