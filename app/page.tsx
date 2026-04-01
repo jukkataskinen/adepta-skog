@@ -101,7 +101,7 @@ export default async function Home() {
             {user?.name ?? user?.email}
           </span>
           <a
-            href="/auth/logout"
+            href="/auth/logout?returnTo=https://skog.adepta.fi"
             style={{
               fontSize: '0.8rem',
               padding: '0.4rem 1rem',
