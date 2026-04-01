@@ -284,7 +284,11 @@ const rooliLabel = r => ({paakayttaja:'Pääkäyttäjä',kirjanpitaja:'Kirjanpit
 const rooliClass = r => ({paakayttaja:'role-paa',kirjanpitaja:'role-kir',lukija:'role-luk'}[r] || 'role-luk');
 const tilaLabel  = t => t === 'active' ? 'Aktiivinen' : 'Ei aktiivinen';
 const tilaClass  = t => t === 'active' ? 'st-active' : 'st-inactive';
-const initials   = nimi => { const p = (nimi||'').trim().split(' '); return ((p[0]||'')[0]+(p[p.length-1]||'')[0]).toUpperCase(); };
+const initials   = nimi => {
+  if (!nimi || typeof nimi !== 'string') return '?';
+  const p = nimi.trim().split(' ');
+  return ((p[0] || '')[0] + (p[p.length - 1] || '')[0]).toUpperCase();
+};
 const avatarBg   = id  => { const c=['#2d4a31','#185FA5','#0F6E56','#633806','#3d4039']; let h=0; for(let i=0;i<id.length;i++) h=(h+id.charCodeAt(i))%c.length; return c[h]; };
 
 // ── Data ─────────────────────────────────────────────────────
