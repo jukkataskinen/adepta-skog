@@ -517,6 +517,13 @@ async function tallennaVerosuunnitelma() {
   if (!aktiivinenId) { alert('Valitse ensin asiakas'); return; }
   const vuosi = AVOIN_VUOSI;
 
+  const mvMax = parseInt(document.getElementById('mv-s').max) || 0;
+  const mvArvo = parseInt(document.getElementById('mv-s').value) || 0;
+  if (mvArvo > mvMax) {
+    alert('Metsävähennys ' + mvArvo + '€ ylittää maksimin ' + mvMax + '€');
+    return;
+  }
+
   // Lue arvot liukusäätimistä
   const mv = parseInt(document.getElementById('mv-s').value) || 0;
   const ht = parseInt(document.getElementById('ht-s').value) || 0;
