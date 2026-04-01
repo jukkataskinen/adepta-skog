@@ -74,13 +74,13 @@ export default async function Home() {
     },
     {
       label: 'Kirjanpito',
-      href: '/kirjanpito-sivu',
+      href: '/kirjanpito',
       icon: '📒',
       desc: 'Tulot, menot ja tiliotteet',
     },
     {
       label: 'ALV-raportti',
-      href: '/alv-raportti',
+      href: '/alv',
       icon: '📊',
       desc: 'Metsäverotuksen suunnittelu',
     },
