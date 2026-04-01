@@ -1028,13 +1028,30 @@ async function tallenna(){
     alv_prosentti: r.alv,
     kategoria: r.kategoria ?? null,
     ennakko: r.ennakko ?? 0,
+    _investointiTiedot: r.investointiTiedot ?? null,
   }));
   try {
     const { error: delErr } = await _sb.from('tapahtumat').delete().eq('asiakas_id', curAs.id).eq('verovuosi', AVOIN_VUOSI);
     if(delErr) throw delErr;
     if(rivit.length > 0){
-      const { error: insErr } = await _sb.from('tapahtumat').insert(rivit);
+      const { error: insErr } = await _sb.from('tapahtumat').insert(rivit.map(r => {
+        const { _investointiTiedot, ...rest } = r; return rest;
+      }));
       if(insErr) throw insErr;
+      for (const r of rivit) {
+        if (r._investointiTiedot) {
+          await _sb.from('investoinnit').insert({
+            asiakas_id: curAs.id,
+            kuvaus: r.kuvaus,
+            hankintapvm: r.paivamaara,
+            hankintahinta: r.summa_alv0,
+            jaannosarvo: r._investointiTiedot.jaannosarvo,
+            poistoaika_vuotta: r._investointiTiedot.poistoaika_vuotta,
+            poistotapa: r._investointiTiedot.poistotapa,
+            aktiivinen: true,
+          });
+        }
+      }
     }
     setD(false);
     document.getElementById('modal-p').textContent=rows.length+' tapahtumaa tallennettu asiakkaalle '+curAs.nimi+'.';
@@ -1272,21 +1289,14 @@ async function invTallenna() {
   const idx = invPendingIdx;
   if (idx === null) return;
   const r = rows[idx];
-  const tapa = document.getElementById('inv-tapa').value;
-  const aika = parseInt(document.getElementById('inv-aika').value) || 5;
-  const jaannos = parseFloat(document.getElementById('inv-jaannos').value) || 0;
-  await _sb.from('investoinnit').insert({
-    asiakas_id: curAs.id,
-    kuvaus: r.kuvaus || 'Käyttöomaisuus',
-    hankintapvm: r.pvm,
-    hankintahinta: r.summa,
-    jaannosarvo: jaannos,
-    poistoaika_vuotta: aika,
-    poistotapa: tapa,
-    aktiivinen: true,
-  });
+  rows[idx].investointiTiedot = {
+    poistotapa: document.getElementById('inv-tapa').value,
+    poistoaika_vuotta: parseInt(document.getElementById('inv-aika').value) || 5,
+    jaannosarvo: parseFloat(document.getElementById('inv-jaannos').value) || 0,
+  };
   invSulje();
-  toast('Investointi lisätty: ' + (r.kuvaus || 'Käyttöomaisuus'));
+  setD(true);
+  toast('Investointitiedot tallennetaan kirjanpidon tallennuksen yhteydessä');
 }
 
 function invSulje() {
