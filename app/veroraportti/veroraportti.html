@@ -564,59 +564,44 @@ async function lataaData(asiakas_id) {
   htmlTulos += '</tbody></table>';
   document.getElementById('r-tulos').innerHTML = htmlTulos;
 
-  // ── Sivu 4: Investoinnit ──
+  // ── Sivu 4: Poistosuunnitelma toteutuneista poistoista ──
   if (invR.length === 0) {
     document.getElementById('r-investoinnit').innerHTML = '<p style="color:var(--inu);font-size:12px">Ei aktiivisia investointeja.</p>';
   } else {
-    const avvuosi = AVOIN_VUOSI || new Date().getFullYear() - 1;
+    const { data: totPoistot } = await _sb.from('poistot')
+      .select('investointi_id, verovuosi, poistomaara, jaannosarvo_vuoden_lopussa')
+      .in('investointi_id', invR.map(i => i.id))
+      .order('verovuosi', { ascending: true });
+
     let html4 = '';
     invR.forEach(inv => {
       const hinta = Number(inv.hankintahinta || 0);
-      const tapa = inv.poistotapa === 'tasa' ? 'tasa' : 'menojannos';
-      const aika = Number(inv.poistoaika_vuotta || 5);
-      const hankintavuosi = inv.hankintapvm ? new Date(inv.hankintapvm).getFullYear() : avvuosi;
-      // Calculate book value at start of avvuosi
-      const vuosiaSitten = Math.max(0, avvuosi - hankintavuosi);
-      let arvo = hinta;
-      if (tapa === 'tasa') {
-        const vuosipoisto = hinta / aika;
-        arvo = Math.max(0, hinta - vuosipoisto * vuosiaSitten);
-      } else {
-        for (let y = 0; y < vuosiaSitten; y++) arvo = Math.max(0, arvo * 0.75);
-      }
-      const poistoAvvuosi = tapa === 'tasa' ? Math.min(arvo, hinta / aika) : arvo * 0.25;
-      const menojaannos = Math.max(0, arvo - poistoAvvuosi);
-      // Summary row
+      const tapa = inv.poistotapa === 'tasa' ? 'Tasapoisto' : 'Menojäännös 25%';
       html4 +=
         '<table class="rtbl" style="margin-bottom:4px"><thead><tr>' +
         '<th>Kohde</th><th class="num">Hankintahinta</th><th>Poistotapa</th>' +
-        '<th class="num">Poisto ' + avvuosi + '</th><th class="num">Menojäännös ' + avvuosi + '</th>' +
         '</tr></thead><tbody>' +
         '<tr><td>' + esc(inv.kuvaus || '') + '</td>' +
         '<td class="num">' + hinta.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-        '<td>' + (tapa === 'tasa' ? 'Tasapoisto' : 'Menojäännös 25%') + '</td>' +
-        '<td class="num">' + Math.round(poistoAvvuosi).toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-        '<td class="num">' + Math.round(menojaannos).toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
+        '<td>' + tapa + '</td>' +
         '</tr></tbody></table>';
-      // Yearly depreciation plan sub-table
-      html4 += '<table class="rtbl" style="margin-bottom:16px;font-size:11px"><thead><tr>' +
-        '<th>Vuosi</th><th class="num">Arvo vuoden alussa</th><th class="num">Poisto</th><th class="num">Arvo vuoden lopussa</th>' +
-        '</tr></thead><tbody>';
-      let planArvo = arvo;
-      for (let y = 0; y < 10; y++) {
-        if (planArvo < 100) break;
-        const planVuosi = avvuosi + y;
-        const planPoisto = tapa === 'tasa' ? Math.min(planArvo, hinta / aika) : planArvo * 0.25;
-        const planLoppu = Math.max(0, planArvo - planPoisto);
-        html4 +=
-          '<tr><td>' + planVuosi + '</td>' +
-          '<td class="num">' + Math.round(planArvo).toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-          '<td class="num">' + Math.round(planPoisto).toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-          '<td class="num">' + Math.round(planLoppu).toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-          '</tr>';
-        planArvo = planLoppu;
+
+      const rivit = (totPoistot || []).filter(p => p.investointi_id === inv.id);
+      if (rivit.length === 0) {
+        html4 += '<p style="color:var(--inu);font-size:11px;margin:2px 0 16px 4px">Ei toteutuneita poistoja — vahvista verosuunnitelma</p>';
+      } else {
+        html4 += '<table class="rtbl" style="margin-bottom:16px;font-size:11px"><thead><tr>' +
+          '<th>Vuosi</th><th class="num">Poisto</th><th class="num">Menojäännös vuoden lopussa</th>' +
+          '</tr></thead><tbody>';
+        rivit.forEach(p => {
+          html4 +=
+            '<tr><td>' + p.verovuosi + '</td>' +
+            '<td class="num">' + Number(p.poistomaara || 0).toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
+            '<td class="num">' + Number(p.jaannosarvo_vuoden_lopussa || 0).toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
+            '</tr>';
+        });
+        html4 += '</tbody></table>';
       }
-      html4 += '</tbody></table>';
     });
     document.getElementById('r-investoinnit').innerHTML = html4;
   }
