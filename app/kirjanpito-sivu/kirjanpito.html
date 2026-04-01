@@ -346,6 +346,9 @@ async function lataaAsiakkaat() {
 const AVR=[0,10,14,25.5];
 let rows=[],nid=1,curAs=null,undo=[],dirty=false;
 let AVOIN_VUOSI = window._SKOG.avoinVuosi;
+const pvmMin = () => `${AVOIN_VUOSI}-01-01`;
+const pvmMax = () => `${AVOIN_VUOSI}-12-31`;
+const pvmOk = (v) => { if(!v) return true; return parseInt(v.slice(0,4)) === AVOIN_VUOSI; };
 const NC=6;
 let epPendingIdx=null; // rivi-indeksi jolle EP-kysely on auki
 
@@ -798,7 +801,7 @@ function render(){
   document.getElementById('lb').innerHTML=rows.map((r,i)=>`
     <tr class="lr tr-${r.tyyppi[0]}" data-i="${i}" id="r-${r.id}">
       <td class="rn">${i+1}</td>
-      <td class="c"><input class="ci mono" type="date" value="${r.pvm}" data-i="${i}" data-col="0" onchange="upd(${i},'pvm',this.value)" onkeydown="ck(event,${i},0)"></td>
+      <td class="c"><input class="ci mono" type="date" value="${r.pvm}" min="${pvmMin()}" max="${pvmMax()}" data-i="${i}" data-col="0" onchange="upd(${i},'pvm',this.value)" onkeydown="ck(event,${i},0)"></td>
       <td class="c"><input class="ci" type="text" value="${esc(r.kuvaus)}" placeholder="Kuvauksen tekstiä…" data-i="${i}" data-col="1" oninput="upd(${i},'kuvaus',this.value)" onkeydown="ck(event,${i},1)"></td>
       <td class="c"><div class="kat-wrap">
         <button class="kat-input" data-i="${i}" data-col="2"
