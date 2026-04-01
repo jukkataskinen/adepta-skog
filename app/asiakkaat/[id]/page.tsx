@@ -36,13 +36,6 @@ export default async function AsiakasPage({ params }: Params) {
     .eq('asiakas_id', params.id)
     .order('nimi')
 
-  const { data: tapahtumat } = await supabase
-    .from('tapahtumat')
-    .select('id, tyyppi, kuvaus, paivamaara, summa_alv0, verovuosi')
-    .eq('asiakas_id', params.id)
-    .order('paivamaara', { ascending: false })
-    .limit(20)
-
   const nimi = `${asiakas.etunimi} ${asiakas.sukunimi}`
 
   return (
@@ -105,34 +98,6 @@ export default async function AsiakasPage({ params }: Params) {
                     <td style={{ padding: '0.85rem 1rem', color: '#9ab89e' }}>{t.kiinteistotunnus ?? '—'}</td>
                     <td style={{ padding: '0.85rem 1rem', color: '#9ab89e' }}>{t.pinta_ala_ha ?? '—'}</td>
                     <td style={{ padding: '0.85rem 1rem', color: '#9ab89e' }}>{t.hankintahinta ? `${Number(t.hankintahinta).toLocaleString('fi-FI')} €` : '—'}</td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            </div>
-          )}
-          <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.2rem', fontWeight: 300, color: '#e8f0e9', margin: '0 0 1rem' }}>Viimeisimmät tapahtumat</h2>
-          {!tapahtumat || tapahtumat.length === 0 ? (
-            <p style={{ color: '#7a9e7e', fontSize: '0.9rem' }}>Ei kirjanpitotapahtumia.</p>
-          ) : (
-            <div style={{ border: '1px solid #2e4a32', borderRadius: '0.75rem', overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead><tr style={{ backgroundColor: '#162318', borderBottom: '1px solid #2e4a32' }}>
-                  {['Päivämäärä', 'Tyyppi', 'Kuvaus', 'Summa (alv 0%)'].map(h => (
-                    <th key={h} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', color: '#7a9e7e', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{h}</th>
-                  ))}
-                </tr></thead>
-                <tbody>{tapahtumat.map((t, i) => (
-                  <tr key={t.id} style={{ borderBottom: i < tapahtumat.length - 1 ? '1px solid #2e4a32' : 'none' }}>
-                    <td style={{ padding: '0.85rem 1rem', color: '#9ab89e', fontSize: '0.9rem' }}>{new Date(t.paivamaara).toLocaleDateString('fi-FI')}</td>
-                    <td style={{ padding: '0.85rem 1rem' }}>
-                      <span style={{ padding: '0.2rem 0.6rem', borderRadius: '99px', fontSize: '0.75rem', fontWeight: 500, background: t.tyyppi === 'tulo' ? '#1a3d2b' : '#3d1a1a', color: t.tyyppi === 'tulo' ? '#1D9E75' : '#e87171' }}>
-                        {t.tyyppi === 'tulo' ? 'Tulo' : 'Meno'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.85rem 1rem', color: '#e8f0e9' }}>{t.kuvaus}</td>
-                    <td style={{ padding: '0.85rem 1rem', color: t.tyyppi === 'tulo' ? '#1D9E75' : '#e87171', fontWeight: 500 }}>
-                      {t.tyyppi === 'meno' ? '−' : '+'}{Number(t.summa_alv0).toLocaleString('fi-FI')} €
-                    </td>
                   </tr>
                 ))}</tbody>
               </table>
