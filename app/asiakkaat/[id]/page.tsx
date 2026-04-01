@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { redirect, notFound } from 'next/navigation'
 import MuokkausForm from './MuokkausForm'
 import MetsatilaForm from './MetsatilaForm'
+import InvestointiForm from './InvestointiForm'
 
 type Params = { params: { id: string } }
 
@@ -36,6 +37,12 @@ export default async function AsiakasPage({ params }: Params) {
     .select('id, nimi, kiinteistotunnus, pinta_ala_ha, hankintahinta, hankintapvm')
     .eq('asiakas_id', params.id)
     .order('nimi')
+
+  const { data: investoinnit } = await supabase
+    .from('investoinnit')
+    .select('id, kuvaus, hankintapvm, hankintahinta, jaannosarvo, poistoaika_vuotta, poistotapa')
+    .eq('asiakas_id', params.id)
+    .order('hankintapvm')
 
   const nimi = `${asiakas.etunimi} ${asiakas.sukunimi}`
 
@@ -104,6 +111,38 @@ export default async function AsiakasPage({ params }: Params) {
                     <td style={{ padding: '0.85rem 1rem', color: '#9ab89e' }}>{t.hankintahinta ? `${Number(t.hankintahinta).toLocaleString('fi-FI')} €` : '—'}</td>
                   </tr>
                 ))}</tbody>
+              </table>
+            </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.2rem', fontWeight: 300, color: '#e8f0e9', margin: 0 }}>Investoinnit</h2>
+            <InvestointiForm asiakasId={params.id} />
+          </div>
+          {!investoinnit || investoinnit.length === 0 ? (
+            <p style={{ color: '#7a9e7e', fontSize: '0.9rem', marginBottom: '2rem' }}>Ei investointeja.</p>
+          ) : (
+            <div style={{ border: '1px solid #2e4a32', borderRadius: '0.75rem', overflow: 'hidden', marginBottom: '2rem' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead><tr style={{ backgroundColor: '#162318', borderBottom: '1px solid #2e4a32' }}>
+                  {['Kohde', 'Hankintapvm', 'Hankintahinta', 'Poistotapa', 'Vuosipoisto'].map(h => (
+                    <th key={h} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', color: '#7a9e7e', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>{investoinnit.map((inv, i) => {
+                  const pohja = Number(inv.hankintahinta) - Number(inv.jaannosarvo ?? 0)
+                  const vuosipoisto = inv.poistotapa === 'tasa'
+                    ? pohja / Number(inv.poistoaika_vuotta)
+                    : Number(inv.hankintahinta) * 0.25
+                  return (
+                    <tr key={inv.id} style={{ borderBottom: i < investoinnit.length - 1 ? '1px solid #2e4a32' : 'none' }}>
+                      <td style={{ padding: '0.85rem 1rem', color: '#e8f0e9', fontWeight: 500 }}>{inv.kuvaus}</td>
+                      <td style={{ padding: '0.85rem 1rem', color: '#9ab89e' }}>{inv.hankintapvm ? new Date(inv.hankintapvm).toLocaleDateString('fi-FI') : '—'}</td>
+                      <td style={{ padding: '0.85rem 1rem', color: '#9ab89e' }}>{Number(inv.hankintahinta).toLocaleString('fi-FI')} €</td>
+                      <td style={{ padding: '0.85rem 1rem', color: '#9ab89e' }}>{inv.poistotapa === 'tasa' ? 'Tasapoisto' : 'Menojäännös 25%'}</td>
+                      <td style={{ padding: '0.85rem 1rem', color: '#9ab89e' }}>{Math.round(vuosipoisto).toLocaleString('fi-FI')} €/v</td>
+                    </tr>
+                  )
+                })}</tbody>
               </table>
             </div>
           )}
