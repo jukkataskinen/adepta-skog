@@ -359,6 +359,15 @@ async function lataaData(asiakas_id) {
       .eq('id', asiakas_id).single(),
   ]);
 
+  const tilatIds = (tilat || []).map(t => t.id);
+  const { data: vahennyksetData } = tilatIds.length > 0
+    ? await _sb.from('metsavahennykset')
+        .select('metsatila_id, verovuosi, kaytettava_vahennys')
+        .in('metsatila_id', tilatIds)
+        .order('verovuosi', { ascending: true })
+    : { data: [] };
+  const totVahennykset = vahennyksetData || [];
+
   const rows = tapahtumat || [];
   const tilatR = tilat || [];
   const invR = investoinnit || [];
@@ -380,7 +389,10 @@ async function lataaData(asiakas_id) {
   }, 0);
 
   const epYht = rows.reduce((s, r) => s + Number(r.ennakko || 0), 0);
-  const verotettava = Math.max(0, tulot - menot - poistot);
+  const mvTana = totVahennykset
+    .filter(v => v.verovuosi === AVOIN_VUOSI)
+    .reduce((s, v) => s + Number(v.kaytettava_vahennys || 0), 0);
+  const verotettava = Math.max(0, tulot - menot - poistot - mvTana);
   const paaomavero = verotettava <= 30000
     ? verotettava * 0.30
     : 30000 * 0.30 + (verotettava - 30000) * 0.34;
@@ -442,6 +454,7 @@ async function lataaData(asiakas_id) {
     ['Tulot (alv 0%)', fmt(tulot), ''],
     ['Menot (alv 0%)', fmt(menot), ''],
     ['Poistot', fmt(poistot), ''],
+    ['Metsävähennys', fmt(mvTana), ''],
     ['Verotettava tulo', fmt(verotettava), 'big'],
     ['Pääomavero', fmt(paaomavero), ''],
     ['Ennakonpidätys', fmt(epYht), ''],
@@ -616,11 +629,6 @@ async function lataaData(asiakas_id) {
   if (tilatR.length === 0) {
     document.getElementById('r-metsa').innerHTML = '<p style="color:var(--inu);font-size:12px">Ei metsätiloja.</p>';
   } else {
-    const { data: totVahennykset } = await _sb.from('metsavahennykset')
-      .select('metsatila_id, verovuosi, kaytettava_vahennys')
-      .in('metsatila_id', tilatR.map(t => t.id))
-      .order('verovuosi', { ascending: true });
-
     // Build events: one per tila hankintavuosi (pohja added) + one per vahennys
     const fmt2 = v => Number(v || 0).toLocaleString('fi-FI', { minimumFractionDigits: 2 });
     const events = [];
