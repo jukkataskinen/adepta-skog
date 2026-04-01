@@ -634,7 +634,7 @@ function htSulje(){
 let fAs=[...ASIAKKAAT],asHL=-1;
 function renderAs(){
   document.getElementById('alist').innerHTML=fAs.map((a,i)=>`
-    <div class="ai ${curAs?.id===a.id?'act':''}" onclick="selAs(${a.id})">
+    <div class="ai ${curAs?.id===a.id?'act':''}" onclick="selAs('${a.id}')">
       <div class="an">${a.nimi}</div><div class="am2">${a.tila}</div>
     </div>`).join('');
 }
