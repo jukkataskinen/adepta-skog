@@ -233,11 +233,10 @@ body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:13p
       <div class="rsivu" id="sivu-toc">
         <div class="rsivu-otsikko">Sisällysluettelo</div>
         <ul class="toc-lista">
-          <li class="toc-item"><span class="toc-nro">1</span><div class="toc-teksti"><h4>Yhteenveto</h4><p>Asiakastiedot sekä verolaskelma: tulot, menot, poistot, pääomavero, ennakonpidätys ja ALV.</p></div></li>
-          <li class="toc-item"><span class="toc-nro">2</span><div class="toc-teksti"><h4>Maksutiedote</h4><p>Pääomavero ja ALV maksutiedot pankkiviitteineen, IBAN ja eräpäivät.</p></div></li>
-          <li class="toc-item"><span class="toc-nro">3</span><div class="toc-teksti"><h4>Tapahtumaluettelo</h4><p>Kaikki verovuoden tulot ja menot eriteltynä: päivämäärä, kuvaus, kategoria, ALV ja bruttosumma.</p></div></li>
-          <li class="toc-item"><span class="toc-nro">4</span><div class="toc-teksti"><h4>Investoinnit ja poistot</h4><p>Aktiiviset investoinnit poistolaskelmineen: tasapoisto ja menojäännöspoisto vuosierittäin.</p></div></li>
-          <li class="toc-item"><span class="toc-nro">5</span><div class="toc-teksti"><h4>Metsävähennyspohja</h4><p>Tilakohtainen metsävähennyspohja, käytetty osuus ja jäljellä oleva vähennysoikeus.</p></div></li>
+          <li class="toc-item"><span class="toc-nro">1</span><div class="toc-teksti"><h4>Yhteenveto ja maksutiedote</h4><p>Asiakastiedot, verolaskelma sekä maksutiedot pankkiviitteineen, IBAN ja eräpäivät.</p></div></li>
+          <li class="toc-item"><span class="toc-nro">2</span><div class="toc-teksti"><h4>Tapahtumaluettelo</h4><p>Kaikki verovuoden tulot ja menot eriteltynä: päivämäärä, kuvaus, kategoria, ALV ja bruttosumma.</p></div></li>
+          <li class="toc-item"><span class="toc-nro">3</span><div class="toc-teksti"><h4>Investoinnit ja poistot</h4><p>Aktiiviset investoinnit poistolaskelmineen: tasapoisto ja menojäännöspoisto vuosierittäin.</p></div></li>
+          <li class="toc-item"><span class="toc-nro">4</span><div class="toc-teksti"><h4>Metsävähennyspohja</h4><p>Tilakohtainen metsävähennyspohja, käytetty osuus ja jäljellä oleva vähennysoikeus.</p></div></li>
         </ul>
         <div class="toc-meta">
           <div id="toc-ak-tiedot">—</div>
@@ -245,24 +244,20 @@ body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:13p
         </div>
       </div>
 
-      <!-- SIVU 1: Yhteenveto -->
+      <!-- SIVU 1: Yhteenveto + Maksutiedote -->
       <div class="rsivu" id="sivu1">
-        <div class="rsivu-otsikko">Yhteenveto · Verovuosi <span id="r-vuosi1">—</span></div>
+        <div class="rsivu-otsikko">Yhteenveto ja maksutiedote · Verovuosi <span id="r-vuosi1">—</span></div>
         <div class="kk">
           <div class="kk-lohko">
             <h3 id="r-nimi">—</h3>
             <div class="ak-tiedot" id="r-osoite"></div>
           </div>
-          <div class="kk-lohko">
+          <div class="kk-lohko" style="width:100%">
             <h3>Verolaskelma</h3>
-            <div id="r-yhteenveto"></div>
+            <div id="r-yhteenveto" style="width:100%"></div>
           </div>
         </div>
-      </div>
-
-      <!-- SIVU 2: Maksutiedote -->
-      <div class="rsivu" id="sivu2">
-        <div class="rsivu-otsikko">Maksutiedote · Verovuosi <span id="r-vuosi2">—</span></div>
+        <hr style="border:none;border-top:1px solid var(--bd);margin:18px 0">
         <div id="r-maksut"></div>
       </div>
 
@@ -384,7 +379,7 @@ async function lataaData(asiakas_id) {
   document.getElementById('loading').style.display = 'none';
 
   // Aseta vuosiluvut
-  ['r-vuosi1', 'r-vuosi2', 'r-vuosi3', 'r-vuosi4', 'r-vuosi5'].forEach(id => {
+  ['r-vuosi1', 'r-vuosi3', 'r-vuosi4', 'r-vuosi5'].forEach(id => {
     document.getElementById(id).textContent = vuosi;
   });
 
