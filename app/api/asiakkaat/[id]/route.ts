@@ -29,6 +29,11 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       sahkoposti: body.sahkoposti ?? null,
       puhelin: body.puhelin ?? null,
       alv_rekisterissa: body.alv_rekisterissa ?? false,
+      osoite: body.osoite ?? null,
+      postinumero: body.postinumero ?? null,
+      postitoimipaikka: body.postitoimipaikka ?? null,
+      verotiliviite: body.verotiliviite ?? null,
+      avoin_vuosi: body.avoin_vuosi ?? null,
     })
     .eq('id', params.id)
     .eq('organisaatio_id', kayttaja.organisaatio_id)

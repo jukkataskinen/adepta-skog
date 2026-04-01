@@ -23,7 +23,7 @@ export default async function AsiakasPage({ params }: Params) {
 
   const { data: asiakas } = await supabase
     .from('asiakkaat')
-    .select('id, etunimi, sukunimi, y_tunnus, kotikunta, sahkoposti, puhelin, alv_rekisterissa, luotu_at')
+    .select('id, etunimi, sukunimi, y_tunnus, kotikunta, sahkoposti, puhelin, alv_rekisterissa, luotu_at, osoite, postinumero, postitoimipaikka, verotiliviite, avoin_vuosi')
     .eq('id', params.id)
     .eq('organisaatio_id', kayttaja.organisaatio_id)
     .single()
@@ -79,8 +79,12 @@ export default async function AsiakasPage({ params }: Params) {
           <div style={{ border: '1px solid #2e4a32', borderRadius: '0.75rem', padding: '1.5rem', marginBottom: '2rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <Kentta label="Y-tunnus" arvo={asiakas.y_tunnus} />
             <Kentta label="Kotikunta" arvo={asiakas.kotikunta} />
+            <Kentta label="Osoite" arvo={asiakas.osoite} />
+            <Kentta label="Postinumero ja -toimipaikka" arvo={[asiakas.postinumero, asiakas.postitoimipaikka].filter(Boolean).join(' ') || null} />
             <Kentta label="Sähköposti" arvo={asiakas.sahkoposti} />
             <Kentta label="Puhelin" arvo={asiakas.puhelin} />
+            <Kentta label="Verotiliviite" arvo={asiakas.verotiliviite} />
+            <Kentta label="Avoin verovuosi" arvo={asiakas.avoin_vuosi ? String(asiakas.avoin_vuosi) : null} />
             <Kentta label="ALV-rekisteri" arvo={asiakas.alv_rekisterissa ? 'Kyllä' : 'Ei'} />
             <Kentta label="Lisätty" arvo={new Date(asiakas.luotu_at).toLocaleDateString('fi-FI')} />
           </div>
