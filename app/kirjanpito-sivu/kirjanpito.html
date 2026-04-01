@@ -841,8 +841,10 @@ function upd(i,f,v){
   if(f==='summa'||f==='alv'||f==='tyyppi'){rbru(i);totals();}
 }
 function fmtS(inp,i){
-  const n=pn(inp.value); rows[i].summa=n;
-  inp.value=n>0?fmt(n):''; setD(true); rbru(i); totals();
+  const n=pn(inp.value);
+  if(n<=0){ inp.value=''; inp.focus(); return; }
+  rows[i].summa=n;
+  inp.value=fmt(n); setD(true); rbru(i); totals();
   if(n>0 && KAT_PUUKAUPPA.includes(rows[i].kategoria)){
     setTimeout(()=>avaaEP(i),150);
   }
