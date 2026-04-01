@@ -102,6 +102,25 @@ body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:13p
 .mt-tiedot{font-size:12px;line-height:1.9;color:var(--inm)}
 .mt-tiedot strong{font-weight:500;color:var(--ink)}
 
+/* ── Kansilehti (tulostuva) ── */
+.rsivu-kansisivu{background:#1c2b1e;color:#fff;display:flex;flex-direction:column;padding:48px 52px;min-height:230mm}
+.kansi-logo{margin-bottom:auto;padding-bottom:40px}
+.kansi-paaots{font-family:var(--ffd);font-size:2.8rem;font-weight:300;color:#fff;margin-bottom:8px;line-height:1.1}
+.kansi-asiakas{font-family:var(--ffd);font-size:1.5rem;font-weight:300;color:rgba(255,255,255,.65);margin-bottom:36px}
+.kansi-kortti{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:20px 24px;display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px}
+.kansi-lohko-lbl{font-size:9px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:7px}
+.kansi-lohko-val{font-size:12px;color:rgba(255,255,255,.7);line-height:1.8}
+.kansi-footer{font-size:10px;color:rgba(255,255,255,.22);text-align:center;letter-spacing:.04em;margin-top:auto;padding-top:20px}
+
+/* ── Sisällysluettelo ── */
+.toc-lista{list-style:none;margin:0;padding:0}
+.toc-item{display:flex;gap:16px;padding:14px 0;border-bottom:1px solid var(--bd);align-items:flex-start}
+.toc-item:last-child{border-bottom:none}
+.toc-nro{font-family:var(--ffm);font-size:22px;color:var(--fg2);min-width:32px;line-height:1.1}
+.toc-teksti h4{font-size:13px;font-weight:500;color:var(--ink);margin-bottom:3px}
+.toc-teksti p{font-size:11px;color:var(--inu);line-height:1.5}
+.toc-meta{margin-top:28px;padding-top:16px;border-top:1px solid var(--bd);display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;color:var(--inu);line-height:1.8}
+
 /* ── Print CSS ── */
 @media print{
   @page{margin:18mm 14mm;size:A4}
@@ -113,6 +132,9 @@ body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:13p
   .raportti{display:block!important;padding:0}
   .rsivu{margin:0;padding:0;box-shadow:none;border:none;max-width:100%;page-break-before:always;page-break-after:always}
   .rsivu:first-child{page-break-before:avoid}
+  .rsivu-kansisivu{background:#1c2b1e!important;min-height:230mm;padding:40px 48px}
+  .kansi-lohko-val{color:rgba(255,255,255,.7)!important}
+  .kansi-kortti{background:rgba(255,255,255,.07)!important;border:1px solid rgba(255,255,255,.12)!important}
   .rsivu-otsikko{border-bottom:1.5pt solid #000;color:#444}
   .rtbl th{background:#1c2b1e!important;-webkit-print-color-adjust:exact}
   .rtbl tr.tulo td{background:#edf7f1!important;-webkit-print-color-adjust:exact}
@@ -177,6 +199,51 @@ body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:13p
 
     <!-- Raportti -->
     <div class="raportti" id="raportti">
+
+      <!-- KANSILEHTI -->
+      <div class="rsivu" id="sivu-kansi">
+        <div class="rsivu-kansisivu">
+          <div class="kansi-logo">
+            <svg width="160" height="32" viewBox="0 0 176 36" xmlns="http://www.w3.org/2000/svg">
+              <rect x="0" y="2" width="14" height="32" rx="2" fill="#5DCAA5"/>
+              <rect x="18" y="2" width="14" height="19" rx="2" fill="#1D9E75"/>
+              <rect x="18" y="24" width="14" height="10" rx="2" fill="#0F6E56"/>
+              <text x="40" y="19" font-family="Fraunces,Georgia,serif" font-weight="300" font-size="15" fill="#ffffff" dominant-baseline="middle" letter-spacing="0.2">Adepta</text>
+              <circle cx="96" cy="18" r="2.5" fill="#5DCAA5"/>
+              <text x="102" y="19" font-family="Fraunces,Georgia,serif" font-weight="500" font-style="italic" font-size="15" fill="#5DCAA5" dominant-baseline="middle" letter-spacing="0.2">SKOG</text>
+            </svg>
+          </div>
+          <div class="kansi-paaots">Veroraportti <span id="kansi-vuosi">—</span></div>
+          <div class="kansi-asiakas" id="kansi-asiakas">—</div>
+          <div class="kansi-kortti">
+            <div>
+              <div class="kansi-lohko-lbl">Asiakas</div>
+              <div class="kansi-lohko-val" id="kansi-ak-tiedot">—</div>
+            </div>
+            <div>
+              <div class="kansi-lohko-lbl">Laadittu</div>
+              <div class="kansi-lohko-val" id="kansi-laadittu">—</div>
+            </div>
+          </div>
+          <div class="kansi-footer">LUOTTAMUKSELLINEN — sisältää henkilö- ja taloustietoja</div>
+        </div>
+      </div>
+
+      <!-- SISÄLLYSLUETTELO -->
+      <div class="rsivu" id="sivu-toc">
+        <div class="rsivu-otsikko">Sisällysluettelo</div>
+        <ul class="toc-lista">
+          <li class="toc-item"><span class="toc-nro">1</span><div class="toc-teksti"><h4>Yhteenveto</h4><p>Asiakastiedot sekä verolaskelma: tulot, menot, poistot, pääomavero, ennakonpidätys ja ALV.</p></div></li>
+          <li class="toc-item"><span class="toc-nro">2</span><div class="toc-teksti"><h4>Maksutiedote</h4><p>Pääomavero ja ALV maksutiedot pankkiviitteineen, IBAN ja eräpäivät.</p></div></li>
+          <li class="toc-item"><span class="toc-nro">3</span><div class="toc-teksti"><h4>Tapahtumaluettelo</h4><p>Kaikki verovuoden tulot ja menot eriteltynä: päivämäärä, kuvaus, kategoria, ALV ja bruttosumma.</p></div></li>
+          <li class="toc-item"><span class="toc-nro">4</span><div class="toc-teksti"><h4>Investoinnit ja poistot</h4><p>Aktiiviset investoinnit poistolaskelmineen: tasapoisto ja menojäännöspoisto vuosierittäin.</p></div></li>
+          <li class="toc-item"><span class="toc-nro">5</span><div class="toc-teksti"><h4>Metsävähennyspohja</h4><p>Tilakohtainen metsävähennyspohja, käytetty osuus ja jäljellä oleva vähennysoikeus.</p></div></li>
+        </ul>
+        <div class="toc-meta">
+          <div id="toc-ak-tiedot">—</div>
+          <div id="toc-laadittu" style="text-align:right">—</div>
+        </div>
+      </div>
 
       <!-- SIVU 1: Yhteenveto -->
       <div class="rsivu" id="sivu1">
@@ -322,19 +389,41 @@ async function lataaData(asiakas_id) {
   });
 
   const asiakasNimi = (ak.etunimi || '') + ' ' + (ak.sukunimi || '');
+  const laadittu = new Date().toLocaleDateString('fi-FI');
+  const osoiteOsat = [ak.osoite, [ak.postinumero, ak.postitoimipaikka].filter(Boolean).join(' ')].filter(Boolean);
+  const akTiedotHtml =
+    '<strong>' + esc(asiakasNimi) + '</strong><br>' +
+    osoiteOsat.map(o => esc(o)).join('<br>') +
+    (ak.y_tunnus ? '<br>Y-tunnus: ' + esc(ak.y_tunnus) : '') +
+    (ak.verotiliviite ? '<br>Verotiliviite: ' + esc(ak.verotiliviite) : '');
 
-  // ── Kansilehti ──
+  // ── Screen kansilehti ──
   document.getElementById('cov-nimi').textContent = asiakasNimi;
   document.getElementById('cov-yr').textContent = 'Verovuosi ' + vuosi;
   document.getElementById('cov-meta').innerHTML =
-    'Tulostettu: ' + new Date().toLocaleDateString('fi-FI') + '<br>' +
+    'Tulostettu: ' + laadittu + '<br>' +
     (ak.y_tunnus ? 'Y-tunnus: ' + ak.y_tunnus + '<br>' : '') +
     (ak.verotiliviite ? 'Verotiliviite: ' + ak.verotiliviite : '');
   document.getElementById('cover').classList.add('vis');
 
+  // ── Sivu: Kansilehti (tulostuva) ──
+  document.getElementById('kansi-vuosi').textContent = vuosi;
+  document.getElementById('kansi-asiakas').textContent = asiakasNimi;
+  document.getElementById('kansi-ak-tiedot').innerHTML =
+    esc(asiakasNimi) + '<br>' +
+    osoiteOsat.map(o => esc(o)).join('<br>') +
+    (ak.y_tunnus ? '<br>Y-tunnus: ' + esc(ak.y_tunnus) : '') +
+    (ak.verotiliviite ? '<br>Verotiliviite: ' + esc(ak.verotiliviite) : '');
+  document.getElementById('kansi-laadittu').innerHTML =
+    'Adepta Oy<br>Laadittu: ' + laadittu;
+
+  // ── Sivu: Sisällysluettelo ──
+  document.getElementById('toc-ak-tiedot').innerHTML = akTiedotHtml;
+  document.getElementById('toc-laadittu').innerHTML =
+    'Adepta Oy<br>Laadittu: ' + laadittu + '<br>Verovuosi: ' + vuosi;
+
   // ── Sivu 1: Yhteenveto ──
   document.getElementById('r-nimi').textContent = asiakasNimi;
-  const osoiteOsat = [ak.osoite, [ak.postinumero, ak.postitoimipaikka].filter(Boolean).join(' ')].filter(Boolean);
   document.getElementById('r-osoite').innerHTML =
     osoiteOsat.map(o => esc(o)).join('<br>') +
     (ak.y_tunnus ? '<br>Y-tunnus: ' + esc(ak.y_tunnus) : '') +
