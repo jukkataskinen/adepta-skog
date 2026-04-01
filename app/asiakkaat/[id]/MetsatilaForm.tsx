@@ -39,6 +39,7 @@ export default function MetsatilaForm({ asiakasId }: { asiakasId: string }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!nimi.trim()) return
+    if (!hankintapvm) { setVirhe('Hankintapäivä on pakollinen'); return }
     setTallennetaan(true)
     setVirhe(null)
     try {
@@ -79,7 +80,7 @@ export default function MetsatilaForm({ asiakasId }: { asiakasId: string }) {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div><label style={labelStyle}>Hankintahinta (€)</label><input value={hankintahinta} onChange={e => setHankintahinta(e.target.value)} type="number" min="0" step="0.01" style={inputStyle} /></div>
-                <div><label style={labelStyle}>Hankintapäivä</label><input value={hankintapvm} onChange={e => setHankintapvm(e.target.value)} type="date" style={inputStyle} /></div>
+                <div><label style={labelStyle}>Hankintapäivä *</label><input value={hankintapvm} onChange={e => setHankintapvm(e.target.value)} type="date" required style={inputStyle} /></div>
               </div>
               {virhe && <p style={{ color: '#f87171', fontSize: '0.85rem', margin: 0 }}>{virhe}</p>}
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
