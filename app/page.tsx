@@ -62,7 +62,7 @@ export default async function Home() {
   const navItems = [
     {
       label: 'Asiakkaat',
-      href: '/demo/adepta_skog_asiakkaat.html',
+      href: '/asiakkaat',
       icon: '👥',
       desc: 'Hallinnoi asiakkaita ja tiloja',
     },
