@@ -103,6 +103,12 @@ export default async function Home() {
       desc: 'Tulostettava veroraportti',
     },
     {
+      label: 'Käyttäjät',
+      href: '/kayttajat',
+      icon: '👥',
+      desc: 'Organisaation käyttäjähallinta',
+    },
+    {
       label: 'Hallinta',
       href: '/hallinta',
       icon: '⚙️',
