@@ -74,7 +74,7 @@ export default async function Home() {
     },
     {
       label: 'Kirjanpito',
-      href: '/demo/adepta_skog_kirjanpito.html',
+      href: '/kirjanpito',
       icon: '📒',
       desc: 'Tulot, menot ja tiliotteet',
     },
