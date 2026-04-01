@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const { data: kayttaja } = await supabase!
     .from('kayttajat').select('organisaatio_id').eq('auth_sub', session.user.sub).single()
   const orgId = kayttaja?.organisaatio_id ?? ''
-  const htmlPath = path.join(process.cwd(), 'app', 'kirjanpito', 'kirjanpito.html')
+  const htmlPath = path.join(process.cwd(), 'app', 'kirjanpito-sivu', 'kirjanpito.html')
   let html = fs.readFileSync(htmlPath, 'utf-8')
   const configScript = `<script>
 window._SKOG = ${JSON.stringify({

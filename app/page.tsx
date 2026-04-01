@@ -74,7 +74,7 @@ export default async function Home() {
     },
     {
       label: 'Kirjanpito',
-      href: '/kirjanpito',
+      href: '/kirjanpito-sivu',
       icon: '📒',
       desc: 'Tulot, menot ja tiliotteet',
     },
