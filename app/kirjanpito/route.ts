@@ -15,11 +15,11 @@ export async function GET(request: NextRequest) {
   const htmlPath = path.join(process.cwd(), 'public', 'demo', 'adepta_skog_kirjanpito.html')
   let html = fs.readFileSync(htmlPath, 'utf-8')
   const configScript = `<script>
-window._SKOG = {
-  orgId: "${orgId}",
-  supabaseUrl: "${process.env.NEXT_PUBLIC_SUPABASE_URL}",
-  supabaseKey: "${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}"
-};
+window._SKOG = ${JSON.stringify({
+  orgId,
+  supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+  supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+})};
 </script>`
   html = html.replace('</head>', configScript + '</head>')
   return new NextResponse(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
