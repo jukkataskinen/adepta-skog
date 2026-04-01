@@ -86,7 +86,7 @@ export default async function Home() {
     },
     {
       label: 'Verosuunnitelma',
-      href: '/demo/adepta_skog_verosuunnitelma.html',
+      href: '/verosuunnitelma',
       icon: '📋',
       desc: 'Asiakkaan verosuunnitelma',
     },
