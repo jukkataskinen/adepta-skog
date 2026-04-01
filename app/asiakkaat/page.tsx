@@ -7,7 +7,8 @@ import AsiakasForm from './AsiakasForm'
 
 type Asiakas = {
   id: string
-  nimi: string
+  etunimi: string
+  sukunimi: string
   y_tunnus: string | null
   kotikunta: string | null
 }
@@ -37,9 +38,9 @@ export default async function AsiakkaatPage() {
   const { data: asiakkaat } = organisaatioId
     ? await supabase!
         .from('asiakkaat')
-        .select('id, nimi, y_tunnus, kotikunta')
+        .select('id, etunimi, sukunimi, y_tunnus, kotikunta')
         .eq('organisaatio_id', organisaatioId)
-        .order('nimi')
+        .order('sukunimi')
     : { data: [] }
 
   return (
@@ -140,7 +141,9 @@ export default async function AsiakkaatPage() {
                         backgroundColor: 'transparent',
                       }}
                     >
-                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.95rem', color: '#e8f0e9', fontWeight: 500 }}>{a.nimi}</td>
+                      <td style={{ padding: '0.85rem 1rem', fontSize: '0.95rem', color: '#e8f0e9', fontWeight: 500 }}>
+                        {a.etunimi} {a.sukunimi}
+                      </td>
                       <td style={{ padding: '0.85rem 1rem', fontSize: '0.9rem', color: '#9ab89e' }}>{a.y_tunnus ?? '—'}</td>
                       <td style={{ padding: '0.85rem 1rem', fontSize: '0.9rem', color: '#9ab89e' }}>{a.kotikunta ?? '—'}</td>
                     </tr>
