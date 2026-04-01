@@ -207,6 +207,7 @@ tr.ar td{height:36px;border-bottom:1px solid var(--bd)}
 .ep-ok:hover{opacity:.88}
 .ep-ok:focus{outline:2px solid var(--fl);outline-offset:2px}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div class="topbar">
@@ -330,15 +331,22 @@ tr.ar td{height:36px;border-bottom:1px solid var(--bd)}
 </div>
 
 <script>
-const ASIAKKAAT=[
-  {id:1,nimi:'Virtanen, Mikko',  tila:'Koivumäen tila'},
-  {id:2,nimi:'Mäkinen, Sirpa',   tila:'Havumetsän tila'},
-  {id:3,nimi:'Korhonen, Juhani', tila:'Leppärannan tila'},
-  {id:4,nimi:'Leinonen, Aino',   tila:'Mäntyniemen tila'},
-  {id:5,nimi:'Peltonen, Tapio',  tila:'Harjulan tila'},
-];
+let ASIAKKAAT = [];
+const _sb = supabase.createClient(
+  'SUPABASE_URL_PLACEHOLDER',
+  'SUPABASE_ANON_KEY_PLACEHOLDER'
+);
+async function lataaAsiakkaat() {
+  const { data } = await _sb.from('asiakkaat').select('id, etunimi, sukunimi, kotikunta').order('sukunimi');
+  if (data) {
+    ASIAKKAAT = data.map(a => ({ id: a.id, nimi: `${a.sukunimi}, ${a.etunimi}`, tila: a.kotikunta ?? '' }));
+    fAs = [...ASIAKKAAT];
+    renderAs();
+  }
+}
 const AVR=[0,10,14,25.5];
 let rows=[],nid=1,curAs=null,undo=[],dirty=false;
+const AVOIN_VUOSI = new Date().getFullYear();
 const NC=6;
 let epPendingIdx=null; // rivi-indeksi jolle EP-kysely on auki
 
@@ -645,8 +653,32 @@ function selAs(id){
   document.getElementById('bc-as').textContent=curAs.nimi;
   document.getElementById('asrch').value='';
   fAs=[...ASIAKKAAT]; asHL=-1; renderAs();
-  if(!rows.length) demoData();
+  lataaRivit(id);
   render(); setTimeout(()=>focusC(0,0),80);
+}
+async function lataaRivit(asiakas_id) {
+  const vuosi = AVOIN_VUOSI;
+  const { data } = await _sb.from('tapahtumat')
+    .select('id, tyyppi, kuvaus, paivamaara, summa_alv0, alv_prosentti, kategoria, ennakko')
+    .eq('asiakas_id', asiakas_id)
+    .eq('verovuosi', vuosi)
+    .order('paivamaara');
+  if (data && data.length > 0) {
+    rows = data.map(d => ({
+      id: nid++,
+      pvm: d.paivamaara?.slice(0,10) ?? '',
+      kuvaus: d.kuvaus,
+      tyyppi: d.tyyppi,
+      summa: Math.round(Number(d.summa_alv0) * (1 + Number(d.alv_prosentti)/100) * 100) / 100,
+      alv: Number(d.alv_prosentti),
+      ennakko: Number(d.ennakko ?? 0),
+      kategoria: d.kategoria ?? ''
+    }));
+  } else {
+    rows = [];
+  }
+  render();
+  setTimeout(()=>focusC(0,0),80);
 }
 function demoData(){
   rows=[
@@ -959,13 +991,23 @@ document.addEventListener('keydown',e=>{
 });
 
 function setD(v){dirty=v;document.getElementById('save-btn').disabled=!v||!curAs;}
-function tallenna(){
+async function tallenna(){
   if(!curAs||!dirty)return;
-  setTimeout(()=>{
-    setD(false);
-    document.getElementById('modal-p').textContent=`${rows.length} tapahtumaa tallennettu asiakkaalle ${curAs.nimi}.`;
-    document.getElementById('modal').classList.add('op');
-  },150);
+  const rivit = rows.map(r => ({
+    paivamaara: r.pvm,
+    kuvaus: r.kuvaus,
+    tyyppi: r.tyyppi,
+    summa_alv0: Math.round(r.summa / (1 + r.alv/100) * 100) / 100,
+    alv_prosentti: r.alv,
+    kategoria: r.kategoria ?? null,
+    ennakko: r.ennakko ?? 0,
+    asiakas_id: curAs.id,
+  }));
+  await _sb.from('tapahtumat').delete().eq('asiakas_id', curAs.id).eq('verovuosi', AVOIN_VUOSI);
+  if (rivit.length > 0) await _sb.from('tapahtumat').insert(rivit);
+  setD(false);
+  document.getElementById('modal-p').textContent=`${rows.length} tapahtumaa tallennettu asiakkaalle ${curAs.nimi}.`;
+  document.getElementById('modal').classList.add('op');
 }
 function closeModal(){
   document.getElementById('modal').classList.remove('op');
@@ -984,7 +1026,7 @@ function toast(msg){
 function showUH(s){document.getElementById('uh').classList.toggle('vis',s);}
 function tulostaRaportti(){toast('PDF-tulostus avataan…');}
 
-renderAs(); render();
+lataaAsiakkaat(); render();
 </script>
 
 
