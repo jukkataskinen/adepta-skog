@@ -282,7 +282,8 @@ body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:13p
 
       <!-- SIVU 4: Investoinnit -->
       <div class="rsivu" id="sivu4">
-        <div class="rsivu-otsikko">Investoinnit ja poistot · Verovuosi <span id="r-vuosi4">—</span></div>
+        <div class="rsivu-otsikko">Poistosuunnitelma (tuleva) · Verovuosi <span id="r-vuosi4">—</span></div>
+        <p style="font-size:11px;color:var(--inu);margin:0 0 1rem">Toteutuneet poistot tallentuvat kun vuosi suljetaan verosuunnittelun kautta.</p>
         <div id="r-investoinnit"></div>
       </div>
 
@@ -517,30 +518,21 @@ async function lataaData(asiakas_id) {
       if (r.tyyppi === 'tulo') { sumAlv0T += a0; sumAlvT += alvE; sumBruttoT += brutto; }
       else { sumAlv0M += a0; sumAlvM += alvE; sumBruttoM += brutto; }
     });
-    html3 +=
-      '<tr class="yht"><td colspan="3">Tulot yhteensä</td>' +
-      '<td class="num">' + sumAlv0T.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-      '<td class="num"></td>' +
-      '<td class="num">' + sumAlvT.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-      '<td class="num">' + sumBruttoT.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td><td></td></tr>' +
-      '<tr class="yht"><td colspan="3">Menot yhteensä</td>' +
-      '<td class="num">' + sumAlv0M.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-      '<td class="num"></td>' +
-      '<td class="num">' + sumAlvM.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-      '<td class="num">' + sumBruttoM.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td><td></td></tr>' +
-      '</tbody></table>';
+    html3 += '</tbody></table>';
     document.getElementById('r-tapahtumat').innerHTML = html3;
   }
 
   // ── Tulosraportti ──
-  const tuloKat = {}, menoKat = {};
+  const tuloKat = {}, menoKat = {}, invKat = {};
   rows.forEach(r => {
     const kat = r.kategoria || '(ei kategoriaa)';
     const a0 = Number(r.summa_alv0 || 0);
     if (r.tyyppi === 'tulo') tuloKat[kat] = (tuloKat[kat] || 0) + a0;
+    else if (r.tyyppi === 'investointi') invKat[kat] = (invKat[kat] || 0) + a0;
     else menoKat[kat] = (menoKat[kat] || 0) + a0;
   });
   const tulosYht = tulot - menot;
+  const invYht = Object.values(invKat).reduce((s, v) => s + v, 0);
   let htmlTulos =
     '<table class="rtbl"><thead><tr>' +
     '<th>Kategoria</th><th class="num">Alv 0% yhteensä</th>' +
@@ -558,8 +550,18 @@ async function lataaData(asiakas_id) {
   });
   htmlTulos +=
     '<tr class="yht"><td>MENOT YHTEENSÄ</td><td class="num">' + menot.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td></tr>' +
-    '<tr class="tulos-yht ' + (tulosYht >= 0 ? 'pos' : 'neg') + '"><td>TULOS</td><td class="num">' + fmt(tulosYht) + '</td></tr>' +
-    '</tbody></table>';
+    '<tr class="tulos-yht ' + (tulosYht >= 0 ? 'pos' : 'neg') + '"><td>TULOS</td><td class="num">' + fmt(tulosYht) + '</td></tr>';
+  if (invYht > 0) {
+    htmlTulos +=
+      '<tr style="height:12px"><td colspan="2" style="border:none"></td></tr>' +
+      '<tr class="katgroup"><td colspan="2">INVESTOINNIT</td></tr>';
+    Object.entries(invKat).sort((a, b) => b[1] - a[1]).forEach(([kat, sum]) => {
+      htmlTulos += '<tr class="meno"><td>' + esc(kat) + '</td><td class="num">' + sum.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td></tr>';
+    });
+    htmlTulos +=
+      '<tr class="yht"><td>INVESTOINNIT YHTEENSÄ</td><td class="num">' + invYht.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td></tr>';
+  }
+  htmlTulos += '</tbody></table>';
   document.getElementById('r-tulos').innerHTML = htmlTulos;
 
   // ── Sivu 4: Investoinnit ──
