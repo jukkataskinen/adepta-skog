@@ -105,7 +105,8 @@ body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:13p
 /* ── Print CSS ── */
 @media print{
   @page{margin:18mm 14mm;size:A4}
-  body{font-family:Arial,Helvetica,sans-serif;font-size:11pt;color:#000;background:#fff;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+  body{font-family:Arial,Helvetica,sans-serif;font-size:11pt;color:#000;background:#fff}
   .topbar,.sb,.cover,.es{display:none!important}
   .layout{display:block;height:auto}
   .main{overflow:visible;background:#fff}
