@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Supabase ei konfiguroitu' }, { status: 500 });
   }
 
+  // Hae käyttäjän organisaatio_id Supabasesta
   const { data: kayttaja, error: kErr } = await supabase
     .from('kayttajat')
     .select('organisaatio_id')
@@ -33,6 +34,7 @@ export async function GET(request: NextRequest) {
     .order('sukunimi', { ascending: true });
 
   if (error) {
+    console.error('Supabase error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -63,30 +65,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Käyttäjää ei löydy' }, { status: 404 });
   }
 
-  // Lomake lähettää "nimi" — jaetaan etunimi + sukunimi
-  // "Matti Meikäläinen" → etunimi: "Matti", sukunimi: "Meikäläinen"
-  // "Matti Olavi Meikäläinen" → etunimi: "Matti Olavi", sukunimi: "Meikäläinen"
-  const nimiOsat = (body.nimi ?? '').trim().split(' ');
-  const sukunimi = nimiOsat.length > 1 ? nimiOsat[nimiOsat.length - 1] : nimiOsat[0];
-  const etunimi  = nimiOsat.length > 1 ? nimiOsat.slice(0, -1).join(' ') : '';
-
   const { data, error } = await supabase
     .from('asiakkaat')
     .insert({
       organisaatio_id: kayttaja.organisaatio_id,
-      etunimi:         etunimi,
-      sukunimi:        sukunimi,
-      sahkoposti:      body.sahkoposti ?? null,
-      puhelin:         body.puhelin ?? null,
+      etunimi: body.etunimi,
+      sukunimi: body.sukunimi,
+      sahkoposti: body.sahkoposti ?? null,
       alv_rekisterissa: body.alv_rekisterissa ?? false,
-      // y_tunnus ja kotikunta tallentuvat jos sarakkeet on lisätty
-      ...(body.y_tunnus  ? { y_tunnus:  body.y_tunnus }  : {}),
-      ...(body.kotikunta ? { kotikunta: body.kotikunta } : {}),
     })
     .select()
     .single();
 
   if (error) {
+    console.error('Supabase error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
