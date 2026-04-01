@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     .from('organisaatiot').select('avoin_vuosi').eq('id', orgId).single()
   const avoinVuosi = org?.avoin_vuosi ?? 2025
 
-  const htmlPath = path.join(process.cwd(), 'app', 'alv-raportti', 'alv-raportti.html')
+  const htmlPath = path.join(process.cwd(), 'app', 'alv', 'alv-raportti.html')
   let html = fs.readFileSync(htmlPath, 'utf-8')
   const configScript = `<script>
 window._SKOG = ${JSON.stringify({
