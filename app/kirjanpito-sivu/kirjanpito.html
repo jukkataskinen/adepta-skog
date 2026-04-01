@@ -990,7 +990,7 @@ function setD(v){dirty=v;document.getElementById('save-btn').disabled=!v||!curAs
 async function tallenna(){
   if(!curAs||!dirty)return;
   document.getElementById('save-btn').disabled=true;
-  const rivit = rows.map(r => ({
+  const rivit = rows.filter(r=>r.pvm&&r.kuvaus).map(r => ({
     asiakas_id: curAs.id,
     paivamaara: r.pvm,
     kuvaus: r.kuvaus,
@@ -1000,11 +1000,20 @@ async function tallenna(){
     kategoria: r.kategoria ?? null,
     ennakko: r.ennakko ?? 0,
   }));
-  await _sb.from('tapahtumat').delete().eq('asiakas_id', curAs.id).eq('verovuosi', AVOIN_VUOSI);
-  if (rivit.length > 0) await _sb.from('tapahtumat').insert(rivit);
-  setD(false);
-  document.getElementById('modal-p').textContent=rows.length+' tapahtumaa tallennettu asiakkaalle '+curAs.nimi+'.';
-  document.getElementById('modal').classList.add('op');
+  try {
+    const { error: delErr } = await _sb.from('tapahtumat').delete().eq('asiakas_id', curAs.id).eq('verovuosi', AVOIN_VUOSI);
+    if(delErr) throw delErr;
+    if(rivit.length > 0){
+      const { error: insErr } = await _sb.from('tapahtumat').insert(rivit);
+      if(insErr) throw insErr;
+    }
+    setD(false);
+    document.getElementById('modal-p').textContent=rows.length+' tapahtumaa tallennettu asiakkaalle '+curAs.nimi+'.';
+    document.getElementById('modal').classList.add('op');
+  } catch(e) {
+    alert('Tallennusvirhe: '+(e.message||e));
+    document.getElementById('save-btn').disabled=false;
+  }
 }
 function closeModal(){
   document.getElementById('modal').classList.remove('op');
