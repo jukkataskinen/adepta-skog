@@ -4,6 +4,7 @@ import { auth0 } from '@/lib/auth0'
 import { supabase } from '@/lib/supabase'
 import { redirect, notFound } from 'next/navigation'
 import MuokkausForm from './MuokkausForm'
+import MetsatilaForm from './MetsatilaForm'
 
 type Params = { params: { id: string } }
 
@@ -81,7 +82,10 @@ export default async function AsiakasPage({ params }: Params) {
             <Kentta label="ALV-rekisteri" arvo={asiakas.alv_rekisterissa ? 'Kyllä' : 'Ei'} />
             <Kentta label="Lisätty" arvo={new Date(asiakas.luotu_at).toLocaleDateString('fi-FI')} />
           </div>
-          <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.2rem', fontWeight: 300, color: '#e8f0e9', margin: '0 0 1rem' }}>Metsätilat</h2>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.2rem', fontWeight: 300, color: '#e8f0e9', margin: 0 }}>Metsätilat</h2>
+            <MetsatilaForm asiakasId={params.id} />
+          </div>
           {!metsatilat || metsatilat.length === 0 ? (
             <p style={{ color: '#7a9e7e', fontSize: '0.9rem', marginBottom: '2rem' }}>Ei metsätiloja.</p>
           ) : (
