@@ -166,7 +166,7 @@ export default async function Home() {
         gap: '1.25rem',
       }}>
         {navItems.map((item) => (
-          <a key={item.href} href={item.href} className="skog-card" target="_blank" rel="noopener noreferrer">
+          <a key={item.href} href={item.href} className="skog-card">
             <span style={{ fontSize: '1.75rem', display: 'block', marginBottom: '0.75rem' }}>{item.icon}</span>
             <strong style={{
               fontFamily: "'Fraunces', serif",
