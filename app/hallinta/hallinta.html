@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Adepta SKOG — Hallinta</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --fd:#1c2b1e;--fg:#5DCAA5;--fg2:#1D9E75;--fg3:#0F6E56;
+  --ink:#1a1c18;--inm:#3d4039;--inu:#7a7d72;--inf:#c4c2b8;
+  --pp:#fafaf7;--ppw:#f5f3ee;--bd:#dddbd4;
+  --ffd:'Fraunces',Georgia,serif;--ffb:'DM Sans',sans-serif;--ffm:'DM Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:14px;min-height:100vh;display:flex}
+
+.sidebar{width:220px;flex-shrink:0;background:var(--fd);display:flex;flex-direction:column;height:100vh;position:sticky;top:0}
+.logo{font-family:var(--ffd);font-size:1.2rem;font-weight:600;color:var(--fg2);padding:1.5rem 1.25rem 1rem;display:block;text-decoration:none}
+.nav-links{display:flex;flex-direction:column}
+.nav-links a{padding:0.6rem 1.25rem;font-size:0.9rem;color:#9ab89e;text-decoration:none;border-left:2px solid transparent}
+.nav-links a.act{color:var(--fg2);border-left-color:var(--fg2);font-weight:500}
+.sidebar-footer{margin-top:auto;padding:1rem 1.25rem;border-top:1px solid #2e4a32}
+.sidebar-footer a{font-size:0.8rem;color:#7a9e7e;text-decoration:none}
+
+main{flex:1;padding:2.5rem 2rem;overflow-y:auto}
+.inner{max-width:640px}
+
+.breadcrumb{font-size:0.85rem;color:#7a9e7e;margin-bottom:1.5rem}
+.breadcrumb a{color:var(--fg2);text-decoration:none}
+.page-label{font-family:var(--ffd);font-size:0.8rem;color:var(--fg2);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.4rem}
+h1{font-family:var(--ffd);font-size:2rem;font-weight:300;color:#1a1c18;margin-bottom:2rem}
+
+.card{background:var(--pp);border:1px solid var(--bd);border-radius:0.75rem;padding:1.75rem;margin-bottom:1.5rem}
+.card-title{font-size:0.75rem;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--inu);margin-bottom:1.25rem;padding-bottom:0.75rem;border-bottom:1px solid var(--bd)}
+
+.field{margin-bottom:1.25rem}
+.field label{display:block;font-size:0.8rem;color:var(--inu);margin-bottom:0.4rem}
+.field select{width:100%;max-width:200px;padding:0.5rem 0.75rem;font-family:var(--ffb);font-size:0.95rem;border:1px solid var(--bd);border-radius:0.4rem;background:var(--pp);color:var(--ink);outline:none;cursor:pointer}
+.field select:focus{border-color:var(--fg2)}
+
+.current-year{font-family:var(--ffm);font-size:1.5rem;font-weight:500;color:var(--fg2);margin-bottom:1rem}
+.current-label{font-size:0.8rem;color:var(--inu);margin-bottom:0.25rem}
+
+.btn-save{padding:0.6rem 1.5rem;background:var(--fg2);color:#fff;border:none;border-radius:0.4rem;font-family:var(--ffb);font-size:0.9rem;font-weight:500;cursor:pointer;transition:opacity .15s}
+.btn-save:hover{opacity:0.88}
+.btn-save:disabled{opacity:0.5;cursor:not-allowed}
+
+.msg{margin-top:1rem;padding:0.65rem 1rem;border-radius:0.4rem;font-size:0.875rem;display:none}
+.msg.ok{background:#e8f5f0;border:1px solid #b0ddc8;color:var(--fg3);display:block}
+.msg.err{background:#fdf0f0;border:1px solid #e0b0b0;color:#8b2020;display:block}
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <a href="/" class="logo">Adepta SKOG</a>
+  <div class="nav-links">
+    <a href="/asiakkaat">Asiakkaat</a>
+    <a href="/kirjanpito">Kirjanpito</a>
+    <a href="/alv">ALV-raportti</a>
+    <a href="/vero-optimointi">Verosuunnitelma</a>
+    <a href="/kayttajat">Käyttäjät</a>
+    <a href="/hallinta" class="act">Hallinta</a>
+  </div>
+  <div class="sidebar-footer">
+    <a href="/auth/logout?returnTo=https://skog.adepta.fi">Kirjaudu ulos</a>
+  </div>
+</nav>
+
+<main>
+  <div class="inner">
+    <p class="breadcrumb"><a href="/">Etusivu</a> / Hallinta</p>
+    <div class="page-label">Hallinta</div>
+    <h1>Organisaation asetukset</h1>
+
+    <div class="card">
+      <div class="card-title">Avoin verovuosi</div>
+      <div class="current-label">Nykyinen avoin vuosi</div>
+      <div class="current-year" id="current-year">—</div>
+      <div class="field">
+        <label for="vuosi-select">Vaihda avoimeksi vuodeksi</label>
+        <select id="vuosi-select">
+          <option value="2023">2023</option>
+          <option value="2024">2024</option>
+          <option value="2025">2025</option>
+          <option value="2026">2026</option>
+          <option value="2027">2027</option>
+        </select>
+      </div>
+      <button class="btn-save" id="save-btn" onclick="tallenna()">Tallenna</button>
+      <div class="msg" id="msg"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+const AVOIN_VUOSI = window._SKOG.avoinVuosi;
+
+document.getElementById('current-year').textContent = AVOIN_VUOSI;
+document.getElementById('vuosi-select').value = String(AVOIN_VUOSI);
+
+async function tallenna() {
+  const vuosi = parseInt(document.getElementById('vuosi-select').value);
+  const btn = document.getElementById('save-btn');
+  const msg = document.getElementById('msg');
+  btn.disabled = true;
+  msg.className = 'msg';
+  msg.textContent = '';
+  try {
+    const res = await fetch('/api/hallinta/avoin-vuosi', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vuosi }),
+    });
+    const json = await res.json();
+    if (res.ok) {
+      document.getElementById('current-year').textContent = vuosi;
+      msg.className = 'msg ok';
+      msg.textContent = 'Avoin vuosi vaihdettu: ' + vuosi;
+    } else {
+      msg.className = 'msg err';
+      msg.textContent = json.error || 'Tallennus epäonnistui';
+    }
+  } catch(e) {
+    msg.className = 'msg err';
+    msg.textContent = 'Verkkovirhe, yritä uudelleen';
+  }
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>

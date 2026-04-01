@@ -96,6 +96,12 @@ export default async function Home() {
       icon: '📷',
       desc: 'Skannaa ja tallenna kuitit',
     },
+    {
+      label: 'Hallinta',
+      href: '/hallinta',
+      icon: '⚙️',
+      desc: 'Organisaation asetukset',
+    },
   ]
 
   return (
