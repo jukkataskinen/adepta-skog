@@ -573,6 +573,9 @@ async function lataaData(asiakas_id) {
       .in('investointi_id', invR.map(i => i.id))
       .order('verovuosi', { ascending: true });
 
+    console.log('invR:', invR);
+    console.log('totPoistot:', totPoistot);
+
     let html4 = '';
     invR.forEach(inv => {
       const hinta = Number(inv.hankintahinta || 0);
