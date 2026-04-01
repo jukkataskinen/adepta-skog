@@ -331,17 +331,16 @@ tr.ar td{height:36px;border-bottom:1px solid var(--bd)}
 </div>
 
 <script>
+const _sb = supabase.createClient(window._SKOG.supabaseUrl, window._SKOG.supabaseKey);
 let ASIAKKAAT = [];
-const _sb = supabase.createClient(
-  'SUPABASE_URL_PLACEHOLDER',
-  'SUPABASE_ANON_KEY_PLACEHOLDER'
-);
 async function lataaAsiakkaat() {
-  const { data } = await _sb.from('asiakkaat').select('id, etunimi, sukunimi, kotikunta').order('sukunimi');
+  const { data } = await _sb.from('asiakkaat')
+    .select('id, etunimi, sukunimi, kotikunta')
+    .eq('organisaatio_id', window._SKOG.orgId)
+    .order('sukunimi');
   if (data) {
     ASIAKKAAT = data.map(a => ({ id: a.id, nimi: `${a.sukunimi}, ${a.etunimi}`, tila: a.kotikunta ?? '' }));
-    fAs = [...ASIAKKAAT];
-    renderAs();
+    fAs = [...ASIAKKAAT]; renderAs();
   }
 }
 const AVR=[0,10,14,25.5];
@@ -654,14 +653,12 @@ function selAs(id){
   document.getElementById('asrch').value='';
   fAs=[...ASIAKKAAT]; asHL=-1; renderAs();
   lataaRivit(id);
-  render(); setTimeout(()=>focusC(0,0),80);
 }
 async function lataaRivit(asiakas_id) {
-  const vuosi = AVOIN_VUOSI;
   const { data } = await _sb.from('tapahtumat')
     .select('id, tyyppi, kuvaus, paivamaara, summa_alv0, alv_prosentti, kategoria, ennakko')
     .eq('asiakas_id', asiakas_id)
-    .eq('verovuosi', vuosi)
+    .eq('verovuosi', AVOIN_VUOSI)
     .order('paivamaara');
   if (data && data.length > 0) {
     rows = data.map(d => ({
@@ -677,8 +674,7 @@ async function lataaRivit(asiakas_id) {
   } else {
     rows = [];
   }
-  render();
-  setTimeout(()=>focusC(0,0),80);
+  render(); setTimeout(()=>focusC(0,0),80);
 }
 function demoData(){
   rows=[
@@ -993,7 +989,9 @@ document.addEventListener('keydown',e=>{
 function setD(v){dirty=v;document.getElementById('save-btn').disabled=!v||!curAs;}
 async function tallenna(){
   if(!curAs||!dirty)return;
+  document.getElementById('save-btn').disabled=true;
   const rivit = rows.map(r => ({
+    asiakas_id: curAs.id,
     paivamaara: r.pvm,
     kuvaus: r.kuvaus,
     tyyppi: r.tyyppi,
@@ -1001,7 +999,6 @@ async function tallenna(){
     alv_prosentti: r.alv,
     kategoria: r.kategoria ?? null,
     ennakko: r.ennakko ?? 0,
-    asiakas_id: curAs.id,
   }));
   await _sb.from('tapahtumat').delete().eq('asiakas_id', curAs.id).eq('verovuosi', AVOIN_VUOSI);
   if (rivit.length > 0) await _sb.from('tapahtumat').insert(rivit);
