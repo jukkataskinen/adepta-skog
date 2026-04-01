@@ -349,7 +349,7 @@ async function lataaData(asiakas_id) {
       .select('tyyppi, kuvaus, paivamaara, summa_alv0, alv_prosentti, ennakko, kategoria')
       .eq('asiakas_id', asiakas_id).eq('verovuosi', vuosi).order('paivamaara'),
     _sb.from('metsatilat')
-      .select('nimi, pinta_ala_ha, hankintahinta, metsämaan_osuus_prosentti, vahennyspohjaa_kaytetty')
+      .select('id, nimi, pinta_ala_ha, hankintahinta, metsämaan_osuus_prosentti, vahennyspohjaa_kaytetty')
       .eq('asiakas_id', asiakas_id),
     _sb.from('investoinnit')
       .select('id, kuvaus, hankintahinta, poistoaika_vuotta, poistotapa, jaannosarvo, aktiivinen')
@@ -616,35 +616,51 @@ async function lataaData(asiakas_id) {
   if (tilatR.length === 0) {
     document.getElementById('r-metsa').innerHTML = '<p style="color:var(--inu);font-size:12px">Ei metsätiloja.</p>';
   } else {
-    let html5 =
-      '<table class="rtbl"><thead><tr>' +
-      '<th>Tila</th><th class="num">Ha</th><th class="num">Hankintahinta</th>' +
-      '<th class="num">Pohja (60% × mmO%)</th><th class="num">Käytetty</th><th class="num">Käyttämättä</th>' +
-      '</tr></thead><tbody>';
-    let sumPohja = 0, sumKaytetty = 0, sumJaljella = 0;
+    const { data: totVahennykset } = await _sb.from('metsavahennykset')
+      .select('metsatila_id, verovuosi, kaytettava_vahennys')
+      .in('metsatila_id', tilatR.map(t => t.id))
+      .order('verovuosi', { ascending: true });
+
+    let html5 = '';
     tilatR.forEach(t => {
       const hinta = Number(t.hankintahinta || 0);
-      const mmO = Number(t.metsämaan_osuus_prosentti || 60) / 100;
-      const pohja = hinta * mmO * 0.60;
-      const kaytetty = Number(t.vahennyspohjaa_kaytetty || 0);
-      const jaljella = Math.max(0, pohja - kaytetty);
-      sumPohja += pohja; sumKaytetty += kaytetty; sumJaljella += jaljella;
+      const ha = t.pinta_ala_ha != null ? Number(t.pinta_ala_ha).toLocaleString('fi-FI', { minimumFractionDigits: 2 }) : '—';
+      const rivit = (totVahennykset || []).filter(v => v.metsatila_id === t.id);
+
       html5 +=
-        '<tr><td>' + esc(t.nimi || '') + '</td>' +
-        '<td class="num">' + (t.pinta_ala_ha != null ? Number(t.pinta_ala_ha).toLocaleString('fi-FI', { minimumFractionDigits: 2 }) : '—') + '</td>' +
-        '<td class="num">' + hinta.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-        '<td class="num">' + pohja.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-        '<td class="num">' + kaytetty.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-        '<td class="num">' + jaljella.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-        '</tr>';
+        '<table class="rtbl" style="margin-bottom:16px"><thead>' +
+        '<tr style="background:#1a3320">' +
+        '<th style="font-size:13px;font-weight:600;color:#e8f0e9;padding:10px 1rem">' + esc(t.nimi || '') + '</th>' +
+        '<th class="num" style="color:#9ab89e;font-weight:400;padding:10px 1rem">' + ha + ' ha</th>' +
+        '<th class="num" style="color:#9ab89e;font-weight:400;padding:10px 1rem">' + hinta.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + ' €</th>' +
+        '</tr>' +
+        '<tr style="background:#162318">' +
+        '<th style="color:#7a9e7e;font-weight:500">Vuosi</th>' +
+        '<th class="num" style="color:#7a9e7e;font-weight:500">Käytetty vähennys</th>' +
+        '<th class="num" style="color:#7a9e7e;font-weight:500">Käyttämättä jäänyt pohja</th>' +
+        '</tr>' +
+        '</thead><tbody>';
+
+      if (rivit.length === 0) {
+        html5 += '<tr><td colspan="3" style="color:var(--inu);font-size:11px;padding:10px">Ei toteutuneita vähennyksiä — vahvista verosuunnitelma</td></tr>';
+      } else {
+        const mmO = Number(t.metsämaan_osuus_prosentti || 60) / 100;
+        const pohja = hinta * mmO * 0.60;
+        let kaytettyYht = 0;
+        rivit.forEach(v => {
+          kaytettyYht += Number(v.kaytettava_vahennys || 0);
+          const jaljella = Math.max(0, pohja - kaytettyYht);
+          html5 +=
+            '<tr>' +
+            '<td>' + v.verovuosi + '</td>' +
+            '<td class="num">' + Number(v.kaytettava_vahennys || 0).toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
+            '<td class="num">' + jaljella.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
+            '</tr>';
+        });
+      }
+
+      html5 += '</tbody></table>';
     });
-    html5 +=
-      '<tr class="yht"><td colspan="3">Yhteensä</td>' +
-      '<td class="num">' + sumPohja.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-      '<td class="num">' + sumKaytetty.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-      '<td class="num">' + sumJaljella.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-      '</tr></tbody></table>' +
-      '<p style="margin-top:12px;font-size:11px;color:var(--inu)">Pohja = hankintahinta × metsämaan osuus% × 60 %. Käyttämättömän pohjan voi hyödyntää tulevina verovuosina.</p>';
     document.getElementById('r-metsa').innerHTML = html5;
   }
 
