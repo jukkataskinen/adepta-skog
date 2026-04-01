@@ -9,33 +9,43 @@ export default async function Home() {
   const user = session?.user
 
   if (user && supabase) {
-    // 1. Tarkista onko käyttäjällä jo organisaatio
-    const { data: olemassaOleva } = await supabase
+    // 1. Tarkista onko käyttäjä jo olemassa — hae organisaatio_id sieltä
+    const { data: olemassaOlevaKayttaja } = await supabase
       .from('kayttajat')
       .select('organisaatio_id')
       .eq('auth_sub', user.sub)
       .single()
 
-    let organisaatioId = olemassaOleva?.organisaatio_id ?? null
+    let organisaatioId = olemassaOlevaKayttaja?.organisaatio_id ?? null
 
-    // 2. Jos ei ole, luo uusi organisaatio
     if (!organisaatioId) {
-      const { data: uusiOrg, error: orgError } = await supabase
+      // 2. Tarkista onko saman emailin organisaatio jo olemassa
+      const { data: olemassaOlevaOrg } = await supabase
         .from('organisaatiot')
-        .insert({ nimi: user.email })
         .select('id')
+        .eq('nimi', user.email)
         .single()
 
-      if (orgError) {
-        console.error('[Supabase organisaatio insert error]', orgError)
+      if (olemassaOlevaOrg?.id) {
+        organisaatioId = olemassaOlevaOrg.id
       } else {
-        organisaatioId = uusiOrg.id
-        console.log('[Supabase organisaatio luotu]', uusiOrg)
+        // 3. Luo uusi organisaatio vasta jos ei löydy
+        const { data: uusiOrg, error: orgError } = await supabase
+          .from('organisaatiot')
+          .insert({ nimi: user.email })
+          .select('id')
+          .single()
+
+        if (orgError) {
+          console.error('[Supabase organisaatio insert error]', orgError)
+        } else {
+          organisaatioId = uusiOrg.id
+        }
       }
     }
 
-    // 3. Upsert käyttäjä organisaatio_id:llä
-    const { data, error } = await supabase.from('kayttajat').upsert(
+    // 4. Upsert käyttäjä aina organisaatio_id:llä
+    const { error } = await supabase.from('kayttajat').upsert(
       {
         auth_sub: user.sub,
         sahkoposti: user.email,
@@ -46,8 +56,6 @@ export default async function Home() {
     )
     if (error) {
       console.error('[Supabase upsert error]', error)
-    } else {
-      console.log('[Supabase upsert ok]', data)
     }
   }
 
