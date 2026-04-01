@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 import { auth0 } from '@/lib/auth0'
 import { supabase } from '@/lib/supabase'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import AsiakasForm from './AsiakasForm'
 
 type Asiakas = {
@@ -121,7 +122,7 @@ export default async function AsiakkaatPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#162318', borderBottom: '1px solid #2e4a32' }}>
-                    {['Nimi', 'Y-tunnus', 'Kotikunta'].map((h) => (
+                    {['Nimi', 'Y-tunnus', 'Kotikunta', ''].map((h) => (
                       <th key={h} style={{
                         padding: '0.75rem 1rem', textAlign: 'left',
                         fontSize: '0.75rem', color: '#7a9e7e',
@@ -142,10 +143,17 @@ export default async function AsiakkaatPage() {
                       }}
                     >
                       <td style={{ padding: '0.85rem 1rem', fontSize: '0.95rem', color: '#e8f0e9', fontWeight: 500 }}>
-                        {a.etunimi} {a.sukunimi}
+                        <Link href={`/asiakkaat/${a.id}`} style={{ color: '#e8f0e9', textDecoration: 'none' }}>
+                          {a.etunimi} {a.sukunimi}
+                        </Link>
                       </td>
                       <td style={{ padding: '0.85rem 1rem', fontSize: '0.9rem', color: '#9ab89e' }}>{a.y_tunnus ?? '—'}</td>
                       <td style={{ padding: '0.85rem 1rem', fontSize: '0.9rem', color: '#9ab89e' }}>{a.kotikunta ?? '—'}</td>
+                      <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}>
+                        <Link href={`/asiakkaat/${a.id}`} style={{ fontSize: '0.85rem', color: '#1D9E75', textDecoration: 'none' }}>
+                          Avaa →
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
