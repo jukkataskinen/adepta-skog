@@ -22,5 +22,6 @@ window._SKOG = ${JSON.stringify({
 })};
 </script>`
   html = html.replace('</head>', configScript + '</head>')
+  console.log('CONFIG SCRIPT:', configScript)
   return new NextResponse(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } })
 }
