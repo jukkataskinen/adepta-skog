@@ -79,8 +79,8 @@ export default async function Home() {
       desc: 'Tulot, menot ja tiliotteet',
     },
     {
-      label: 'Vero-optimointi',
-      href: '/demo/adepta_skog_verolaskin.html',
+      label: 'ALV-raportti',
+      href: '/alv-raportti',
       icon: '📊',
       desc: 'Metsäverotuksen suunnittelu',
     },
