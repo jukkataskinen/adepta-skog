@@ -339,7 +339,7 @@ async function lataaAsiakkaat() {
     .eq('organisaatio_id', window._SKOG.orgId)
     .order('sukunimi');
   if (data) {
-    ASIAKKAAT = data.map(a => ({ id: a.id, nimi: `${a.sukunimi}, ${a.etunimi}`, tila: a.kotikunta ?? '' }));
+    ASIAKKAAT = data.map(a => ({ id: a.id, nimi: a.sukunimi + ', ' + a.etunimi, tila: a.kotikunta || '' }));
     fAs = [...ASIAKKAAT]; renderAs();
   }
 }
