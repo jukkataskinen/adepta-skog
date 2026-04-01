@@ -97,6 +97,12 @@ export default async function Home() {
       desc: 'Skannaa ja tallenna kuitit',
     },
     {
+      label: 'Veroraportti',
+      href: '/veroraportti',
+      icon: '📄',
+      desc: 'Tulostettava veroraportti',
+    },
+    {
       label: 'Hallinta',
       href: '/hallinta',
       icon: '⚙️',
