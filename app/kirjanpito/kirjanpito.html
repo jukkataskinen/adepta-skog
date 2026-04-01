@@ -1003,7 +1003,7 @@ async function tallenna(){
   await _sb.from('tapahtumat').delete().eq('asiakas_id', curAs.id).eq('verovuosi', AVOIN_VUOSI);
   if (rivit.length > 0) await _sb.from('tapahtumat').insert(rivit);
   setD(false);
-  document.getElementById('modal-p').textContent=`${rows.length} tapahtumaa tallennettu asiakkaalle ${curAs.nimi}.`;
+  document.getElementById('modal-p').textContent=rows.length+' tapahtumaa tallennettu asiakkaalle '+curAs.nimi+'.';
   document.getElementById('modal').classList.add('op');
 }
 function closeModal(){
