@@ -689,7 +689,8 @@ function demoData(){
 }
 
 // Rivit
-const newR=()=>({id:nid++,pvm:td(),kuvaus:'',summa:0,alv:25.5,tyyppi:'tulo',ennakko:0,kategoria:''});
+const lastPvm=()=>{for(let i=rows.length-1;i>=0;i--){if(rows[i].pvm)return rows[i].pvm;}return pvmMin();};
+const newR=()=>({id:nid++,pvm:lastPvm(),kuvaus:'',summa:0,alv:25.5,tyyppi:'tulo',ennakko:0,kategoria:''});
 function addRow(ai){
   const idx=ai!==undefined?ai+1:rows.length;
   rows.splice(idx,0,newR()); setD(true); render();
