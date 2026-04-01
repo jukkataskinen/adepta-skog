@@ -23,9 +23,8 @@ const navLinks = [
 
 export default async function AsiakkaatPage() {
   const session = await auth0.getSession()
-  if (!session?.user) redirect('/auth/login')
-
-  const user = session.user
+  const user = session?.user
+  if (!user) redirect('/auth/login')
 
   const { data: kayttaja } = await supabase!
     .from('kayttajat')
