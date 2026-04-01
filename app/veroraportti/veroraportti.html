@@ -573,38 +573,38 @@ async function lataaData(asiakas_id) {
       .in('investointi_id', invR.map(i => i.id))
       .order('verovuosi', { ascending: true });
 
-    console.log('invR:', invR);
-    console.log('totPoistot:', totPoistot);
-
     let html4 = '';
     invR.forEach(inv => {
       const hinta = Number(inv.hankintahinta || 0);
       const tapa = inv.poistotapa === 'tasa' ? 'Tasapoisto' : 'Menojäännös 25%';
-      html4 +=
-        '<table class="rtbl" style="margin-bottom:4px"><thead><tr>' +
-        '<th>Kohde</th><th class="num">Hankintahinta</th><th>Poistotapa</th>' +
-        '</tr></thead><tbody>' +
-        '<tr><td>' + esc(inv.kuvaus || '') + '</td>' +
-        '<td class="num">' + hinta.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-        '<td>' + tapa + '</td>' +
-        '</tr></tbody></table>';
-
       const rivit = (totPoistot || []).filter(p => p.investointi_id === inv.id);
+
+      html4 +=
+        '<table class="rtbl" style="margin-bottom:16px"><thead>' +
+        '<tr style="background:var(--ppd)">' +
+        '<th>Kohde</th><th colspan="3">' + esc(inv.kuvaus || '') + '</th>' +
+        '<th>Poistotapa</th><th>' + tapa + '</th>' +
+        '</tr>' +
+        '<tr>' +
+        '<th>Vuosi</th><th class="num">Hankintahinta</th><th class="num">Poisto</th><th colspan="3" class="num">Menojäännös vuoden lopussa</th>' +
+        '</tr>' +
+        '</thead><tbody>';
+
       if (rivit.length === 0) {
-        html4 += '<p style="color:var(--inu);font-size:11px;margin:2px 0 16px 4px">Ei toteutuneita poistoja — vahvista verosuunnitelma</p>';
+        html4 += '<tr><td colspan="6" style="color:var(--inu);font-size:11px;padding:10px">Ei toteutuneita poistoja — vahvista verosuunnitelma</td></tr>';
       } else {
-        html4 += '<table class="rtbl" style="margin-bottom:16px;font-size:11px"><thead><tr>' +
-          '<th>Vuosi</th><th class="num">Poisto</th><th class="num">Menojäännös vuoden lopussa</th>' +
-          '</tr></thead><tbody>';
-        rivit.forEach(p => {
+        rivit.forEach((p, idx) => {
           html4 +=
-            '<tr><td>' + p.verovuosi + '</td>' +
+            '<tr>' +
+            '<td>' + p.verovuosi + '</td>' +
+            '<td class="num">' + (idx === 0 ? hinta.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) : '—') + '</td>' +
             '<td class="num">' + Number(p.poistomaara || 0).toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-            '<td class="num">' + Number(p.jaannosarvo_vuoden_lopussa || 0).toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
+            '<td colspan="3" class="num">' + Number(p.jaannosarvo_vuoden_lopussa || 0).toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
             '</tr>';
         });
-        html4 += '</tbody></table>';
       }
+
+      html4 += '</tbody></table>';
     });
     document.getElementById('r-investoinnit').innerHTML = html4;
   }
