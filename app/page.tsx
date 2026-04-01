@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { auth0 } from '@/lib/auth0'
 import { supabase } from '@/lib/supabase'
 import LogoutButton from './components/LogoutButton'
