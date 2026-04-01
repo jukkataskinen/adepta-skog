@@ -677,11 +677,13 @@ function _selAs(id){
   lataaRivit(id);
 }
 async function lataaRivit(asiakas_id) {
+  console.log('lataaRivit', asiakas_id, 'vuosi:', AVOIN_VUOSI);
   const { data } = await _sb.from('tapahtumat')
     .select('id, tyyppi, kuvaus, paivamaara, summa_alv0, alv_prosentti, kategoria, ennakko')
     .eq('asiakas_id', asiakas_id)
     .eq('verovuosi', AVOIN_VUOSI)
     .order('paivamaara');
+  console.log('tapahtumat haettu:', data?.length, data);
   if (data && data.length > 0) {
     rows = data.map(d => ({
       id: nid++,
