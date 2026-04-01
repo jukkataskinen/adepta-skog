@@ -349,7 +349,7 @@ async function lataaData(asiakas_id) {
       .select('tyyppi, kuvaus, paivamaara, summa_alv0, alv_prosentti, ennakko, kategoria')
       .eq('asiakas_id', asiakas_id).eq('verovuosi', vuosi).order('paivamaara'),
     _sb.from('metsatilat')
-      .select('id, nimi, pinta_ala_ha, hankintahinta, metsämaan_osuus_prosentti, vahennyspohjaa_kaytetty')
+      .select('id, nimi, hankintahinta, hankintapvm, metsämaan_osuus_prosentti')
       .eq('asiakas_id', asiakas_id),
     _sb.from('investoinnit')
       .select('id, kuvaus, hankintahinta, poistoaika_vuotta, poistotapa, jaannosarvo, aktiivinen')
@@ -621,47 +621,61 @@ async function lataaData(asiakas_id) {
       .in('metsatila_id', tilatR.map(t => t.id))
       .order('verovuosi', { ascending: true });
 
-    let html5 = '';
+    // Build events: one per tila hankintavuosi (pohja added) + one per vahennys
+    const fmt2 = v => Number(v || 0).toLocaleString('fi-FI', { minimumFractionDigits: 2 });
+    const events = [];
     tilatR.forEach(t => {
       const hinta = Number(t.hankintahinta || 0);
-      const ha = t.pinta_ala_ha != null ? Number(t.pinta_ala_ha).toLocaleString('fi-FI', { minimumFractionDigits: 2 }) : '—';
-      const rivit = (totVahennykset || []).filter(v => v.metsatila_id === t.id);
-
-      html5 +=
-        '<table class="rtbl" style="margin-bottom:16px"><thead>' +
-        '<tr style="background:#1a3320">' +
-        '<th style="font-size:13px;font-weight:600;color:#e8f0e9;padding:10px 1rem">' + esc(t.nimi || '') + '</th>' +
-        '<th class="num" style="color:#9ab89e;font-weight:400;padding:10px 1rem">' + ha + ' ha</th>' +
-        '<th class="num" style="color:#9ab89e;font-weight:400;padding:10px 1rem">' + hinta.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + ' €</th>' +
-        '</tr>' +
-        '<tr style="background:#162318">' +
-        '<th style="color:#7a9e7e;font-weight:500">Vuosi</th>' +
-        '<th class="num" style="color:#7a9e7e;font-weight:500">Käytetty vähennys</th>' +
-        '<th class="num" style="color:#7a9e7e;font-weight:500">Käyttämättä jäänyt pohja</th>' +
-        '</tr>' +
-        '</thead><tbody>';
-
-      if (rivit.length === 0) {
-        html5 += '<tr><td colspan="3" style="color:var(--inu);font-size:11px;padding:10px">Ei toteutuneita vähennyksiä — vahvista verosuunnitelma</td></tr>';
-      } else {
-        const mmO = Number(t.metsämaan_osuus_prosentti || 60) / 100;
-        const pohja = hinta * mmO * 0.60;
-        let kaytettyYht = 0;
-        rivit.forEach(v => {
-          kaytettyYht += Number(v.kaytettava_vahennys || 0);
-          const jaljella = Math.max(0, pohja - kaytettyYht);
-          html5 +=
-            '<tr>' +
-            '<td>' + v.verovuosi + '</td>' +
-            '<td class="num">' + Number(v.kaytettava_vahennys || 0).toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-            '<td class="num">' + jaljella.toLocaleString('fi-FI', { minimumFractionDigits: 2 }) + '</td>' +
-            '</tr>';
-        });
+      const mmO = Number(t.metsämaan_osuus_prosentti || 60) / 100;
+      const pohja = hinta * mmO * 0.60;
+      const hankintavuosi = t.hankintapvm ? new Date(t.hankintapvm).getFullYear() : null;
+      if (hankintavuosi) {
+        events.push({ vuosi: hankintavuosi, tila: t.nimi, hinta, pohja, kaytto: 0, tyyppi: 'hankinta' });
       }
-
-      html5 += '</tbody></table>';
     });
-    document.getElementById('r-metsa').innerHTML = html5;
+    (totVahennykset || []).forEach(v => {
+      events.push({ vuosi: v.verovuosi, tila: null, hinta: null, pohja: 0, kaytto: Number(v.kaytettava_vahennys || 0), tyyppi: 'kaytto' });
+    });
+    events.sort((a, b) => a.vuosi - b.vuosi);
+
+    // Merge same-year hankinta+kaytto: if a tila is acquired in a year that also has käyttö, show on same row
+    const rows5 = [];
+    let jaannos = 0;
+    events.forEach(e => {
+      jaannos += e.pohja - e.kaytto;
+      if (e.tyyppi === 'hankinta') {
+        rows5.push({ vuosi: e.vuosi, tila: e.tila, hinta: e.hinta, pohja: e.pohja, kaytto: e.kaytto, jaannos });
+      } else {
+        rows5.push({ vuosi: e.vuosi, tila: null, hinta: null, pohja: null, kaytto: e.kaytto, jaannos });
+      }
+    });
+
+    if (rows5.length === 0) {
+      document.getElementById('r-metsa').innerHTML = '<p style="color:var(--inu);font-size:12px">Ei metsätiloja tai vähennyksiä.</p>';
+    } else {
+      let html5 =
+        '<table class="rtbl"><thead><tr style="background:#162318">' +
+        '<th style="color:#7a9e7e;font-weight:500">Vuosi</th>' +
+        '<th style="color:#7a9e7e;font-weight:500">Tila</th>' +
+        '<th class="num" style="color:#7a9e7e;font-weight:500">Hankinta</th>' +
+        '<th class="num" style="color:#7a9e7e;font-weight:500">Pohja</th>' +
+        '<th class="num" style="color:#7a9e7e;font-weight:500">Käyttö</th>' +
+        '<th class="num" style="color:#7a9e7e;font-weight:500">Jäännös</th>' +
+        '</tr></thead><tbody>';
+      rows5.forEach(r => {
+        html5 +=
+          '<tr>' +
+          '<td>' + r.vuosi + '</td>' +
+          '<td>' + (r.tila ? esc(r.tila) : '') + '</td>' +
+          '<td class="num">' + (r.hinta != null ? fmt2(r.hinta) : '') + '</td>' +
+          '<td class="num">' + (r.pohja != null && r.pohja > 0 ? fmt2(r.pohja) : '') + '</td>' +
+          '<td class="num">' + (r.kaytto > 0 ? fmt2(r.kaytto) : '') + '</td>' +
+          '<td class="num">' + fmt2(r.jaannos) + '</td>' +
+          '</tr>';
+      });
+      html5 += '</tbody></table>';
+      document.getElementById('r-metsa').innerHTML = html5;
+    }
   }
 
   document.getElementById('raportti').classList.add('vis');
