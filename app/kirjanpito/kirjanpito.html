@@ -374,6 +374,10 @@ const KATEGORIAT = [
     {nro:5, nimi:'Hirvivahinkokorvaukset', tyyppi:'tulo', alv:0},
     {nro:6, nimi:'Metsätalouden tuet',     tyyppi:'tulo', alv:0},
   ]},
+  {ryhma:'Investoinnit', items:[
+    {nro:10, nimi:'Käyttöomaisuuden hankinta', tyyppi:'meno', alv:25.5},
+    {nro:11, nimi:'Käyttöomaisuuden myynti',   tyyppi:'tulo', alv:25.5},
+  ]},
   {ryhma:'Menot', items:[
     {nro:7, nimi:'Palkkausmenot',   tyyppi:'meno', alv:0},
     {nro:8, nimi:'Matkakulut',      tyyppi:'meno', alv:25.5},
@@ -443,8 +447,10 @@ function katClose(rowIdx){
     katOpen=null;
   }
 }
-const KAT_PUUKAUPPA = ['Pystykauppa','Hankintakauppa','Polttopuukauppa'];
-const KAT_HANKINTA = ['Hankintakauppa'];
+const KAT_PUUKAUPPA   = ['Pystykauppa','Hankintakauppa','Polttopuukauppa'];
+const KAT_HANKINTA    = ['Hankintakauppa'];
+const KAT_INVESTOINTI = ['Käyttöomaisuuden hankinta'];
+const KAT_MYYNTI      = ['Käyttöomaisuuden myynti'];
 
 function katSelect(rowIdx,fi){
   const k=KAT_FLAT[fi];
@@ -454,13 +460,19 @@ function katSelect(rowIdx,fi){
   katClose(rowIdx);
   setD(true); render();
   if(KAT_HANKINTA.includes(k.nimi)){
-    // Hankintakauppa → syötä ensin hankintakaupan arvo, HT-modal tulee sen jälkeen
     setTimeout(()=>focusC(rowIdx,3), 30);
   } else if(KAT_PUUKAUPPA.includes(k.nimi)){
     setTimeout(()=>{
       if(rows[rowIdx].summa > 0){ avaaEP(rowIdx); }
       else { focusC(rowIdx,3); }
     },30);
+  } else if(KAT_INVESTOINTI.includes(k.nimi)){
+    setTimeout(()=>{
+      if(rows[rowIdx].summa > 0){ avaaInv(rowIdx); }
+      else { focusC(rowIdx,3); }
+    },30);
+  } else if(KAT_MYYNTI.includes(k.nimi)){
+    setTimeout(()=>avaaMyynti(rowIdx), 30);
   } else {
     setTimeout(()=>focusC(rowIdx,3),30);
   }
@@ -847,6 +859,8 @@ function fmtS(inp,i){
   inp.value=fmt(n); setD(true); rbru(i); totals();
   if(n>0 && KAT_PUUKAUPPA.includes(rows[i].kategoria)){
     setTimeout(()=>avaaEP(i),150);
+  } else if(n>0 && KAT_INVESTOINTI.includes(rows[i].kategoria)){
+    setTimeout(()=>avaaInv(i),150);
   }
 }
 function rbru(i){
@@ -1150,5 +1164,182 @@ window.addEventListener('beforeunload', function(e){
     </div>
   </div>
 </div>
+<!-- Investointi-modal -->
+<div class="ht-overlay" id="inv-overlay">
+  <div class="ht-modal" style="max-width:480px">
+    <div class="ht-title">Käyttöomaisuuden hankinta</div>
+    <div class="ht-sub" id="inv-sub">Määritä poistotiedot</div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
+      <div class="ht-field">
+        <label>Poistotapa</label>
+        <select id="inv-tapa" style="padding:8px 10px;border:1px solid var(--bd);border-radius:6px;font-family:var(--ffb);font-size:13px;background:var(--ppw);width:100%">
+          <option value="menojannos">Menojäännöspoisto (25%)</option>
+          <option value="tasa">Tasapoisto</option>
+        </select>
+      </div>
+      <div class="ht-row">
+        <div class="ht-field" id="inv-aika-wrap">
+          <label>Poistoaika (vuotta)</label>
+          <input type="number" id="inv-aika" value="5" min="1" max="40" style="padding:8px 10px;border:1px solid var(--bd);border-radius:6px;font-family:var(--ffb);font-size:13px;width:100%">
+        </div>
+        <div class="ht-field">
+          <label>Jäännösarvo (€)</label>
+          <input type="number" id="inv-jaannos" value="0" min="0" style="padding:8px 10px;border:1px solid var(--bd);border-radius:6px;font-family:var(--ffb);font-size:13px;width:100%">
+        </div>
+      </div>
+      <div class="ht-field">
+        <label>Maksimipoisto tänä vuonna (€)</label>
+        <input type="number" id="inv-maxpoisto" readonly style="padding:8px 10px;border:1px solid var(--bd);border-radius:6px;font-family:var(--ffb);font-size:13px;width:100%;background:var(--ppw);color:var(--moss);font-weight:500">
+      </div>
+    </div>
+    <div class="ht-btns">
+      <button class="ht-skip" onclick="invSulje()">Peruuta</button>
+      <button class="ht-ok" onclick="invTallenna()">Tallenna investointi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Myynti-modal -->
+<div class="ht-overlay" id="myynti-overlay">
+  <div class="ht-modal" style="max-width:480px">
+    <div class="ht-title">Käyttöomaisuuden myynti</div>
+    <div class="ht-sub" id="myynti-sub">Valitse myytävä kohde</div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px">
+      <div class="ht-field">
+        <label>Myytävä kohde</label>
+        <select id="myynti-kohde" onchange="myyntiLaske()" style="padding:8px 10px;border:1px solid var(--bd);border-radius:6px;font-family:var(--ffb);font-size:13px;background:var(--ppw);width:100%">
+          <option value="">-- Valitse --</option>
+        </select>
+      </div>
+      <div class="ht-row">
+        <div class="ht-field">
+          <label>Jäännösarvo ennen myyntiä (€)</label>
+          <input type="number" id="myynti-jaannos" readonly style="padding:8px 10px;border:1px solid var(--bd);border-radius:6px;font-family:var(--ffb);font-size:13px;width:100%;background:var(--ppw)">
+        </div>
+        <div class="ht-field">
+          <label>Myyntivoitto / -tappio (€)</label>
+          <input type="number" id="myynti-voitto" readonly style="padding:8px 10px;border:1px solid var(--bd);border-radius:6px;font-family:var(--ffb);font-size:13px;width:100%;background:var(--ppw)">
+        </div>
+      </div>
+    </div>
+    <div class="ht-btns">
+      <button class="ht-skip" onclick="myyntiSulje()">Peruuta</button>
+      <button class="ht-ok" onclick="myyntiTallenna()">Tallenna</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Investointi-modal ──────────────────────────────────────────
+let invPendingIdx = null;
+let myyntiPendingIdx = null;
+let myyntiInvestoinnit = [];
+
+function invLaskeMaxPoisto() {
+  const tapa = document.getElementById('inv-tapa').value;
+  const aika = parseInt(document.getElementById('inv-aika').value) || 5;
+  const jaannos = parseFloat(document.getElementById('inv-jaannos').value) || 0;
+  if (invPendingIdx === null) return;
+  const hinta = rows[invPendingIdx]?.summa || 0;
+  let max = 0;
+  if (tapa === 'menojannos') {
+    max = Math.round(hinta * 0.25 * 100) / 100;
+    document.getElementById('inv-aika-wrap').style.display = 'none';
+  } else {
+    max = Math.round((hinta - jaannos) / aika * 100) / 100;
+    document.getElementById('inv-aika-wrap').style.display = '';
+  }
+  document.getElementById('inv-maxpoisto').value = max;
+}
+
+function avaaInv(i) {
+  invPendingIdx = i;
+  const r = rows[i];
+  document.getElementById('inv-sub').textContent = (r.kuvaus || '—') + ' · ' + fmt(r.summa) + ' €';
+  document.getElementById('inv-tapa').value = 'menojannos';
+  document.getElementById('inv-jaannos').value = 0;
+  document.getElementById('inv-aika').value = 5;
+  document.getElementById('inv-tapa').onchange = invLaskeMaxPoisto;
+  document.getElementById('inv-aika').oninput = invLaskeMaxPoisto;
+  document.getElementById('inv-jaannos').oninput = invLaskeMaxPoisto;
+  invLaskeMaxPoisto();
+  document.getElementById('inv-overlay').classList.add('open');
+}
+
+async function invTallenna() {
+  const idx = invPendingIdx;
+  if (idx === null) return;
+  const r = rows[idx];
+  const tapa = document.getElementById('inv-tapa').value;
+  const aika = parseInt(document.getElementById('inv-aika').value) || 5;
+  const jaannos = parseFloat(document.getElementById('inv-jaannos').value) || 0;
+  await _sb.from('investoinnit').insert({
+    asiakas_id: curAs.id,
+    kuvaus: r.kuvaus || 'Käyttöomaisuus',
+    hankintapvm: r.pvm,
+    hankintahinta: r.summa,
+    jaannosarvo: jaannos,
+    poistoaika_vuotta: aika,
+    poistotapa: tapa,
+    aktiivinen: true,
+  });
+  invSulje();
+  toast('Investointi lisätty: ' + (r.kuvaus || 'Käyttöomaisuus'));
+}
+
+function invSulje() {
+  document.getElementById('inv-overlay').classList.remove('open');
+  invPendingIdx = null;
+}
+
+// ── Myynti-modal ──────────────────────────────────────────────
+async function avaaMyynti(i) {
+  myyntiPendingIdx = i;
+  const r = rows[i];
+  document.getElementById('myynti-sub').textContent = r.kuvaus || 'Kirjaa myynti';
+  document.getElementById('myynti-jaannos').value = '';
+  document.getElementById('myynti-voitto').value = '';
+
+  // Hae tämän asiakkaan aktiiviset investoinnit
+  const { data } = await _sb.from('investoinnit')
+    .select('id, kuvaus, hankintahinta, jaannosarvo, poistoaika_vuotta, poistotapa')
+    .eq('asiakas_id', curAs.id)
+    .eq('aktiivinen', true);
+  myyntiInvestoinnit = data || [];
+
+  const sel = document.getElementById('myynti-kohde');
+  sel.innerHTML = '<option value="">-- Valitse --</option>' +
+    myyntiInvestoinnit.map(inv =>
+      '<option value="' + inv.id + '">' + (inv.kuvaus || 'Kohde') + ' (' + fmt(Number(inv.hankintahinta)) + ')</option>'
+    ).join('');
+  document.getElementById('myynti-overlay').classList.add('open');
+}
+
+function myyntiLaske() {
+  const id = document.getElementById('myynti-kohde').value;
+  const inv = myyntiInvestoinnit.find(x => x.id === id);
+  if (!inv) { document.getElementById('myynti-jaannos').value = ''; document.getElementById('myynti-voitto').value = ''; return; }
+  const jaannos = Number(inv.jaannosarvo || 0);
+  const myyntihinta = myyntiPendingIdx !== null ? (rows[myyntiPendingIdx]?.summa || 0) : 0;
+  const voitto = myyntihinta - jaannos;
+  document.getElementById('myynti-jaannos').value = jaannos;
+  document.getElementById('myynti-voitto').value = Math.round(voitto * 100) / 100;
+}
+
+async function myyntiTallenna() {
+  const id = document.getElementById('myynti-kohde').value;
+  if (!id) { alert('Valitse myytävä kohde.'); return; }
+  // Merkitään investointi epäaktiiviseksi
+  await _sb.from('investoinnit').update({ aktiivinen: false }).eq('id', id);
+  myyntiSulje();
+  toast('Kohde merkitty myydyksi');
+}
+
+function myyntiSulje() {
+  document.getElementById('myynti-overlay').classList.remove('open');
+  myyntiPendingIdx = null;
+  myyntiInvestoinnit = [];
+}
+</script>
 </body>
 </html>
