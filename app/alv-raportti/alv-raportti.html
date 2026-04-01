@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Adepta SKOG — ALV-raportti</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --fd:#1c2b1e;--fg:#5DCAA5;--fg2:#1D9E75;--fg3:#0F6E56;
+  --ink:#1a1c18;--inm:#3d4039;--inu:#7a7d72;--inf:#c4c2b8;
+  --pp:#fafaf7;--ppw:#f5f3ee;--bd:#dddbd4;--bd2:#c4c2b8;
+  --red:#8b2020;--redl:#fdf0f0;
+  --ffd:'Fraunces',Georgia,serif;--ffb:'DM Sans',sans-serif;--ffm:'DM Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:14px;min-height:100vh;display:flex}
+
+/* Sidebar */
+.sidebar{width:220px;flex-shrink:0;background:var(--fd);display:flex;flex-direction:column;height:100vh;position:sticky;top:0}
+.logo{font-family:var(--ffd);font-size:1.2rem;font-weight:600;color:var(--fg2);padding:1.5rem 1.25rem 1rem;display:block;text-decoration:none}
+.nav-links{display:flex;flex-direction:column}
+.nav-links a{padding:0.6rem 1.25rem;font-size:0.9rem;color:#9ab89e;text-decoration:none;border-left:2px solid transparent}
+.nav-links a.act{color:var(--fg2);border-left-color:var(--fg2);font-weight:500}
+.sidebar-footer{margin-top:auto;padding:1rem 1.25rem;border-top:1px solid #2e4a32}
+.sidebar-footer p{font-size:0.8rem;color:#7a9e7e;margin-bottom:0.5rem}
+.sidebar-footer a{font-size:0.8rem;color:#7a9e7e;text-decoration:none}
+
+/* Asiakaspaneeli sidebarin alaosassa */
+.as-panel{padding:0.75rem 1rem 0;flex:1;overflow:hidden;display:flex;flex-direction:column}
+.as-panel-title{font-size:0.7rem;color:#7a9e7e;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:0.5rem}
+.asrch{width:100%;padding:6px 10px;font-family:var(--ffb);font-size:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:4px;color:#fff;outline:none}
+.asrch::placeholder{color:rgba(255,255,255,.3)}
+.alist{flex:1;overflow-y:auto;margin-top:0.5rem}
+.ai{padding:0.5rem 0.5rem;border-radius:4px;cursor:pointer;transition:background .1s}
+.ai:hover,.ai.act{background:rgba(255,255,255,.08)}
+.an{font-size:0.82rem;color:#e8f0e9}
+.am2{font-size:0.72rem;color:rgba(255,255,255,.33);margin-top:1px}
+
+/* Main */
+main{flex:1;padding:2.5rem 2rem;overflow-y:auto}
+.inner{max-width:820px}
+
+.breadcrumb{font-size:0.85rem;color:#7a9e7e;margin-bottom:1.5rem}
+.breadcrumb a{color:var(--fg2);text-decoration:none}
+
+.page-label{font-family:var(--ffd);font-size:0.8rem;color:var(--fg2);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.4rem}
+h1{font-family:var(--ffd);font-size:2rem;font-weight:300;color:#e8f0e9;margin-bottom:2rem}
+
+.empty{color:#7a9e7e;font-size:0.95rem;padding:3rem 0;text-align:center}
+
+/* Kortit */
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:2rem}
+.scard{background:var(--pp);border:1px solid var(--bd);border-radius:0.75rem;padding:1.25rem 1.5rem}
+.scard.highlight{border-color:var(--fg2);background:#f4fcf8}
+.scard.warn{border-color:#e0c090;background:#fdf3e8}
+.scard-label{font-size:0.72rem;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--inu);margin-bottom:0.4rem}
+.scard-value{font-family:var(--ffm);font-size:1.4rem;font-weight:500;color:var(--ink)}
+.scard-value.green{color:var(--fg2)}
+.scard-value.red{color:var(--red)}
+.scard-value.amber{color:#a05c1a}
+.scard-sub{font-size:0.78rem;color:var(--inu);margin-top:0.3rem}
+
+/* Taulukko */
+.table-wrap{border:1px solid var(--bd);border-radius:0.75rem;overflow:hidden;margin-bottom:2rem}
+table{width:100%;border-collapse:collapse}
+thead tr{background:var(--ppw);border-bottom:1px solid var(--bd)}
+th{padding:0.65rem 1rem;text-align:left;font-size:0.72rem;font-weight:500;letter-spacing:0.07em;text-transform:uppercase;color:var(--inu)}
+th.num{text-align:right}
+td{padding:0.8rem 1rem;border-bottom:1px solid var(--bd);font-size:0.9rem}
+tr:last-child td{border-bottom:none}
+td.num{text-align:right;font-family:var(--ffm);font-size:0.85rem}
+td.green{color:var(--fg2)}
+td.red{color:var(--red)}
+.total-row td{background:var(--ppw);font-weight:500}
+
+/* Tulosta-nappi */
+.toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem}
+.btn-print{padding:0.5rem 1.25rem;background:transparent;color:var(--fg2);border:1px solid var(--fg2);border-radius:0.4rem;font-family:var(--ffb);font-size:0.9rem;font-weight:500;cursor:pointer}
+.btn-print:hover{background:var(--fg2);color:#fff}
+.vuosi-label{font-size:0.85rem;color:var(--inu)}
+
+@media print{
+  .sidebar{display:none}
+  main{padding:1rem}
+  .btn-print{display:none}
+  .breadcrumb{display:none}
+}
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <a href="/" class="logo">Adepta SKOG</a>
+  <div class="nav-links">
+    <a href="/asiakkaat">Asiakkaat</a>
+    <a href="/kirjanpito-sivu">Kirjanpito</a>
+    <a href="/alv-raportti" class="act">ALV-raportti</a>
+    <a href="/vero-optimointi">Verosuunnitelma</a>
+    <a href="/kayttajat">Käyttäjät</a>
+    <a href="/asetukset">Asetukset</a>
+  </div>
+  <div class="as-panel">
+    <div class="as-panel-title">Asiakkaat</div>
+    <input class="asrch" id="asrch" placeholder="Hae asiakasta..." oninput="filterAs(this.value)" onkeydown="asKey(event)">
+    <div class="alist" id="alist"></div>
+  </div>
+  <div class="sidebar-footer">
+    <p id="user-name"></p>
+    <a href="/auth/logout?returnTo=https://skog.adepta.fi">Kirjaudu ulos</a>
+  </div>
+</nav>
+
+<main>
+  <div class="inner">
+    <p class="breadcrumb"><a href="/">Etusivu</a> / ALV-raportti</p>
+    <div class="page-label">ALV-raportti</div>
+    <h1 id="page-title">Valitse asiakas</h1>
+
+    <div id="content">
+      <p class="empty">Valitse asiakas vasemmalta nähdäksesi ALV-raportin.</p>
+    </div>
+  </div>
+</main>
+
+<script>
+const _sb = supabase.createClient(window._SKOG.supabaseUrl, window._SKOG.supabaseKey);
+const AVOIN_VUOSI = window._SKOG.avoinVuosi;
+let ASIAKKAAT = [], fAs = [], asHL = -1, curAs = null;
+
+const fmt = n => n.toLocaleString('fi-FI', {minimumFractionDigits:2, maximumFractionDigits:2});
+const pn = s => parseFloat(String(s).replace(',','.')) || 0;
+
+async function lataaAsiakkaat() {
+  const { data } = await _sb.from('asiakkaat')
+    .select('id, etunimi, sukunimi, kotikunta')
+    .eq('organisaatio_id', window._SKOG.orgId)
+    .order('sukunimi');
+  if (data) {
+    ASIAKKAAT = data.map(a => ({ id: a.id, nimi: a.sukunimi + ', ' + a.etunimi, tila: a.kotikunta || '' }));
+    fAs = [...ASIAKKAAT];
+    renderAs();
+  }
+}
+
+function renderAs() {
+  document.getElementById('alist').innerHTML = fAs.map((a) =>
+    '<div class="ai ' + (curAs && curAs.id === a.id ? 'act' : '') + '" onclick="selAs(\'' + a.id + '\')">' +
+    '<div class="an">' + a.nimi + '</div>' +
+    '<div class="am2">' + a.tila + '</div></div>'
+  ).join('');
+}
+
+function filterAs(q) {
+  fAs = ASIAKKAAT.filter(a => a.nimi.toLowerCase().includes(q.toLowerCase()));
+  asHL = 0; renderAs();
+}
+
+function asKey(e) {
+  if (e.key === 'ArrowDown') { e.preventDefault(); asHL = Math.min(asHL+1, fAs.length-1); renderAs(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); asHL = Math.max(asHL-1, 0); renderAs(); }
+  else if (e.key === 'Enter' && fAs[asHL]) selAs(fAs[asHL].id);
+}
+
+function selAs(id) {
+  curAs = ASIAKKAAT.find(a => a.id === id);
+  document.getElementById('asrch').value = '';
+  fAs = [...ASIAKKAAT]; asHL = -1; renderAs();
+  document.getElementById('page-title').textContent = curAs.nimi;
+  lataaRaportti(id);
+}
+
+async function lataaRaportti(asiakas_id) {
+  document.getElementById('content').innerHTML = '<p class="empty">Ladataan...</p>';
+  const { data, error } = await _sb.from('tapahtumat')
+    .select('tyyppi, summa_alv0, alv_prosentti')
+    .eq('asiakas_id', asiakas_id)
+    .eq('verovuosi', AVOIN_VUOSI);
+
+  if (error || !data) {
+    document.getElementById('content').innerHTML = '<p class="empty">Virhe ladattaessa tietoja.</p>';
+    return;
+  }
+
+  if (data.length === 0) {
+    document.getElementById('content').innerHTML = '<p class="empty">Ei tapahtumia vuodelle ' + AVOIN_VUOSI + '.</p>';
+    return;
+  }
+
+  const kannat = [0, 10, 14, 25.5];
+  const ryhmät = {};
+  kannat.forEach(k => {
+    ryhmät[k] = { myyntiAlv0: 0, myyntiAlv: 0, ostoAlv0: 0, ostoAlv: 0 };
+  });
+
+  data.forEach(r => {
+    const alv = Number(r.alv_prosentti);
+    const alv0 = Number(r.summa_alv0);
+    const alvEuro = Math.round(alv0 * alv / 100 * 100) / 100;
+    const kanta = kannat.includes(alv) ? alv : 0;
+    if (r.tyyppi === 'tulo') {
+      ryhmät[kanta].myyntiAlv0 += alv0;
+      ryhmät[kanta].myyntiAlv += alvEuro;
+    } else {
+      ryhmät[kanta].ostoAlv0 += alv0;
+      ryhmät[kanta].ostoAlv += alvEuro;
+    }
+  });
+
+  let kokoMyyntiAlv = 0, kokoOstoAlv = 0;
+  kannat.forEach(k => {
+    kokoMyyntiAlv += ryhmät[k].myyntiAlv;
+    kokoOstoAlv += ryhmät[k].ostoAlv;
+  });
+  const maksettava = Math.round((kokoMyyntiAlv - kokoOstoAlv) * 100) / 100;
+
+  const aktiviiviset = kannat.filter(k =>
+    ryhmät[k].myyntiAlv0 > 0 || ryhmät[k].ostoAlv0 > 0
+  );
+
+  let html = '';
+
+  // Toolbar
+  html += '<div class="toolbar">';
+  html += '<span class="vuosi-label">Verovuosi ' + AVOIN_VUOSI + '</span>';
+  html += '<button class="btn-print" onclick="window.print()">Tulosta / PDF</button>';
+  html += '</div>';
+
+  // Yhteenvetokortit
+  html += '<div class="summary-grid">';
+  html += '<div class="scard"><div class="scard-label">Myynnin ALV yhteensä</div><div class="scard-value green">' + fmt(kokoMyyntiAlv) + ' €</div><div class="scard-sub">Vero myynneistä</div></div>';
+  html += '<div class="scard"><div class="scard-label">Ostojen ALV (vähennys)</div><div class="scard-value">' + fmt(kokoOstoAlv) + ' €</div><div class="scard-sub">Vähennyskelpoinen</div></div>';
+  if (maksettava >= 0) {
+    html += '<div class="scard highlight"><div class="scard-label">Maksettava ALV</div><div class="scard-value amber">' + fmt(maksettava) + ' €</div><div class="scard-sub">Tilitetään verohallinnolle</div></div>';
+  } else {
+    html += '<div class="scard highlight"><div class="scard-label">Palautettava ALV</div><div class="scard-value green">' + fmt(Math.abs(maksettava)) + ' €</div><div class="scard-sub">Palautus verohallinnolta</div></div>';
+  }
+  html += '</div>';
+
+  // Taulukko ALV-kannoittain
+  html += '<div class="table-wrap"><table>';
+  html += '<thead><tr>';
+  html += '<th>ALV-kanta</th>';
+  html += '<th class="num">Myynti ALV 0%</th>';
+  html += '<th class="num">Myynnin ALV</th>';
+  html += '<th class="num">Ostot ALV 0%</th>';
+  html += '<th class="num">Ostojen ALV</th>';
+  html += '<th class="num">Tilitettävä</th>';
+  html += '</tr></thead><tbody>';
+
+  aktiviiviset.forEach(k => {
+    const r = ryhmät[k];
+    const tilitettava = Math.round((r.myyntiAlv - r.ostoAlv) * 100) / 100;
+    html += '<tr>';
+    html += '<td>' + (k === 0 ? '0 % (verovapaa)' : k + ' %') + '</td>';
+    html += '<td class="num">' + (r.myyntiAlv0 > 0 ? fmt(r.myyntiAlv0) + ' €' : '—') + '</td>';
+    html += '<td class="num' + (r.myyntiAlv > 0 ? ' green' : '') + '">' + (r.myyntiAlv > 0 ? fmt(r.myyntiAlv) + ' €' : '—') + '</td>';
+    html += '<td class="num">' + (r.ostoAlv0 > 0 ? fmt(r.ostoAlv0) + ' €' : '—') + '</td>';
+    html += '<td class="num">' + (r.ostoAlv > 0 ? fmt(r.ostoAlv) + ' €' : '—') + '</td>';
+    html += '<td class="num' + (tilitettava > 0 ? ' red' : tilitettava < 0 ? ' green' : '') + '">' + fmt(tilitettava) + ' €</td>';
+    html += '</tr>';
+  });
+
+  // Yhteensä-rivi
+  html += '<tr class="total-row">';
+  html += '<td>Yhteensä</td>';
+  const myyntiAlv0Yht = aktiviiviset.reduce((s,k) => s + ryhmät[k].myyntiAlv0, 0);
+  const ostoAlv0Yht = aktiviiviset.reduce((s,k) => s + ryhmät[k].ostoAlv0, 0);
+  html += '<td class="num">' + fmt(myyntiAlv0Yht) + ' €</td>';
+  html += '<td class="num green">' + fmt(kokoMyyntiAlv) + ' €</td>';
+  html += '<td class="num">' + fmt(ostoAlv0Yht) + ' €</td>';
+  html += '<td class="num">' + fmt(kokoOstoAlv) + ' €</td>';
+  html += '<td class="num' + (maksettava > 0 ? ' red' : ' green') + '">' + fmt(maksettava) + ' €</td>';
+  html += '</tr>';
+
+  html += '</tbody></table></div>';
+
+  document.getElementById('content').innerHTML = html;
+}
+
+lataaAsiakkaat();
+</script>
+</body>
+</html>
