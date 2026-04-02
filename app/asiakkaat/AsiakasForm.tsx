@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 type Props = {
   organisaatioId: string
 }
+
+type Kirjanpitaja = { id: string; etunimi: string; sukunimi: string; rooli: string }
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -35,6 +37,12 @@ export default function AsiakasForm({ organisaatioId }: Props) {
   const [kotikunta, setKotikunta] = useState('')
   const [sahkoposti, setSahkoposti] = useState('')
   const [puhelin, setPuhelin] = useState('')
+  const [vastuukirjanpitajaId, setVastuukirjanpitajaId] = useState('')
+  const [kirjanpitajat, setKirjanpitajat] = useState<Kirjanpitaja[]>([])
+
+  useEffect(() => {
+    fetch('/api/kayttajat').then(r => r.ok ? r.json() : []).then(setKirjanpitajat)
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -53,12 +61,13 @@ export default function AsiakasForm({ organisaatioId }: Props) {
           sahkoposti: sahkoposti.trim() || null,
           puhelin: puhelin.trim() || null,
           organisaatio_id: organisaatioId,
+          vastuukirjanpitaja_id: vastuukirjanpitajaId || null,
         }),
       })
 
       if (res.ok) {
         setAuki(false)
-        setNimi(''); setYTunnus(''); setKotikunta(''); setSahkoposti(''); setPuhelin('')
+        setNimi(''); setYTunnus(''); setKotikunta(''); setSahkoposti(''); setPuhelin(''); setVastuukirjanpitajaId('')
         window.location.reload()
       } else {
         const json = await res.json()
@@ -136,6 +145,15 @@ export default function AsiakasForm({ organisaatioId }: Props) {
               <div>
                 <label style={labelStyle}>Puhelin</label>
                 <input value={puhelin} onChange={e => setPuhelin(e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Vastuukirjanpitäjä *</label>
+                <select value={vastuukirjanpitajaId} onChange={e => setVastuukirjanpitajaId(e.target.value)} required style={{ ...inputStyle, cursor: 'pointer' }}>
+                  <option value="">— Valitse kirjanpitäjä —</option>
+                  {kirjanpitajat.map(k => (
+                    <option key={k.id} value={k.id}>{k.sukunimi} {k.etunimi}</option>
+                  ))}
+                </select>
               </div>
 
               {virhe && (

@@ -34,6 +34,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       postitoimipaikka: body.postitoimipaikka ?? null,
       verotiliviite: body.verotiliviite ?? null,
       avoin_vuosi: body.avoin_vuosi ?? null,
+      ...(Object.prototype.hasOwnProperty.call(body, 'vastuukirjanpitaja_id') && { vastuukirjanpitaja_id: body.vastuukirjanpitaja_id }),
     })
     .eq('id', params.id)
     .eq('organisaatio_id', kayttaja.organisaatio_id)

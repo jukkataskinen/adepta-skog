@@ -517,7 +517,10 @@ async function lataaAsiakkaat() {
   renderAs();
   // URL param auto-select
   const urlId = new URLSearchParams(location.search).get('id');
-  if (urlId) selAs(urlId);
+  if (urlId) {
+    selAs(urlId);
+    loadYhteenveto();
+  }
 }
 
 function renderAs() {
@@ -612,16 +615,19 @@ async function loadYhteenveto() {
     { data: metsatilat },
     { data: investoinnit },
   ] = await Promise.all([
-    _sb.from('asiakkaat').select('etunimi, sukunimi, y_tunnus, kotikunta, sahkoposti, puhelin, osoite, postinumero, postitoimipaikka, verotiliviite, alv_rekisterissa, avoin_vuosi, luotu_at').eq('id', id).single(),
+    _sb.from('asiakkaat').select('etunimi, sukunimi, y_tunnus, kotikunta, sahkoposti, puhelin, osoite, postinumero, postitoimipaikka, verotiliviite, alv_rekisterissa, avoin_vuosi, luotu_at, vastuukirjanpitaja_id, kayttajat!vastuukirjanpitaja_id(etunimi, sukunimi)').eq('id', id).single(),
     _sb.from('metsatilat').select('id, nimi, kiinteistotunnus, pinta_ala_ha, hankintahinta').eq('asiakas_id', id).order('nimi'),
     _sb.from('investoinnit').select('id, kuvaus, hankintahinta, poistotapa, poistoaika_vuotta').eq('asiakas_id', id).eq('aktiivinen', true),
   ]);
+
+  const kb = ak?.kayttajat;
+  const vastuukirjanpitaja_nimi = kb ? (kb.etunimi + ' ' + kb.sukunimi) : null;
 
   let html = '';
 
   // Perustiedot card
   html += '<div class="card">';
-  html += '<div class="card-hdr">Perustiedot</div>';
+  html += '<div class="card-hdr" style="display:flex;align-items:center;justify-content:space-between">Perustiedot</div>';
   html += '<div class="card-body"><div class="info-grid">';
   const infoItems = [
     ['Etunimi', ak?.etunimi || '—'],
@@ -636,11 +642,16 @@ async function loadYhteenveto() {
     ['Verotiliviite', ak?.verotiliviite || '—', true],
     ['ALV-rekisterissä', ak?.alv_rekisterissa ? 'Kyllä' : 'Ei'],
     ['Luotu', fmtDate(ak?.luotu_at)],
+    ['Vastuukirjanpitäjä', vastuukirjanpitaja_nimi || '—'],
   ];
   infoItems.forEach(([lbl, val, mono]) => {
     html += '<div class="info-item"><label>' + lbl + '</label><span' + (mono ? ' class="mono"' : '') + '>' + (val || '—') + '</span></div>';
   });
-  html += '</div></div></div>';
+  html += '</div>';
+  html += '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--bd)">';
+  html += '<button onclick="avaaKirjanpitajaModal()" style="padding:5px 14px;background:transparent;color:var(--fm);border:1px solid var(--fm);border-radius:5px;font-family:var(--ffb);font-size:12px;cursor:pointer">Vaihda kirjanpitäjä</button>';
+  html += '</div>';
+  html += '</div></div>';
 
   // Verovuosi card
   const avVuosi = ak?.avoin_vuosi || 2025;
@@ -1641,6 +1652,47 @@ function myyntiSulje() {
   myyntiInvestoinnit = [];
 }
 
+// ── Kirjanpitäjä-modal ───────────────────────────────────────
+async function avaaKirjanpitajaModal() {
+  if (!curAs) return;
+  const overlay = document.getElementById('kb-modal-overlay');
+  overlay.style.display = 'flex';
+  const sel = document.getElementById('kb-modal-sel');
+  sel.innerHTML = '<option value="">Ladataan...</option>';
+  const res = await fetch('/api/kayttajat');
+  if (res.ok) {
+    const kirjanpitajat = await res.json();
+    sel.innerHTML = '<option value="">— Ei vastuukirjanpitajaa —</option>' +
+      kirjanpitajat.map(k => '<option value="' + k.id + '">' + (k.sukunimi || '') + ' ' + (k.etunimi || '') + '</option>').join('');
+    // Pre-select current
+    const { data: ak } = await _sb.from('asiakkaat').select('vastuukirjanpitaja_id').eq('id', curAs.id).single();
+    if (ak?.vastuukirjanpitaja_id) sel.value = ak.vastuukirjanpitaja_id;
+  }
+}
+
+function suljeKirjanpitajaModal() {
+  document.getElementById('kb-modal-overlay').style.display = 'none';
+}
+
+async function tallennaKirjanpitaja() {
+  if (!curAs) return;
+  const sel = document.getElementById('kb-modal-sel');
+  const vastuukirjanpitaja_id = sel.value || null;
+  const res = await fetch('/api/asiakkaat/' + curAs.id, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ vastuukirjanpitaja_id }),
+  });
+  if (res.ok) {
+    suljeKirjanpitajaModal();
+    loadYhteenveto();
+    toast('Vastuukirjanpitäjä päivitetty');
+  } else {
+    const j = await res.json();
+    toast('Virhe: ' + (j.error || 'tallennus epäonnistui'));
+  }
+}
+
 // ── Liite-modal ──────────────────────────────────────────────
 function avaaLiiteModal() {
   if (!curAs) return;
@@ -1888,6 +1940,20 @@ lataaAsiakkaat();
     <div class="ht-btns">
       <button class="ht-skip" onclick="myyntiSulje()">Peruuta</button>
       <button class="ht-ok" onclick="myyntiTallenna()">Tallenna</button>
+    </div>
+  </div>
+</div>
+
+<div id="kb-modal-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;z-index:500" onclick="if(event.target===this)suljeKirjanpitajaModal()">
+  <div style="background:var(--pp);border:1px solid var(--bd);border-radius:12px;padding:24px 26px;width:420px;box-shadow:0 8px 32px rgba(0,0,0,.18)">
+    <h3 style="font-family:var(--ffd);font-weight:400;font-size:18px;color:var(--ink);margin:0 0 16px">Vaihda vastuukirjanpitäjä</h3>
+    <label style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--inu);display:block;margin-bottom:4px">Kirjanpitäjä</label>
+    <select id="kb-modal-sel" style="width:100%;padding:8px 10px;font-family:var(--ffb);font-size:14px;background:#fff;border:1px solid var(--bd);border-radius:5px;color:var(--ink);outline:none;margin-bottom:16px">
+      <option value="">— Ei vastuukirjanpitajaa —</option>
+    </select>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="tallennaKirjanpitaja()" style="padding:8px 20px;font-family:var(--ffb);font-size:13px;font-weight:500;background:var(--fm);color:#fff;border:none;border-radius:5px;cursor:pointer">Tallenna</button>
+      <button onclick="suljeKirjanpitajaModal()" style="padding:8px 16px;font-family:var(--ffb);font-size:13px;border:1px solid var(--bd);border-radius:5px;background:transparent;color:var(--inu);cursor:pointer">Peruuta</button>
     </div>
   </div>
 </div>

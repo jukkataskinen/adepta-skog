@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
       sukunimi: body.sukunimi,
       sahkoposti: body.sahkoposti ?? null,
       alv_rekisterissa: body.alv_rekisterissa ?? false,
+      vastuukirjanpitaja_id: body.vastuukirjanpitaja_id ?? null,
     })
     .select()
     .single();
