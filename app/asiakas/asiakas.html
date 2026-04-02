@@ -1059,7 +1059,6 @@ function htSulje() {
 
 // ── Vuosivalinta ──────────────────────────────────────────────
 function paivitaKbVuosiSel() {
-  if (!curAs) return;
   const avoin = curAs.avoin_vuosi || 2025;
   const vuodet = [];
   for (let v = avoin - 2; v <= avoin + 1; v++) { if (v >= 2020) vuodet.push(v); }
@@ -1067,7 +1066,7 @@ function paivitaKbVuosiSel() {
   if (!sel) return;
   sel.innerHTML = vuodet.map(v =>
     '<option value="' + v + '"' + (v === AVOIN_VUOSI ? ' selected' : '') + '>' +
-    v + (v === avoin ? ' ✓ avoin' : ' 🔒') + '</option>'
+    v + (v === avoin ? ' - avoin' : ' - lukittu') + '</option>'
   ).join('');
 }
 
