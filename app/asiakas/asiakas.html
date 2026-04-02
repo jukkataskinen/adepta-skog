@@ -1660,8 +1660,11 @@ async function avaaKirjanpitajaModal() {
   const sel = document.getElementById('kb-modal-sel');
   sel.innerHTML = '<option value="">Ladataan...</option>';
   const res = await fetch('/api/kayttajat');
+  console.log('kayttajat response:', res.status);
+  const data = await res.json();
+  console.log('kayttajat data:', data);
   if (res.ok) {
-    const kirjanpitajat = await res.json();
+    const kirjanpitajat = data;
     sel.innerHTML = '<option value="">— Ei vastuukirjanpitajaa —</option>' +
       kirjanpitajat.map(k => '<option value="' + k.id + '">' + (k.sukunimi || '') + ' ' + (k.etunimi || '') + '</option>').join('');
     // Pre-select current
