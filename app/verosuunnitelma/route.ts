@@ -14,9 +14,7 @@ export async function GET(request: NextRequest) {
     .from('kayttajat').select('organisaatio_id').eq('auth_sub', session.user.sub).single()
   const orgId = kayttaja?.organisaatio_id ?? ''
 
-  const { data: org } = await supabase!
-    .from('organisaatiot').select('avoin_vuosi').eq('id', orgId).single()
-  const avoinVuosi = org?.avoin_vuosi ?? 2025
+  const avoinVuosi = 2025
 
   const { data: asiakkaat } = await supabase!
     .from('asiakkaat')

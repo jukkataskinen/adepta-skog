@@ -108,12 +108,6 @@ export default async function Home() {
       icon: '👥',
       desc: 'Organisaation käyttäjähallinta',
     },
-    {
-      label: 'Hallinta',
-      href: '/hallinta',
-      icon: '⚙️',
-      desc: 'Organisaation asetukset',
-    },
   ]
 
   return (
