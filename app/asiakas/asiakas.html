@@ -436,16 +436,25 @@ tr.ar td{height:36px;border-bottom:1px solid var(--bd)}
       </div>
     </div>
 
-    <div id="tab-alv" class="tab-panel" style="display:none">
-      <iframe id="frame-alv" src=""></iframe>
+    <div id="tab-alv" class="tab-panel" style="display:none;flex-direction:column">
+      <div style="padding:6px 16px;background:#f8f7f4;border-bottom:1px solid #dddbd4;font-size:12px;color:#7a7d72;flex-shrink:0">
+        <span id="alv-tab-title">ALV-raportti</span>
+      </div>
+      <iframe id="frame-alv" src="" style="flex:1;height:calc(100vh - 130px)"></iframe>
     </div>
 
-    <div id="tab-verosuunnitelma" class="tab-panel" style="display:none">
-      <iframe id="frame-verosuunnitelma" src=""></iframe>
+    <div id="tab-verosuunnitelma" class="tab-panel" style="display:none;flex-direction:column">
+      <div style="padding:6px 16px;background:#f8f7f4;border-bottom:1px solid #dddbd4;font-size:12px;color:#7a7d72;flex-shrink:0">
+        <span id="vs-tab-title">Verosuunnitelma</span>
+      </div>
+      <iframe id="frame-verosuunnitelma" src="" style="flex:1;height:calc(100vh - 130px)"></iframe>
     </div>
 
-    <div id="tab-veroraportti" class="tab-panel" style="display:none">
-      <iframe id="frame-veroraportti" src=""></iframe>
+    <div id="tab-veroraportti" class="tab-panel" style="display:none;flex-direction:column">
+      <div style="padding:6px 16px;background:#f8f7f4;border-bottom:1px solid #dddbd4;font-size:12px;color:#7a7d72;flex-shrink:0">
+        <span id="vr-tab-title">Veroraportti</span>
+      </div>
+      <iframe id="frame-veroraportti" src="" style="flex:1;height:calc(100vh - 130px)"></iframe>
     </div>
 
     <div id="tab-arkisto" class="tab-panel" style="display:none">
@@ -566,7 +575,6 @@ function updateHeader() {
 
 // Tab switching
 let activeTab = 'yhteenveto';
-let frameLoaded = {};
 let kbLoaded = false;
 
 function showTab(name) {
@@ -578,30 +586,21 @@ function showTab(name) {
   if (name === 'arkisto') { document.getElementById('tab-arkisto').style.display = 'block'; lataaArkisto(); return; }
   // Kirjanpito: load directly (no iframe)
   if (name === 'kirjanpito') {
-    if (curAs && !kbLoaded) {
-      kbLoaded = true;
-      lataaRivit(curAs.id);
-    }
+    if (curAs && !kbLoaded) { kbLoaded = true; lataaRivit(curAs.id); }
     return;
   }
-  if (name !== 'yhteenveto' && curAs && !frameLoaded[name]) {
-    const frame = document.getElementById('frame-' + name);
-    const paths = { alv: '/alv', verosuunnitelma: '/verosuunnitelma', veroraportti: '/veroraportti' };
-    frame.src = paths[name] + '?embed=1&asiakas_id=' + curAs.id;
-    frameLoaded[name] = true;
-  }
+  if (name === 'alv') { lataaAlv(); return; }
+  if (name === 'verosuunnitelma') { lataaVerosuunnitelma(); return; }
+  if (name === 'veroraportti') { lataaVeroraportti(); return; }
 }
 
 function updateFrames() {
-  frameLoaded = {};
   kbLoaded = false;
   ['alv', 'verosuunnitelma', 'veroraportti'].forEach(name => {
     const frame = document.getElementById('frame-' + name);
     if (frame) frame.src = '';
   });
-  if (activeTab !== 'yhteenveto') {
-    showTab(activeTab);
-  }
+  if (activeTab !== 'yhteenveto') showTab(activeTab);
 }
 
 // Yhteenveto: load customer details
@@ -691,6 +690,27 @@ async function loadYhteenveto() {
   html += '</tbody></table></div>';
 
   document.getElementById('yht-content').innerHTML = html;
+}
+
+function lataaAlv() {
+  if (!curAs) return;
+  const alvVuosi = curAs.avoin_vuosi || 2025;
+  document.getElementById('alv-tab-title').textContent = 'ALV-raportti · ' + alvVuosi;
+  document.getElementById('frame-alv').src = '/alv?embed=1&asiakas_id=' + curAs.id + '&vuosi=' + alvVuosi;
+}
+
+function lataaVerosuunnitelma() {
+  if (!curAs) return;
+  const vuosi = curAs.avoin_vuosi || 2025;
+  document.getElementById('vs-tab-title').textContent = 'Verosuunnitelma · ' + vuosi;
+  document.getElementById('frame-verosuunnitelma').src = '/verosuunnitelma?embed=1&asiakas_id=' + curAs.id + '&vuosi=' + vuosi;
+}
+
+function lataaVeroraportti() {
+  if (!curAs) return;
+  const vuosi = curAs.avoin_vuosi || 2025;
+  document.getElementById('vr-tab-title').textContent = 'Veroraportti · ' + vuosi;
+  document.getElementById('frame-veroraportti').src = '/veroraportti?embed=1&asiakas_id=' + curAs.id + '&vuosi=' + vuosi;
 }
 
 async function lataaArkisto() {
