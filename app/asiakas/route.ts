@@ -31,8 +31,6 @@ window._SKOG = ${JSON.stringify({
     avoinVuosi,
     asiakkaat: (asiakkaat ?? []).map(a => ({ id: a.id, nimi: `${a.sukunimi}, ${a.etunimi}` })),
     email: session.user.email,
-    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-    supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
   })};
 </script>`
 

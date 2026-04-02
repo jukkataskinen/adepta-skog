@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabase
     .from('arkisto')
-    .select('id, verovuosi, tiedostonimi, luotu_at')
+    .select('id, verovuosi, tiedostonimi, liite_nimi, liite_koko, luotu_at')
     .eq('asiakas_id', asiakas_id)
     .order('verovuosi', { ascending: false })
 

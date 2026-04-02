@@ -279,7 +279,6 @@ tr.ar td{height:36px;border-bottom:1px solid var(--bd)}
 .v-btn-cancel{background:transparent;color:var(--inu);border:1px solid var(--bd) !important}
 .v-btn-cancel:hover{background:var(--ppw)}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -494,7 +493,6 @@ tr.ar td{height:36px;border-bottom:1px solid var(--bd)}
 </div>
 
 <script>
-const _sb = supabase.createClient(window._SKOG.supabaseUrl, window._SKOG.supabaseKey);
 let ASIAKKAAT = window._SKOG.asiakkaat || [];
 let curAs = null;
 let fAs = [...ASIAKKAAT];
@@ -617,15 +615,8 @@ async function loadYhteenveto() {
   const id = curAs.id;
   document.getElementById('yht-content').innerHTML = '<div style="padding:2rem;color:var(--inu)">Ladataan...</div>';
 
-  const [
-    { data: ak },
-    { data: metsatilat },
-    { data: investoinnit },
-  ] = await Promise.all([
-    _sb.from('asiakkaat').select('etunimi, sukunimi, y_tunnus, kotikunta, sahkoposti, puhelin, osoite, postinumero, postitoimipaikka, verotiliviite, alv_rekisterissa, avoin_vuosi, luotu_at, vastuukirjanpitaja_id, kayttajat!vastuukirjanpitaja_id(etunimi, sukunimi)').eq('id', id).single(),
-    _sb.from('metsatilat').select('id, nimi, kiinteistotunnus, pinta_ala_ha, hankintahinta').eq('asiakas_id', id).order('nimi'),
-    _sb.from('investoinnit').select('id, kuvaus, hankintahinta, poistotapa, poistoaika_vuotta').eq('asiakas_id', id).eq('aktiivinen', true),
-  ]);
+  const res = await fetch('/api/asiakas/' + id);
+  const { asiakas: ak, metsatilat, investoinnit } = await res.json();
 
   const kb = ak?.kayttajat;
   const vastuukirjanpitaja_nimi = kb ? ((kb.etunimi || '') + ' ' + (kb.sukunimi || '')).trim() || '—' : '—';
@@ -724,10 +715,8 @@ function lataaVeroraportti() {
 
 async function lataaArkisto() {
   if (!curAs) return;
-  const { data } = await _sb.from('arkisto')
-    .select('id, verovuosi, tiedostonimi, liite_nimi, liite_koko, luotu_at')
-    .eq('asiakas_id', curAs.id)
-    .order('verovuosi', { ascending: false });
+  const res = await fetch('/api/arkisto?asiakas_id=' + curAs.id);
+  const data = await res.json();
   const el = document.getElementById('arkisto-lista');
   if (!el) return;
   if (!data || data.length === 0) {
@@ -748,9 +737,8 @@ async function lataaArkisto() {
 }
 
 async function lataaLiiteTiedosto(arkistoId) {
-  const { data } = await _sb.from('arkisto')
-    .select('liite_nimi, liite_data')
-    .eq('id', arkistoId).single();
+  const res = await fetch('/api/arkisto/' + arkistoId);
+  const data = await res.json();
   if (!data?.liite_data) return;
   const link = document.createElement('a');
   link.href = 'data:application/octet-stream;base64,' + data.liite_data;
@@ -799,14 +787,9 @@ async function vaihdaVuosi() {
     if (!confirm('Olet avaamassa jo suljettua vuotta ' + vuosi + ', jonka tiedot on mahdollisesti ilmoitettu verottajalle. Oletko varma?')) return;
   }
   if (vuosi > nykyinen) {
-    await _sb.from('arkisto').upsert({
-      asiakas_id: curAs.id,
-      verovuosi: nykyinen,
-      tiedostonimi: 'veroraportti_' + nykyinen + '.pdf',
-      pdf_data: 'archived_' + nykyinen,
-    }, { onConflict: 'asiakas_id,verovuosi' });
+    await fetch('/api/arkisto', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ asiakas_id: curAs.id, verovuosi: nykyinen }) });
   }
-  await _sb.from('asiakkaat').update({ avoin_vuosi: vuosi }).eq('id', curAs.id);
+  await fetch('/api/asiakas/' + curAs.id + '/vuosi', { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ avoin_vuosi: vuosi }) });
   curAs.avoin_vuosi = vuosi;
   suljeMuokkaaVuosi();
   lataaAsiakastiedot();
@@ -1496,27 +1479,36 @@ async function tallenna() {
     _investointiTiedot: r.investointiTiedot ?? null,
   }));
   try {
-    const { error: delErr } = await _sb.from('tapahtumat').delete().eq('asiakas_id', curAs.id).eq('verovuosi', AVOIN_VUOSI);
-    if (delErr) throw delErr;
+    const tallennaRes = await fetch('/api/tapahtumat', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        asiakas_id: curAs.id,
+        vuosi: AVOIN_VUOSI,
+        rivit: rivit.map(r => { const { _investointiTiedot, ...rest } = r; return rest; }),
+      }),
+    });
+    if (!tallennaRes.ok) { const j = await tallennaRes.json(); throw new Error(j.error || 'tallennus epäonnistui'); }
     if (rivit.length > 0) {
-      const { error: insErr } = await _sb.from('tapahtumat').insert(rivit.map(r => {
-        const { _investointiTiedot, ...rest } = r; return rest;
-      }));
-      if (insErr) throw insErr;
+      const invListRes = await fetch('/api/investoinnit?asiakas_id=' + curAs.id);
+      const olemassaList = await invListRes.json();
       for (const r of rivit) {
         if (r._investointiTiedot) {
-          const { data: olemassa } = await _sb.from('investoinnit')
-            .select('id').eq('asiakas_id', curAs.id).eq('kuvaus', r.kuvaus).maybeSingle();
+          const olemassa = Array.isArray(olemassaList) ? olemassaList.find(inv => inv.kuvaus === r.kuvaus) : null;
           if (!olemassa) {
-            await _sb.from('investoinnit').insert({
-              asiakas_id: curAs.id,
-              kuvaus: r.kuvaus,
-              hankintapvm: r.paivamaara,
-              hankintahinta: r.summa_alv0,
-              jaannosarvo: r._investointiTiedot.jaannosarvo,
-              poistoaika_vuotta: r._investointiTiedot.poistoaika_vuotta,
-              poistotapa: r._investointiTiedot.poistotapa,
-              aktiivinen: true,
+            await fetch('/api/investoinnit', {
+              method: 'POST',
+              headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({
+                asiakas_id: curAs.id,
+                kuvaus: r.kuvaus,
+                hankintapvm: r.paivamaara,
+                hankintahinta: r.summa_alv0,
+                jaannosarvo: r._investointiTiedot.jaannosarvo,
+                poistoaika_vuotta: r._investointiTiedot.poistoaika_vuotta,
+                poistotapa: r._investointiTiedot.poistotapa,
+                aktiivinen: true,
+              }),
             });
           }
         }
@@ -1540,11 +1532,8 @@ function closeModal() {
 }
 
 async function lataaRivit(asiakas_id) {
-  const { data } = await _sb.from('tapahtumat')
-    .select('id, tyyppi, kuvaus, paivamaara, summa_alv0, alv_prosentti, kategoria, ennakko')
-    .eq('asiakas_id', asiakas_id)
-    .eq('verovuosi', AVOIN_VUOSI)
-    .order('paivamaara');
+  const res = await fetch('/api/tapahtumat?asiakas_id=' + asiakas_id + '&vuosi=' + AVOIN_VUOSI);
+  const data = await res.json();
   if (data && data.length > 0) {
     rows = data.map(d => ({
       id: nid++,
@@ -1620,11 +1609,8 @@ async function avaaMyynti(i) {
   document.getElementById('myynti-sub').textContent = r.kuvaus || 'Kirjaa myynti';
   document.getElementById('myynti-jaannos').value = '';
   document.getElementById('myynti-voitto').value = '';
-  const { data } = await _sb.from('investoinnit')
-    .select('id, kuvaus, hankintahinta, jaannosarvo, poistoaika_vuotta, poistotapa')
-    .eq('asiakas_id', curAs.id)
-    .eq('aktiivinen', true);
-  myyntiInvestoinnit = data || [];
+  const invRes = await fetch('/api/investoinnit?asiakas_id=' + curAs.id);
+  myyntiInvestoinnit = await invRes.json() || [];
   const sel = document.getElementById('myynti-kohde');
   sel.innerHTML = '<option value="">-- Valitse --</option>' +
     myyntiInvestoinnit.map(inv =>
@@ -1647,7 +1633,7 @@ function myyntiLaske() {
 async function myyntiTallenna() {
   const id = document.getElementById('myynti-kohde').value;
   if (!id) { alert('Valitse myytävä kohde.'); return; }
-  await _sb.from('investoinnit').update({ aktiivinen: false }).eq('id', id);
+  await fetch('/api/investoinnit/' + id, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ aktiivinen: false }) });
   myyntiSulje();
   toast('Kohde merkitty myydyksi');
 }
@@ -1674,7 +1660,8 @@ async function avaaKirjanpitajaModal() {
     sel.innerHTML = '<option value="">— Ei vastuukirjanpitajaa —</option>' +
       kirjanpitajat.map(k => '<option value="' + k.id + '">' + (k.sukunimi || '') + ' ' + (k.etunimi || '') + '</option>').join('');
     // Pre-select current
-    const { data: ak } = await _sb.from('asiakkaat').select('vastuukirjanpitaja_id').eq('id', curAs.id).single();
+    const akRes = await fetch('/api/asiakas/' + curAs.id);
+    const { asiakas: ak } = await akRes.json();
     if (ak?.vastuukirjanpitaja_id) sel.value = ak.vastuukirjanpitaja_id;
   }
 }
@@ -1716,13 +1703,13 @@ function suljeliiteModal() {
   document.getElementById('liite-overlay').style.pointerEvents = 'none';
 }
 
+let _liiteArkistoId = null;
+
 async function naytaNykyinenLiite() {
   const vuosi = AVOIN_VUOSI;
-  const { data } = await _sb.from('arkisto')
-    .select('id, tiedostonimi, liite_nimi, liite_koko, luotu_at')
-    .eq('asiakas_id', curAs.id)
-    .eq('verovuosi', vuosi)
-    .single();
+  const list = await fetch('/api/arkisto?asiakas_id=' + curAs.id).then(r => r.json());
+  const data = Array.isArray(list) ? list.find(a => a.verovuosi === vuosi) : null;
+  _liiteArkistoId = data?.id ?? null;
   const el = document.getElementById('liite-nykyinen');
   if (data?.liite_nimi) {
     el.innerHTML = '<div style="background:var(--fmist);border-radius:6px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between">' +
@@ -1744,17 +1731,10 @@ async function lataaLiite(input) {
   const reader = new FileReader();
   reader.onload = async (e) => {
     const base64 = e.target.result.split(',')[1];
-    const { error } = await _sb.from('arkisto').upsert({
-      asiakas_id: curAs.id,
-      verovuosi: AVOIN_VUOSI,
-      tiedostonimi: 'veroraportti_' + AVOIN_VUOSI + '.pdf',
-      pdf_data: 'archived_' + AVOIN_VUOSI,
-      liite_nimi: file.name,
-      liite_data: base64,
-      liite_koko: file.size,
-    }, { onConflict: 'asiakas_id,verovuosi' });
-    if (error) {
-      status.textContent = 'Virhe: ' + error.message;
+    const res = await fetch('/api/arkisto/liite', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ asiakas_id: curAs.id, verovuosi: AVOIN_VUOSI, liite_nimi: file.name, liite_data: base64, liite_koko: file.size }) });
+    if (!res.ok) {
+      const j = await res.json();
+      status.textContent = 'Virhe: ' + (j.error || 'tallennus epäonnistui');
     } else {
       status.textContent = '✓ Tiedosto tallennettu';
       naytaNykyinenLiite();
@@ -1765,8 +1745,8 @@ async function lataaLiite(input) {
 
 async function poistaLiite() {
   if (!confirm('Poista liitetiedosto?')) return;
-  await _sb.from('arkisto').update({ liite_nimi: null, liite_data: null, liite_koko: null })
-    .eq('asiakas_id', curAs.id).eq('verovuosi', AVOIN_VUOSI);
+  if (!_liiteArkistoId) return;
+  await fetch('/api/arkisto/' + _liiteArkistoId + '/liite', { method: 'DELETE' });
   naytaNykyinenLiite();
   toast('Liite poistettu');
 }
