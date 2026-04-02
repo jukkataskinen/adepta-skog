@@ -368,6 +368,7 @@ tr.ar td{height:36px;border-bottom:1px solid var(--bd)}
         <span id="kb-lukittu-badge" style="display:none;font-size:11px;padding:2px 8px;background:rgba(160,92,26,.2);color:#e8a86a;border-radius:20px">🔒 Lukittu</span>
         <span id="row-count" class="cnt" style="color:rgba(255,255,255,.4)"></span>
         <span style="flex:1"></span>
+        <button onclick="avaaLiiteModal()" style="padding:6px 14px;font-family:var(--ffb);font-size:12px;border:1px solid rgba(255,255,255,.18);border-radius:4px;background:transparent;color:rgba(255,255,255,.7);cursor:pointer">📎 Liitä tositteet</button>
         <button class="bg" onclick="tulostaRaportti()">Tulosta PDF</button>
         <button class="bs" id="save-btn" onclick="tallenna()" disabled>Tallenna</button>
       </div>
@@ -1629,6 +1630,88 @@ function myyntiSulje() {
   myyntiInvestoinnit = [];
 }
 
+// ── Liite-modal ──────────────────────────────────────────────
+function avaaLiiteModal() {
+  if (!curAs) return;
+  document.getElementById('liite-overlay').style.opacity = '1';
+  document.getElementById('liite-overlay').style.pointerEvents = 'all';
+  document.getElementById('liite-status').textContent = '';
+  naytaNykyinenLiite();
+}
+
+function suljeliiteModal() {
+  document.getElementById('liite-overlay').style.opacity = '0';
+  document.getElementById('liite-overlay').style.pointerEvents = 'none';
+}
+
+async function naytaNykyinenLiite() {
+  const vuosi = AVOIN_VUOSI;
+  const { data } = await _sb.from('arkisto')
+    .select('id, tiedostonimi, liite_nimi, liite_koko, luotu_at')
+    .eq('asiakas_id', curAs.id)
+    .eq('verovuosi', vuosi)
+    .single();
+  const el = document.getElementById('liite-nykyinen');
+  if (data?.liite_nimi) {
+    el.innerHTML = '<div style="background:var(--fmist);border-radius:6px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between">' +
+      '<div><div style="font-size:13px;font-weight:500">📎 ' + data.liite_nimi + '</div>' +
+      '<div style="font-size:11px;color:var(--inu);margin-top:2px">' + (data.liite_koko ? Math.round(data.liite_koko / 1024) + ' KB' : '') + '</div></div>' +
+      '<button onclick="poistaLiite()" style="font-size:11px;color:#b91c1c;border:none;background:transparent;cursor:pointer">Poista</button>' +
+      '</div>';
+  } else {
+    el.innerHTML = '<p style="font-size:12px;color:var(--inu);margin:0 0 8px">Ei liitetiedostoa vuodelle ' + vuosi + '</p>';
+  }
+}
+
+async function lataaLiite(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) { alert('Tiedosto on liian suuri (max 10 MB)'); return; }
+  const status = document.getElementById('liite-status');
+  status.textContent = 'Ladataan...';
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const base64 = e.target.result.split(',')[1];
+    const { error } = await _sb.from('arkisto').upsert({
+      asiakas_id: curAs.id,
+      verovuosi: AVOIN_VUOSI,
+      tiedostonimi: 'veroraportti_' + AVOIN_VUOSI + '.pdf',
+      pdf_data: 'archived_' + AVOIN_VUOSI,
+      liite_nimi: file.name,
+      liite_data: base64,
+      liite_koko: file.size,
+    }, { onConflict: 'asiakas_id,verovuosi' });
+    if (error) {
+      status.textContent = 'Virhe: ' + error.message;
+    } else {
+      status.textContent = '✓ Tiedosto tallennettu';
+      naytaNykyinenLiite();
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function poistaLiite() {
+  if (!confirm('Poista liitetiedosto?')) return;
+  await _sb.from('arkisto').update({ liite_nimi: null, liite_data: null, liite_koko: null })
+    .eq('asiakas_id', curAs.id).eq('verovuosi', AVOIN_VUOSI);
+  naytaNykyinenLiite();
+  toast('Liite poistettu');
+}
+
+function handleLiiteDrop(e) {
+  e.preventDefault();
+  e.currentTarget.style.borderColor = 'var(--bd)';
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    const input = document.getElementById('liite-input');
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+    lataaLiite(input);
+  }
+}
+
 // Init
 lataaAsiakkaat();
 </script>
@@ -1794,6 +1877,28 @@ lataaAsiakkaat();
     <div class="ht-btns">
       <button class="ht-skip" onclick="myyntiSulje()">Peruuta</button>
       <button class="ht-ok" onclick="myyntiTallenna()">Tallenna</button>
+    </div>
+  </div>
+</div>
+
+<div id="liite-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;z-index:600;opacity:0;pointer-events:none;transition:opacity .18s">
+  <div style="background:var(--pp);border:1px solid var(--bd);border-radius:12px;padding:24px 26px;width:480px;box-shadow:0 8px 32px rgba(0,0,0,.2)">
+    <h3 style="font-family:var(--ffd);font-weight:400;font-size:18px;color:var(--ink);margin:0 0 6px">Tositeaineisto</h3>
+    <p style="font-size:12px;color:var(--inu);margin:0 0 16px">Liitä koko vuoden tositeaineisto yhtenä PDF- tai ZIP-tiedostona</p>
+    <div id="liite-nykyinen" style="margin-bottom:16px"></div>
+    <div style="border:2px dashed var(--bd);border-radius:8px;padding:24px;text-align:center;cursor:pointer;transition:border .1s"
+         onclick="document.getElementById('liite-input').click()"
+         ondragover="event.preventDefault();this.style.borderColor='var(--fg)'"
+         ondragleave="this.style.borderColor='var(--bd)'"
+         ondrop="handleLiiteDrop(event)">
+      <div style="font-size:32px;margin-bottom:8px">📁</div>
+      <div style="font-size:13px;color:var(--inu)">Klikkaa tai vedä tiedosto tähän</div>
+      <div style="font-size:11px;color:var(--inf);margin-top:4px">PDF tai ZIP, max 10 MB</div>
+    </div>
+    <input type="file" id="liite-input" accept=".pdf,.zip" style="display:none" onchange="lataaLiite(this)">
+    <div id="liite-status" style="margin-top:12px;font-size:12px;color:var(--inu)"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+      <button onclick="suljeliiteModal()" style="padding:8px 16px;font-family:var(--ffb);font-size:13px;border:1px solid var(--bd);border-radius:6px;background:transparent;color:var(--inu);cursor:pointer">Sulje</button>
     </div>
   </div>
 </div>
