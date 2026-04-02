@@ -260,6 +260,8 @@ tr.ar td{height:36px;border-bottom:1px solid var(--bd)}
 .ep-ok:hover{opacity:.88}
 .ep-ok:focus{outline:2px solid var(--fl);outline-offset:2px}
 
+#kb-vuosi-sel option { background: #1c2b1e; color: #e8f0e9; }
+
 /* Vuosi modal */
 .v-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:none;align-items:center;justify-content:center}
 .v-overlay.open{display:flex}
@@ -361,7 +363,7 @@ tr.ar td{height:36px;border-bottom:1px solid var(--bd)}
     <div id="tab-kirjanpito" class="tab-panel" style="display:none;flex-direction:column">
       <!-- KB topbar with year selector -->
       <div style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:#1c2b1e;border-bottom:1px solid #2e4a32;flex-shrink:0">
-        <select id="kb-vuosi-sel" onchange="vaihdaKbVuosi(this.value)" style="padding:5px 8px;font-family:var(--ffb);font-size:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:5px;color:#fff;outline:none;cursor:pointer"></select>
+        <select id="kb-vuosi-sel" onchange="vaihdaKbVuosi(this.value)" style="padding:5px 8px;font-family:var(--ffb);font-size:12px;background:#2d4a31;border:1px solid rgba(255,255,255,.15);border-radius:5px;color:#fff;outline:none;cursor:pointer"></select>
         <span id="kb-lukittu-badge" style="display:none;font-size:11px;padding:2px 8px;background:rgba(160,92,26,.2);color:#e8a86a;border-radius:20px">🔒 Lukittu</span>
         <span id="row-count" class="cnt" style="color:rgba(255,255,255,.4)"></span>
         <span style="flex:1"></span>
