@@ -85,9 +85,20 @@ export default async function AsiakasPage({ params }: Params) {
             <Kentta label="Sähköposti" arvo={asiakas.sahkoposti} />
             <Kentta label="Puhelin" arvo={asiakas.puhelin} />
             <Kentta label="Verotiliviite" arvo={asiakas.verotiliviite} />
-            <Kentta label="Avoin verovuosi" arvo={asiakas.avoin_vuosi ? String(asiakas.avoin_vuosi) : null} />
             <Kentta label="ALV-rekisteri" arvo={asiakas.alv_rekisterissa ? 'Kyllä' : 'Ei'} />
             <Kentta label="Lisätty" arvo={new Date(asiakas.luotu_at).toLocaleDateString('fi-FI')} />
+          </div>
+          <div style={{ marginBottom: '2rem' }}>
+            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.2rem', fontWeight: 300, color: '#e8f0e9', margin: '0 0 1rem' }}>Verovuosi</h2>
+            <div style={{ border: '1px solid #2e4a32', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '2rem' }}>
+              <div>
+                <p style={{ fontSize: '0.75rem', color: '#7a9e7e', margin: '0 0 0.25rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Avoin verovuosi</p>
+                <p style={{ fontSize: '2rem', fontFamily: "'Fraunces', serif", fontWeight: 300, color: '#1D9E75', margin: 0 }}>{asiakas.avoin_vuosi ?? 2025}</p>
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#7a9e7e' }}>
+                Sulje vuosi muokkaamalla asiakkaan tietoja ja vaihtamalla avoin verovuosi seuraavalle vuodelle.
+              </div>
+            </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
             <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.2rem', fontWeight: 300, color: '#e8f0e9', margin: 0 }}>Metsätilat</h2>
