@@ -708,6 +708,7 @@ async function lataaData(asiakas_id) {
   document.getElementById('print-btn').style.display = 'block';
 
   const lukittu = ak.avoin_vuosi !== AVOIN_VUOSI;
+  console.log('avoin_vuosi:', ak.avoin_vuosi, 'AVOIN_VUOSI:', AVOIN_VUOSI, 'lukittu:', lukittu);
   document.getElementById('draft-wm').style.display = lukittu ? 'none' : 'block';
 }
 
