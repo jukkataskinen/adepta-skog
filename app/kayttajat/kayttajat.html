@@ -227,6 +227,7 @@ body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:14p
           <option value="active">Aktiivinen</option>
           <option value="inactive">Ei aktiivinen</option>
         </select>
+        <button class="btn-primary" onclick="avaaKutsuModal()">+ Kutsu käyttäjä</button>
       </div>
 
       <!-- Käyttäjätaulukko -->
@@ -250,6 +251,32 @@ body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:14p
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
+
+<!-- Kutsu käyttäjä -modal -->
+<div class="overlay" id="kutsu-overlay">
+  <div class="modal">
+    <div class="modal-title">Kutsu käyttäjä</div>
+    <div class="modal-sub">Uusi käyttäjä saa sähköpostiin linkin salasanan asettamiseen.</div>
+    <div class="field">
+      <label>Sähköpostiosoite</label>
+      <input type="email" id="kutsu-email" placeholder="kayttaja@esimerkki.fi" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Rooli</label>
+      <select id="kutsu-rooli">
+        <option value="kirjanpitaja">Kirjanpitäjä</option>
+        <option value="lukija">Lukija</option>
+        <option value="paakayttaja">Pääkäyttäjä</option>
+      </select>
+    </div>
+    <div id="kutsu-virhe" style="font-size:12px;color:var(--red);margin-bottom:8px;display:none"></div>
+    <div id="kutsu-ok" style="font-size:12px;color:var(--fl);margin-bottom:8px;display:none"></div>
+    <div class="modal-btns">
+      <button class="btn-secondary" onclick="suljeKutsuModal()">Peruuta</button>
+      <button class="btn-primary" id="kutsu-btn" onclick="lahetaKutsu()">Lähetä kutsu</button>
+    </div>
+  </div>
+</div>
 
 <!-- Muokkaa roolia -modal -->
 <div class="overlay" id="muokkaa-overlay">
@@ -455,6 +482,52 @@ function toast(msg) {
 document.getElementById('nav-nimi').textContent = window._SKOG.email;
 document.getElementById('nav-org').textContent = window._SKOG.orgNimi || '—';
 document.getElementById('page-sub').textContent = 'Hallitse kirjanpitäjiä ja käyttöoikeuksia · ' + (window._SKOG.orgNimi || '');
+
+// ── Kutsu-modal ──────────────────────────────────────────────
+function avaaKutsuModal() {
+  document.getElementById('kutsu-email').value = '';
+  document.getElementById('kutsu-rooli').value = 'kirjanpitaja';
+  document.getElementById('kutsu-virhe').style.display = 'none';
+  document.getElementById('kutsu-ok').style.display = 'none';
+  document.getElementById('kutsu-btn').disabled = false;
+  document.getElementById('kutsu-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('kutsu-email').focus(), 80);
+}
+
+function suljeKutsuModal() {
+  document.getElementById('kutsu-overlay').classList.remove('open');
+}
+
+async function lahetaKutsu() {
+  const email = document.getElementById('kutsu-email').value.trim();
+  const rooli = document.getElementById('kutsu-rooli').value;
+  const virheEl = document.getElementById('kutsu-virhe');
+  const okEl = document.getElementById('kutsu-ok');
+  const btn = document.getElementById('kutsu-btn');
+  virheEl.style.display = 'none';
+  okEl.style.display = 'none';
+  if (!email) { virheEl.textContent = 'Sähköpostiosoite vaaditaan'; virheEl.style.display = 'block'; return; }
+  btn.disabled = true;
+  btn.textContent = 'Lähetetään...';
+  const res = await fetch('/api/kutsu', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, rooli }),
+  });
+  const data = await res.json();
+  btn.textContent = 'Lähetä kutsu';
+  if (res.ok) {
+    okEl.textContent = '✓ ' + data.message;
+    okEl.style.display = 'block';
+    btn.disabled = false;
+    await lataaKayttajat();
+    setTimeout(suljeKutsuModal, 2000);
+  } else {
+    virheEl.textContent = data.error || 'Kutsu epäonnistui';
+    virheEl.style.display = 'block';
+    btn.disabled = false;
+  }
+}
 
 lataaKayttajat();
 </script>
