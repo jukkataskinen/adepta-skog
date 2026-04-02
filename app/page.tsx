@@ -62,7 +62,7 @@ export default async function Home() {
   const navItems = [
     {
       label: 'Asiakkaat',
-      href: '/asiakkaat',
+      href: '/asiakas',
       icon: '👥',
       desc: 'Hallinnoi asiakkaita ja tiloja',
     },

@@ -576,6 +576,12 @@ async function tallennaVerosuunnitelma() {
 
 // Alustus
 renderAlist(allAs);
+const _urlId = new URLSearchParams(location.search).get('asiakas_id');
+if (_urlId) { const _as = allAs.find(a => a.id === _urlId); if (_as) selAs(_urlId); }
+if (new URLSearchParams(location.search).get('embed') === '1') {
+  const sb = document.querySelector('.sb, .sidebar, [class*="sidebar"]');
+  if (sb) sb.style.display = 'none';
+}
 </script>
 </body>
 </html>

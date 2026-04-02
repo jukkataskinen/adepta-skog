@@ -345,6 +345,14 @@ async function lataaAsiakkaat() {
   if (data) {
     ASIAKKAAT = data.map(a => ({ id: a.id, nimi: a.sukunimi + ', ' + a.etunimi, tila: a.kotikunta || '' }));
     fAs = [...ASIAKKAAT]; renderAs();
+    // URL param auto-select
+    const _urlId = new URLSearchParams(location.search).get('asiakas_id');
+    if (_urlId) _selAs(_urlId);
+    // Embed mode: hide sidebar
+    if (new URLSearchParams(location.search).get('embed') === '1') {
+      const sb = document.querySelector('.sb');
+      if (sb) sb.style.display = 'none';
+    }
   }
 }
 const AVR=[0,10,14,25.5];
