@@ -349,6 +349,7 @@ tr.ar td{height:36px;border-bottom:1px solid var(--bd)}
       <button class="tab-btn" data-tab="alv" onclick="showTab('alv')">ALV-raportti</button>
       <button class="tab-btn" data-tab="verosuunnitelma" onclick="showTab('verosuunnitelma')">Verosuunnitelma</button>
       <button class="tab-btn" data-tab="veroraportti" onclick="showTab('veroraportti')">Veroraportti</button>
+      <button class="tab-btn" data-tab="arkisto" onclick="showTab('arkisto')">Arkisto</button>
     </div>
 
     <div id="tab-yhteenveto" class="tab-panel">
@@ -445,6 +446,13 @@ tr.ar td{height:36px;border-bottom:1px solid var(--bd)}
 
     <div id="tab-veroraportti" class="tab-panel" style="display:none">
       <iframe id="frame-veroraportti" src=""></iframe>
+    </div>
+
+    <div id="tab-arkisto" class="tab-panel" style="display:none">
+      <div class="yht-wrap">
+        <h2 style="font-family:var(--ffd);font-weight:300;font-size:1.5rem;color:var(--ink);margin:0 0 1.5rem">Arkisto</h2>
+        <div id="arkisto-lista"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -565,8 +573,9 @@ function showTab(name) {
   activeTab = name;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('act', b.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach(p => { p.style.display = p.id === 'tab-' + name ? 'flex' : 'none'; });
-  // Yhteenveto uses block not flex
+  // Block-display tabs
   if (name === 'yhteenveto') document.getElementById('tab-yhteenveto').style.display = 'block';
+  if (name === 'arkisto') { document.getElementById('tab-arkisto').style.display = 'block'; lataaArkisto(); return; }
   // Kirjanpito: load directly (no iframe)
   if (name === 'kirjanpito') {
     if (curAs && !kbLoaded) {
@@ -605,12 +614,10 @@ async function loadYhteenveto() {
     { data: ak },
     { data: metsatilat },
     { data: investoinnit },
-    { data: arkisto },
   ] = await Promise.all([
     _sb.from('asiakkaat').select('etunimi, sukunimi, y_tunnus, kotikunta, sahkoposti, puhelin, osoite, postinumero, postitoimipaikka, verotiliviite, alv_rekisterissa, avoin_vuosi, luotu_at').eq('id', id).single(),
     _sb.from('metsatilat').select('id, nimi, kiinteistotunnus, pinta_ala_ha, hankintahinta').eq('asiakas_id', id).order('nimi'),
     _sb.from('investoinnit').select('id, kuvaus, hankintahinta, poistotapa, poistoaika_vuotta').eq('asiakas_id', id).eq('aktiivinen', true),
-    _sb.from('arkisto').select('id, verovuosi, luotu_at').eq('asiakas_id', id).order('verovuosi', { ascending: false }),
   ]);
 
   let html = '';
@@ -683,22 +690,29 @@ async function loadYhteenveto() {
   }
   html += '</tbody></table></div>';
 
-  // Arkisto card
-  html += '<div class="card">';
-  html += '<div class="card-hdr">Arkisto (' + (arkisto ? arkisto.length : 0) + ')</div>';
-  html += '<table class="data-table">';
-  html += '<thead><tr><th>Verovuosi</th><th>Luotu</th></tr></thead>';
-  html += '<tbody>';
-  if (arkisto && arkisto.length > 0) {
-    arkisto.forEach(a => {
-      html += '<tr><td style="font-family:var(--ffm);font-weight:600">' + (a.verovuosi || '—') + '</td><td>' + fmtDate(a.luotu_at) + '</td></tr>';
-    });
-  } else {
-    html += '<tr class="empty-row"><td colspan="2">Ei arkistoituja vuosia</td></tr>';
-  }
-  html += '</tbody></table></div>';
-
   document.getElementById('yht-content').innerHTML = html;
+}
+
+async function lataaArkisto() {
+  if (!curAs) return;
+  const { data } = await _sb.from('arkisto')
+    .select('id, verovuosi, tiedostonimi, luotu_at')
+    .eq('asiakas_id', curAs.id)
+    .order('verovuosi', { ascending: false });
+  const el = document.getElementById('arkisto-lista');
+  if (!el) return;
+  if (!data || data.length === 0) {
+    el.innerHTML = '<p style="color:var(--inu)">Ei arkistoituja vuosia.</p>';
+    return;
+  }
+  el.innerHTML = '<table class="data-table"><thead><tr><th>Verovuosi</th><th>Arkistoitu</th><th>Toiminnot</th></tr></thead><tbody>' +
+    data.map(a => '<tr>' +
+      '<td><strong>' + a.verovuosi + '</strong></td>' +
+      '<td>' + new Date(a.luotu_at).toLocaleDateString('fi-FI') + '</td>' +
+      '<td><a href="/veroraportti?asiakas_id=' + curAs.id + '&vuosi=' + a.verovuosi + '" target="_blank" style="color:var(--fg);text-decoration:none;font-size:13px">Avaa raportti →</a></td>' +
+      '</tr>'
+    ).join('') +
+    '</tbody></table>';
 }
 
 // Vuosi modal

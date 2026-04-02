@@ -45,12 +45,6 @@ export default async function AsiakasPage({ params }: Params) {
     .eq('asiakas_id', params.id)
     .order('hankintapvm')
 
-  const { data: arkisto } = await supabase
-    .from('arkisto')
-    .select('id, verovuosi, tiedostonimi, luotu_at')
-    .eq('asiakas_id', params.id)
-    .order('verovuosi', { ascending: false })
-
   const nimi = `${asiakas.etunimi} ${asiakas.sukunimi}`
 
   return (
@@ -107,40 +101,6 @@ export default async function AsiakasPage({ params }: Params) {
               </div>
               <VuosiModal asiakas={{ id: asiakas.id, avoin_vuosi: asiakas.avoin_vuosi ?? 2025 }} />
             </div>
-          </div>
-          <div style={{ marginBottom: '2rem' }}>
-            <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.2rem', fontWeight: 300, color: '#e8f0e9', margin: '0 0 1rem' }}>Arkisto</h2>
-            {!arkisto || arkisto.length === 0 ? (
-              <p style={{ color: '#7a9e7e', fontSize: '0.9rem' }}>Ei arkistoituja vuosia.</p>
-            ) : (
-              <div style={{ border: '1px solid #2e4a32', borderRadius: '0.75rem', overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: '#162318', borderBottom: '1px solid #2e4a32' }}>
-                      {['Verovuosi', 'Arkistoitu', 'Raportti'].map(h => (
-                        <th key={h} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', color: '#7a9e7e', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {arkisto.map((a, i) => (
-                      <tr key={a.id} style={{ borderBottom: i < arkisto.length - 1 ? '1px solid #2e4a32' : 'none' }}>
-                        <td style={{ padding: '0.85rem 1rem', color: '#e8f0e9', fontWeight: 500 }}>{a.verovuosi}</td>
-                        <td style={{ padding: '0.85rem 1rem', color: '#9ab89e', fontSize: '0.9rem' }}>
-                          {new Date(a.luotu_at).toLocaleDateString('fi-FI')}
-                        </td>
-                        <td style={{ padding: '0.85rem 1rem' }}>
-                          <a href={'/veroraportti?asiakas_id=' + params.id + '&vuosi=' + a.verovuosi}
-                             style={{ color: '#1D9E75', fontSize: '0.85rem', textDecoration: 'none' }}>
-                            Avaa →
-                          </a>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
             <h2 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.2rem', fontWeight: 300, color: '#e8f0e9', margin: 0 }}>Metsätilat</h2>
