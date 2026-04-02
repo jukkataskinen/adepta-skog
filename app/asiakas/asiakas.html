@@ -621,7 +621,7 @@ async function loadYhteenveto() {
   ]);
 
   const kb = ak?.kayttajat;
-  const vastuukirjanpitaja_nimi = kb ? (kb.etunimi + ' ' + kb.sukunimi) : null;
+  const vastuukirjanpitaja_nimi = kb ? ((kb.etunimi || '') + ' ' + (kb.sukunimi || '')).trim() || '—' : '—';
 
   let html = '';
 
