@@ -583,7 +583,10 @@ function updateHeader() {
 let activeTab = 'yhteenveto';
 let kbLoaded = false;
 
-function showTab(name) {
+async function showTab(name) {
+  if (dirty && curAs && activeTab === 'kirjanpito' && name !== 'kirjanpito') {
+    await tallenna();
+  }
   activeTab = name;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('act', b.dataset.tab === name));
   document.querySelectorAll('.tab-panel').forEach(p => { p.style.display = p.id === 'tab-' + name ? 'flex' : 'none'; });
