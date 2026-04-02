@@ -17,7 +17,10 @@ type Asiakas = {
   postitoimipaikka: string | null
   verotiliviite: string | null
   avoin_vuosi: number | null
+  vastuukirjanpitaja_id: string | null
 }
+
+type Kirjanpitaja = { id: string; nimi: string }
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '0.5rem 0.75rem', backgroundColor: '#1c2b1e',
@@ -29,7 +32,7 @@ const labelStyle: React.CSSProperties = {
   display: 'block', fontSize: '0.8rem', color: '#7a9e7e', marginBottom: '0.3rem',
 }
 
-export default function MuokkausForm({ asiakas }: { asiakas: Asiakas }) {
+export default function MuokkausForm({ asiakas, isPaakayttaja = false, kirjanpitajat = [] }: { asiakas: Asiakas; isPaakayttaja?: boolean; kirjanpitajat?: Kirjanpitaja[] }) {
   const router = useRouter()
   const [auki, setAuki] = useState(false)
   const [tallennetaan, setTallennetaan] = useState(false)
@@ -46,6 +49,7 @@ export default function MuokkausForm({ asiakas }: { asiakas: Asiakas }) {
   const [postitoimipaikka, setPostitoimipaikka] = useState(asiakas.postitoimipaikka ?? '')
   const [verotiliviite, setVerotiliviite] = useState(asiakas.verotiliviite ?? '')
   const [avoinVuosi, setAvoinVuosi] = useState(asiakas.avoin_vuosi ?? 2025)
+  const [vastuukirjanpitajaId, setVastuukirjanpitajaId] = useState(asiakas.vastuukirjanpitaja_id ?? '')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -69,6 +73,7 @@ export default function MuokkausForm({ asiakas }: { asiakas: Asiakas }) {
           postitoimipaikka: postitoimipaikka.trim() || null,
           verotiliviite: verotiliviite.trim() || null,
           avoin_vuosi: avoinVuosi,
+          vastuukirjanpitaja_id: vastuukirjanpitajaId || null,
         }),
       })
       if (res.ok) { setAuki(false); router.refresh() }
@@ -107,6 +112,15 @@ export default function MuokkausForm({ asiakas }: { asiakas: Asiakas }) {
                   {[2023, 2024, 2025, 2026, 2027].map(v => <option key={v} value={v}>{v}</option>)}
                 </select>
               </div>
+              {isPaakayttaja && (
+                <div>
+                  <label style={labelStyle}>Vastuukirjanpitaja</label>
+                  <select value={vastuukirjanpitajaId} onChange={e => setVastuukirjanpitajaId(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                    <option value="">— Ei vastuukirjanpitajaa —</option>
+                    {kirjanpitajat.map(k => <option key={k.id} value={k.id}>{k.nimi}</option>)}
+                  </select>
+                </div>
+              )}
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <input type="checkbox" id="alv" checked={alvRekisterissa} onChange={e => setAlvRekisterissa(e.target.checked)} style={{ accentColor: '#1D9E75', width: 16, height: 16 }} />
                 <label htmlFor="alv" style={{ fontSize: '0.9rem', color: '#9ab89e', cursor: 'pointer' }}>ALV-rekisterissä</label>

@@ -18,7 +18,7 @@ export default async function AsiakasPage({ params }: Params) {
 
   const { data: kayttaja } = await supabase
     .from('kayttajat')
-    .select('organisaatio_id')
+    .select('organisaatio_id, rooli')
     .eq('auth_sub', session.user.sub)
     .single()
 
@@ -26,10 +26,14 @@ export default async function AsiakasPage({ params }: Params) {
 
   const { data: asiakas } = await supabase
     .from('asiakkaat')
-    .select('id, etunimi, sukunimi, y_tunnus, kotikunta, sahkoposti, puhelin, alv_rekisterissa, luotu_at, osoite, postinumero, postitoimipaikka, verotiliviite, avoin_vuosi')
+    .select('id, etunimi, sukunimi, y_tunnus, kotikunta, sahkoposti, puhelin, alv_rekisterissa, luotu_at, osoite, postinumero, postitoimipaikka, verotiliviite, avoin_vuosi, vastuukirjanpitaja_id')
     .eq('id', params.id)
     .eq('organisaatio_id', kayttaja.organisaatio_id)
     .single()
+
+  const kirjanpitajat = kayttaja.rooli === 'paakayttaja'
+    ? (await supabase.from('kayttajat').select('id, etunimi, sukunimi').eq('organisaatio_id', kayttaja.organisaatio_id).eq('aktiivinen', true).order('sukunimi')).data ?? []
+    : []
 
   if (!asiakas) notFound()
 
@@ -76,7 +80,7 @@ export default async function AsiakasPage({ params }: Params) {
               <p style={{ fontFamily: "'Fraunces', serif", fontSize: '0.8rem', color: '#1D9E75', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 0.4rem' }}>Asiakas</p>
               <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: '2rem', fontWeight: 300, color: '#e8f0e9', margin: 0 }}>{nimi}</h1>
             </div>
-            <MuokkausForm asiakas={asiakas} />
+            <MuokkausForm asiakas={asiakas} isPaakayttaja={kayttaja.rooli === 'paakayttaja'} kirjanpitajat={kirjanpitajat.map(k => ({ id: k.id, nimi: `${k.sukunimi} ${k.etunimi}` }))} />
           </div>
           <div style={{ border: '1px solid #2e4a32', borderRadius: '0.75rem', padding: '1.5rem', marginBottom: '2rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <Kentta label="Y-tunnus" arvo={asiakas.y_tunnus} />

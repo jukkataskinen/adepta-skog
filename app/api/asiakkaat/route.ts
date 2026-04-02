@@ -16,10 +16,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Supabase ei konfiguroitu' }, { status: 500 });
   }
 
-  // Hae käyttäjän organisaatio_id Supabasesta
+  // Hae käyttäjän organisaatio_id ja rooli
   const { data: kayttaja, error: kErr } = await supabase
     .from('kayttajat')
-    .select('organisaatio_id')
+    .select('id, organisaatio_id, rooli')
     .eq('auth_sub', session.user.sub)
     .single();
 
@@ -27,11 +27,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Käyttäjää ei löydy' }, { status: 404 });
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('asiakkaat')
-    .select('id, etunimi, sukunimi, sahkoposti, alv_rekisterissa, luotu_at')
+    .select('id, etunimi, sukunimi, sahkoposti, alv_rekisterissa, luotu_at, avoin_vuosi')
     .eq('organisaatio_id', kayttaja.organisaatio_id)
-    .order('sukunimi', { ascending: true });
+    .is('poistettu_at', null)
+  if (kayttaja.rooli !== 'paakayttaja') {
+    query = query.eq('vastuukirjanpitaja_id', kayttaja.id)
+  }
+  query = query.order('sukunimi', { ascending: true })
+  const { data, error } = await query;
 
   if (error) {
     console.error('Supabase error:', error);

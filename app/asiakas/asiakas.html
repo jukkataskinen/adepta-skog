@@ -507,20 +507,17 @@ function fmtDate(s) {
   return s.substring(0, 10);
 }
 
-// Load customers from Supabase (re-fetch for full details)
+// Load customers via API (respects role-based filtering)
 async function lataaAsiakkaat() {
-  const { data } = await _sb.from('asiakkaat')
-    .select('id, etunimi, sukunimi, kotikunta, avoin_vuosi')
-    .eq('organisaatio_id', window._SKOG.orgId)
-    .order('sukunimi');
-  if (data) {
-    ASIAKKAAT = data.map(a => ({ id: a.id, nimi: a.sukunimi + ', ' + a.etunimi, tila: a.kotikunta || '', avoin_vuosi: a.avoin_vuosi }));
-    fAs = [...ASIAKKAAT];
-    renderAs();
-    // URL param auto-select
-    const urlId = new URLSearchParams(location.search).get('id');
-    if (urlId) selAs(urlId);
-  }
+  const res = await fetch('/api/asiakkaat');
+  if (!res.ok) return;
+  const data = await res.json();
+  ASIAKKAAT = data.map(a => ({ id: a.id, nimi: a.sukunimi + ', ' + a.etunimi, tila: '', avoin_vuosi: a.avoin_vuosi }));
+  fAs = [...ASIAKKAAT];
+  renderAs();
+  // URL param auto-select
+  const urlId = new URLSearchParams(location.search).get('id');
+  if (urlId) selAs(urlId);
 }
 
 function renderAs() {

@@ -235,12 +235,13 @@ body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:14p
           <tr>
             <th>Käyttäjä</th>
             <th>Rooli</th>
+            <th>Asiakkaat</th>
             <th>Tila</th>
             <th>Viimeksi kirjautunut</th>
             <th></th>
           </tr>
         </thead>
-        <tbody id="user-tbody"><tr><td colspan="5" style="padding:24px;color:var(--inu);text-align:center">Ladataan…</td></tr></tbody>
+        <tbody id="user-tbody"><tr><td colspan="6" style="padding:24px;color:var(--inu);text-align:center">Ladataan…</td></tr></tbody>
       </table>
 
     </div>
@@ -295,10 +296,20 @@ const avatarBg   = id  => { const c=['#2d4a31','#185FA5','#0F6E56','#633806','#3
 
 // ── Data ─────────────────────────────────────────────────────
 async function lataaKayttajat() {
-  const { data } = await _sb.from('kayttajat')
-    .select('id, etunimi, sukunimi, sahkoposti, rooli, viimeksi_kirjautunut, aktiivinen')
-    .eq('organisaatio_id', window._SKOG.orgId)
-    .order('sukunimi');
+  const [{ data }, { data: asiakkaat }] = await Promise.all([
+    _sb.from('kayttajat')
+      .select('id, etunimi, sukunimi, sahkoposti, rooli, viimeksi_kirjautunut, aktiivinen')
+      .eq('organisaatio_id', window._SKOG.orgId)
+      .order('sukunimi'),
+    _sb.from('asiakkaat')
+      .select('vastuukirjanpitaja_id')
+      .eq('organisaatio_id', window._SKOG.orgId)
+      .is('poistettu_at', null),
+  ]);
+  const asiakasMaara = {};
+  (asiakkaat || []).forEach(a => {
+    if (a.vastuukirjanpitaja_id) asiakasMaara[a.vastuukirjanpitaja_id] = (asiakasMaara[a.vastuukirjanpitaja_id] || 0) + 1;
+  });
   KAYTTAJAT = (data || []).map(k => ({
     id: k.id,
     email: k.sahkoposti,
@@ -307,6 +318,7 @@ async function lataaKayttajat() {
     tila: k.aktiivinen ? 'active' : 'inactive',
     login: k.viimeksi_kirjautunut ? new Date(k.viimeksi_kirjautunut).toLocaleString('fi-FI') : '—',
     oma: k.sahkoposti === window._SKOG.email,
+    asiakkaat: asiakasMaara[k.id] || 0,
   }));
   renderUsers(KAYTTAJAT);
   updateStats();
@@ -317,7 +329,7 @@ async function lataaKayttajat() {
 function renderUsers(lista) {
   const tbody = document.getElementById('user-tbody');
   if (!lista.length) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">👥</div>Ei käyttäjiä hakuehdoilla.</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="empty-icon">👥</div>Ei käyttäjiä hakuehdoilla.</div></td></tr>`;
     return;
   }
   tbody.innerHTML = lista.map(u => `
@@ -332,6 +344,7 @@ function renderUsers(lista) {
         </div>
       </td>
       <td><span class="role-pill ${rooliClass(u.rooli)}">${rooliLabel(u.rooli)}</span></td>
+      <td style="font-size:13px;color:var(--inu)">${u.asiakkaat > 0 ? '<strong style="color:var(--ink)">' + u.asiakkaat + '</strong>' : '—'}</td>
       <td>
         <div class="status-cell">
           <div class="status-dot ${tilaClass(u.tila)}"></div>
