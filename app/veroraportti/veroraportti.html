@@ -151,9 +151,27 @@ body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:13p
   .kk-val.pos{color:#0F6E56!important;-webkit-print-color-adjust:exact}
   .kk-val.neg{color:#8b2020!important;-webkit-print-color-adjust:exact}
 }
+
+.draft-watermark {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-45deg);
+  font-size: 120px;
+  font-weight: 900;
+  color: rgba(200, 0, 0, 0.08);
+  pointer-events: none;
+  z-index: 9999;
+  font-family: 'DM Sans', sans-serif;
+  letter-spacing: 0.2em;
+  white-space: nowrap;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
 </style>
 </head>
 <body>
+<div class="draft-watermark" id="draft-wm" style="display:none">LUONNOS</div>
 
 <div class="topbar">
   <div style="display:flex;align-items:center">
@@ -688,6 +706,9 @@ async function lataaData(asiakas_id) {
 
   document.getElementById('raportti').classList.add('vis');
   document.getElementById('print-btn').style.display = 'block';
+
+  const lukittu = ak.avoin_vuosi !== AVOIN_VUOSI;
+  document.getElementById('draft-wm').style.display = lukittu ? 'none' : 'block';
 }
 
 renderAlist(allAs);
