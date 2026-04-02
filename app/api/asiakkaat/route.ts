@@ -27,6 +27,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Käyttäjää ei löydy' }, { status: 404 });
   }
 
+  console.log('kayttaja rooli:', kayttaja.rooli, 'org:', kayttaja.organisaatio_id)
+
   let query = supabase
     .from('asiakkaat')
     .select('id, etunimi, sukunimi, sahkoposti, alv_rekisterissa, luotu_at, avoin_vuosi')
