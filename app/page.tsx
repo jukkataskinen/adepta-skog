@@ -67,45 +67,9 @@ export default async function Home() {
       desc: 'Hallinnoi asiakkaita ja tiloja',
     },
     {
-      label: 'Asiakkaan tiedot',
-      href: '/demo/adepta_skog_asiakas.html',
-      icon: '🌲',
-      desc: 'Asiakkaan tila- ja yhteystiedot',
-    },
-    {
-      label: 'Kirjanpito',
-      href: '/kirjanpito',
-      icon: '📒',
-      desc: 'Tulot, menot ja tiliotteet',
-    },
-    {
-      label: 'ALV-raportti',
-      href: '/alv',
-      icon: '📊',
-      desc: 'Metsäverotuksen suunnittelu',
-    },
-    {
-      label: 'Verosuunnitelma',
-      href: '/verosuunnitelma',
-      icon: '📋',
-      desc: 'Asiakkaan verosuunnitelma',
-    },
-    {
-      label: 'Kuittiskanneri',
-      href: '/demo/adepta_skog_kuittiskanneri.html',
-      icon: '📷',
-      desc: 'Skannaa ja tallenna kuitit',
-    },
-    {
-      label: 'Veroraportti',
-      href: '/veroraportti',
-      icon: '📄',
-      desc: 'Tulostettava veroraportti',
-    },
-    {
       label: 'Käyttäjät',
       href: '/kayttajat',
-      icon: '👥',
+      icon: '👤',
       desc: 'Organisaation käyttäjähallinta',
     },
   ]
