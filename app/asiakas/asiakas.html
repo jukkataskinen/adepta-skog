@@ -337,7 +337,6 @@ tr.ar td{height:36px;border-bottom:1px solid var(--bd)}
     <div class="tab-bar">
       <button class="tab-btn act" data-tab="yhteenveto" onclick="showTab('yhteenveto')">Asiakastiedot</button>
       <button class="tab-btn" data-tab="kirjanpito" onclick="showTab('kirjanpito')">Kirjanpito</button>
-      <button class="tab-btn" data-tab="alv" onclick="showTab('alv')">ALV-raportti</button>
       <button class="tab-btn" data-tab="verosuunnitelma" onclick="showTab('verosuunnitelma')">Verosuunnitelma</button>
       <button class="tab-btn" data-tab="veroraportti" onclick="showTab('veroraportti')">Veroraportti</button>
       <button class="tab-btn" data-tab="arkisto" onclick="showTab('arkisto')">Arkisto</button>
@@ -352,7 +351,8 @@ tr.ar td{height:36px;border-bottom:1px solid var(--bd)}
       </div>
     </div>
 
-    <div id="tab-kirjanpito" class="tab-panel" style="display:none;flex-direction:column">
+    <div id="tab-kirjanpito" class="tab-panel" style="display:none;flex-direction:row">
+      <div style="flex:0 0 78%;display:flex;flex-direction:column;min-width:0;border-right:1px solid #2e4a32">
       <!-- KB topbar with year selector -->
       <div style="display:flex;align-items:center;gap:8px;padding:8px 16px;background:#1c2b1e;border-bottom:1px solid #2e4a32;flex-shrink:0">
         <select id="kb-vuosi-sel" onchange="vaihdaKbVuosi(this.value)" style="padding:5px 8px;font-family:var(--ffb);font-size:12px;background:#2d4a31;border:1px solid rgba(255,255,255,.15);border-radius:5px;color:#fff;outline:none;cursor:pointer"></select>
@@ -414,25 +414,39 @@ tr.ar td{height:36px;border-bottom:1px solid var(--bd)}
           <span class="vero-val" id="vero-ennakko" style="color:#7ab8e8">0,00 €</span>
         </div>
       </div>
-      <!-- Footer totals -->
-      <div class="fb">
-        <div class="si"><span class="sl">Tulot (0%)</span><span class="sv t" id="st">0,00</span></div>
-        <div class="sd"></div>
-        <div class="si"><span class="sl">Menot (0%)</span><span class="sv m" id="sm">0,00</span></div>
-        <div class="sd"></div>
-        <div class="si"><span class="sl">Investoinnit (0%)</span><span class="sv" style="color:#185FA5" id="si">0,00</span></div>
-        <div class="sd"></div>
-        <div class="si"><span class="sl">ALV tilitettävä</span><span class="sv al" id="sa">0,00</span></div>
-        <div class="sd"></div>
-        <div class="si"><span class="sl">Tulos</span><span class="sv" id="stu">0,00</span></div>
+      </div><!-- /left column -->
+      <!-- ALV panel right 22% -->
+      <div style="flex:0 0 22%;display:flex;flex-direction:column;padding:20px 16px;gap:14px;background:#162318;overflow-y:auto">
+        <div style="font-family:var(--ffs);font-size:13px;font-weight:600;color:#e8f0e9">ALV-yhteenveto <span id="alv-panel-vuosi" style="color:#1D9E75"></span></div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;justify-content:space-between;font-size:12px">
+            <span style="color:#9ab89e">Myynti-ALV</span>
+            <span id="alv-myynti" style="color:#e8f0e9">0,00 €</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px">
+            <span style="color:#9ab89e">Osto-ALV</span>
+            <span id="alv-osto" style="color:#e8f0e9">0,00 €</span>
+          </div>
+          <div style="border-top:1px solid #2e4a32;padding-top:10px;display:flex;justify-content:space-between;font-size:13px;font-weight:600">
+            <span style="color:#e8f0e9">Tilitettävä ALV</span>
+            <span id="alv-tilitettava" style="color:#1D9E75">0,00 €</span>
+          </div>
+        </div>
+        <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;border-top:1px solid #2e4a32;padding-top:12px">
+          <div style="display:flex;justify-content:space-between;font-size:12px">
+            <span style="color:#9ab89e">Tulot</span>
+            <span id="alv-tulot" style="color:#7ec488">0,00 €</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px">
+            <span style="color:#9ab89e">Menot</span>
+            <span id="alv-menot" style="color:#e8a86a">0,00 €</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px">
+            <span style="color:#9ab89e">Tulos</span>
+            <span id="alv-tulos" style="color:#e8f0e9">0,00 €</span>
+          </div>
+        </div>
       </div>
-    </div>
-
-    <div id="tab-alv" class="tab-panel" style="display:none;flex-direction:column">
-      <div style="padding:6px 16px;background:#f8f7f4;border-bottom:1px solid #dddbd4;font-size:12px;color:#7a7d72;flex-shrink:0">
-        <span id="alv-tab-title">ALV-raportti</span>
-      </div>
-      <iframe id="frame-alv" src="" style="flex:1;height:calc(100vh - 130px)"></iframe>
     </div>
 
     <div id="tab-verosuunnitelma" class="tab-panel" style="display:none;flex-direction:column">
@@ -581,14 +595,13 @@ function showTab(name) {
     if (curAs && !kbLoaded) { kbLoaded = true; lataaRivit(curAs.id); }
     return;
   }
-  if (name === 'alv') { lataaAlv(); return; }
   if (name === 'verosuunnitelma') { lataaVerosuunnitelma(); return; }
   if (name === 'veroraportti') { lataaVeroraportti(); return; }
 }
 
 function updateFrames() {
   kbLoaded = false;
-  ['alv', 'verosuunnitelma', 'veroraportti'].forEach(name => {
+  ['verosuunnitelma', 'veroraportti'].forEach(name => {
     const frame = document.getElementById('frame-' + name);
     if (frame) frame.src = '';
   });
@@ -690,13 +703,6 @@ async function loadYhteenveto() {
   html += '</tbody></table></div>';
 
   document.getElementById('yht-content').innerHTML = html;
-}
-
-function lataaAlv() {
-  if (!curAs) return;
-  const alvVuosi = curAs.avoin_vuosi || 2025;
-  document.getElementById('alv-tab-title').textContent = 'ALV-raportti · ' + alvVuosi;
-  document.getElementById('frame-alv').src = '/alv?embed=1&asiakas_id=' + curAs.id + '&vuosi=' + alvVuosi;
 }
 
 function lataaVerosuunnitelma() {
@@ -1358,16 +1364,22 @@ function totals() {
     veEl.style.color = veroEnnakkoJalkeen <= 0 ? '#7ec488' : '#7ab8e8';
     if (veroEnnakkoJalkeen <= 0 && veroArvio > 0) veEl.textContent = '0,00 € ✓';
   }
-  // Update footer labels with counts
-  const tc = rows.filter(r => r.tyyppi === 'tulo').length;
-  const mc = rows.filter(r => r.tyyppi === 'meno').length;
-  const ic = rows.filter(r => r.tyyppi === 'investointi').length;
-  const stLbl = document.querySelector('#st')?.previousElementSibling;
-  const smLbl = document.querySelector('#sm')?.previousElementSibling;
-  const siLbl = document.querySelector('#si')?.previousElementSibling;
-  if (stLbl && stLbl.classList.contains('sl')) stLbl.textContent = `Tulot (${tc})`;
-  if (smLbl && smLbl.classList.contains('sl')) smLbl.textContent = `Menot (${mc})`;
-  if (siLbl && siLbl.classList.contains('sl')) siLbl.textContent = `Investoinnit (${ic})`;
+  // Update ALV panel
+  const alvMyEl = document.getElementById('alv-myynti');
+  const alvOsEl = document.getElementById('alv-osto');
+  const alvTiEl = document.getElementById('alv-tilitettava');
+  const alvTuEl = document.getElementById('alv-tulot');
+  const alvMeEl = document.getElementById('alv-menot');
+  const alvTlEl = document.getElementById('alv-tulos');
+  const alvVEl = document.getElementById('alv-panel-vuosi');
+  if (alvMyEl) alvMyEl.textContent = fmtKb(am) + ' €';
+  if (alvOsEl) alvOsEl.textContent = fmtKb(ao) + ' €';
+  const tilitettava = am - ao;
+  if (alvTiEl) { alvTiEl.textContent = fmtKb(tilitettava) + ' €'; alvTiEl.style.color = tilitettava >= 0 ? '#1D9E75' : '#e8a86a'; }
+  if (alvTuEl) alvTuEl.textContent = fmtKb(tl) + ' €';
+  if (alvMeEl) alvMeEl.textContent = fmtKb(ml) + ' €';
+  if (alvTlEl) { const ts2 = tl - ml; alvTlEl.textContent = fmtKb(ts2) + ' €'; alvTlEl.style.color = ts2 >= 0 ? '#7ec488' : '#e8a86a'; }
+  if (alvVEl && AVOIN_VUOSI) alvVEl.textContent = AVOIN_VUOSI;
 }
 
 function rCount() {
