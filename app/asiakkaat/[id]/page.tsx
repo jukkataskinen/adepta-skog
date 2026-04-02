@@ -6,6 +6,7 @@ import { redirect, notFound } from 'next/navigation'
 import MuokkausForm from './MuokkausForm'
 import MetsatilaForm from './MetsatilaForm'
 import InvestointiForm from './InvestointiForm'
+import VuosiModal from './VuosiModal'
 
 type Params = { params: { id: string } }
 
@@ -95,9 +96,10 @@ export default async function AsiakasPage({ params }: Params) {
                 <p style={{ fontSize: '0.75rem', color: '#7a9e7e', margin: '0 0 0.25rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Avoin verovuosi</p>
                 <p style={{ fontSize: '2rem', fontFamily: "'Fraunces', serif", fontWeight: 300, color: '#1D9E75', margin: 0 }}>{asiakas.avoin_vuosi ?? 2025}</p>
               </div>
-              <div style={{ fontSize: '0.85rem', color: '#7a9e7e' }}>
-                Sulje vuosi muokkaamalla asiakkaan tietoja ja vaihtamalla avoin verovuosi seuraavalle vuodelle.
+              <div style={{ fontSize: '0.85rem', color: '#7a9e7e', flex: 1 }}>
+                Sulje vuosi vaihtamalla avoin verovuosi seuraavalle vuodelle.
               </div>
+              <VuosiModal asiakas={{ id: asiakas.id, avoin_vuosi: asiakas.avoin_vuosi ?? 2025 }} />
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
