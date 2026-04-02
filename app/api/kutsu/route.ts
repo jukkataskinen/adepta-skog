@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth0 } from '@/lib/auth0'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin as supabase } from '@/lib/supabase'
 
 async function getManagementToken() {
   const res = await fetch(`https://${process.env.AUTH0_DOMAIN}/oauth/token`, {

@@ -3,7 +3,7 @@
 // =============================================================
 import { NextRequest, NextResponse } from 'next/server';
 import { auth0 } from '@/lib/auth0';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin as supabase } from '@/lib/supabase';
 
 // GET /api/asiakkaat — hae organisaation asiakkaat
 export async function GET(request: NextRequest) {
