@@ -97,6 +97,23 @@ body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:14p
 .empty-state-i{font-family:var(--ffd);font-style:italic;font-size:48px;color:var(--inf);font-weight:300;line-height:1}
 
 iframe{display:block;width:100%;height:calc(100vh - 116px);border:none}
+
+/* Vuosi modal */
+.v-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:none;align-items:center;justify-content:center}
+.v-overlay.open{display:flex}
+.v-modal{background:#fff;border-radius:10px;padding:28px 28px 24px;width:100%;max-width:400px;margin:1rem;box-shadow:0 8px 32px rgba(0,0,0,.18)}
+.v-modal h2{font-family:var(--ffd);font-weight:300;font-size:1.2rem;color:var(--ink);margin-bottom:16px}
+.v-lbl{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--inu);display:block;margin-bottom:4px}
+.v-sel{width:100%;padding:8px 10px;font-family:var(--ffb);font-size:14px;background:#fff;border:1px solid var(--bd);border-radius:5px;color:var(--ink);outline:none}
+.v-sel:focus{border-color:var(--fm)}
+.v-warn{background:#fff3f3;border:1px solid #fca5a5;border-radius:6px;padding:10px 12px;font-size:12px;color:#b91c1c;margin:10px 0}
+.v-hint{font-size:12px;color:var(--inu);background:var(--ppw);padding:8px 10px;border-radius:5px;margin:10px 0}
+.v-btn-row{display:flex;gap:8px;margin-top:16px}
+.v-btn-row button{flex:1;padding:8px 0;font-family:var(--ffb);font-size:13px;font-weight:500;border-radius:5px;border:none;cursor:pointer}
+.v-btn-save{background:var(--fm);color:#fff}
+.v-btn-save:hover{background:var(--fl)}
+.v-btn-cancel{background:transparent;color:var(--inu);border:1px solid var(--bd) !important}
+.v-btn-cancel:hover{background:var(--ppw)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -163,7 +180,7 @@ iframe{display:block;width:100%;height:calc(100vh - 116px);border:none}
     </div>
 
     <div class="tab-bar">
-      <button class="tab-btn act" data-tab="yhteenveto" onclick="showTab('yhteenveto')">Yhteenveto</button>
+      <button class="tab-btn act" data-tab="yhteenveto" onclick="showTab('yhteenveto')">Asiakastiedot</button>
       <button class="tab-btn" data-tab="kirjanpito" onclick="showTab('kirjanpito')">Kirjanpito</button>
       <button class="tab-btn" data-tab="alv" onclick="showTab('alv')">ALV-raportti</button>
       <button class="tab-btn" data-tab="verosuunnitelma" onclick="showTab('verosuunnitelma')">Verosuunnitelma</button>
@@ -193,6 +210,27 @@ iframe{display:block;width:100%;height:calc(100vh - 116px);border:none}
 
     <div id="tab-veroraportti" class="tab-panel" style="display:none">
       <iframe id="frame-veroraportti" src=""></iframe>
+    </div>
+  </div>
+</div>
+
+<!-- Vuosi modal -->
+<div class="v-overlay" id="vuosi-overlay" onclick="if(event.target===this)suljeMuokkaaVuosi()">
+  <div class="v-modal">
+    <h2>Vaihda verovuosi</h2>
+    <div class="v-warn" id="vuosi-varoitus" style="display:none"></div>
+    <label class="v-lbl">Avoin verovuosi</label>
+    <select class="v-sel" id="vuosi-valinta" onchange="paivitaVuosiHint()">
+      <option value="2023">2023</option>
+      <option value="2024">2024</option>
+      <option value="2025">2025</option>
+      <option value="2026">2026</option>
+      <option value="2027">2027</option>
+    </select>
+    <div class="v-hint" id="vuosi-hint" style="display:none"></div>
+    <div class="v-btn-row">
+      <button class="v-btn-save" id="vuosi-btn-save" onclick="vaihdaVuosi()">Tallenna</button>
+      <button class="v-btn-cancel" onclick="suljeMuokkaaVuosi()">Peruuta</button>
     </div>
   </div>
 </div>
@@ -343,13 +381,23 @@ async function loadYhteenveto() {
     ['Postitoimipaikka', ak?.postitoimipaikka || '—'],
     ['Verotiliviite', ak?.verotiliviite || '—', true],
     ['ALV-rekisterissä', ak?.alv_rekisterissa ? 'Kyllä' : 'Ei'],
-    ['Avoin vuosi', ak?.avoin_vuosi || '—', true],
     ['Luotu', fmtDate(ak?.luotu_at)],
   ];
   infoItems.forEach(([lbl, val, mono]) => {
     html += '<div class="info-item"><label>' + lbl + '</label><span' + (mono ? ' class="mono"' : '') + '>' + (val || '—') + '</span></div>';
   });
   html += '</div></div></div>';
+
+  // Verovuosi card
+  const avVuosi = ak?.avoin_vuosi || 2025;
+  html += '<div class="card">';
+  html += '<div class="card-hdr">Verovuosi</div>';
+  html += '<div class="card-body" style="display:flex;align-items:center;gap:2rem">';
+  html += '<div><p style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--inu);margin-bottom:4px">Avoin verovuosi</p>';
+  html += '<p style="font-family:var(--ffd);font-weight:300;font-size:2rem;color:var(--fm);margin:0">' + avVuosi + '</p></div>';
+  html += '<div style="flex:1;font-size:12px;color:var(--inu)">Sulje vuosi vaihtamalla avoin verovuosi seuraavalle vuodelle.</div>';
+  html += '<button onclick="avaaVuosiModal()" style="padding:6px 16px;background:transparent;color:var(--fm);border:1px solid var(--fm);border-radius:5px;font-family:var(--ffb);font-size:13px;cursor:pointer">Vaihda vuosi</button>';
+  html += '</div></div>';
 
   // Metsätilat card
   html += '<div class="card">';
@@ -401,6 +449,74 @@ async function loadYhteenveto() {
   html += '</tbody></table></div>';
 
   document.getElementById('yht-content').innerHTML = html;
+}
+
+// Vuosi modal
+function avaaVuosiModal() {
+  const nykyinen = curAs?.avoin_vuosi || 2025;
+  const sel = document.getElementById('vuosi-valinta');
+  sel.value = nykyinen;
+  document.getElementById('vuosi-varoitus').style.display = 'none';
+  document.getElementById('vuosi-hint').style.display = 'none';
+  document.getElementById('vuosi-overlay').classList.add('open');
+  paivitaVuosiHint();
+}
+
+function suljeMuokkaaVuosi() {
+  document.getElementById('vuosi-overlay').classList.remove('open');
+}
+
+function paivitaVuosiHint() {
+  const nykyinen = curAs?.avoin_vuosi || 2025;
+  const vuosi = parseInt(document.getElementById('vuosi-valinta').value);
+  const warn = document.getElementById('vuosi-varoitus');
+  const hint = document.getElementById('vuosi-hint');
+  if (vuosi < nykyinen) {
+    warn.textContent = 'Avaat jo suljetun verovuoden (' + vuosi + '). Tämä on poikkeustilanne.';
+    warn.style.display = 'block';
+    hint.style.display = 'none';
+  } else if (vuosi > nykyinen) {
+    warn.style.display = 'none';
+    hint.textContent = 'Vuosi ' + nykyinen + ' suljetaan ja tallennetaan arkistoon. Uusi avoin vuosi on ' + vuosi + '.';
+    hint.style.display = 'block';
+  } else {
+    warn.style.display = 'none';
+    hint.style.display = 'none';
+  }
+}
+
+async function vaihdaVuosi() {
+  const vuosi = parseInt(document.getElementById('vuosi-valinta').value);
+  const nykyinen = curAs.avoin_vuosi || 2025;
+  if (vuosi < nykyinen) {
+    if (!confirm('Olet avaamassa jo suljettua vuotta ' + vuosi + ', jonka tiedot on mahdollisesti ilmoitettu verottajalle. Oletko varma?')) return;
+  }
+  if (vuosi > nykyinen) {
+    await _sb.from('arkisto').upsert({
+      asiakas_id: curAs.id,
+      verovuosi: nykyinen,
+      tiedostonimi: 'veroraportti_' + nykyinen + '.pdf',
+      pdf_data: 'archived_' + nykyinen,
+    }, { onConflict: 'asiakas_id,verovuosi' });
+  }
+  await _sb.from('asiakkaat').update({ avoin_vuosi: vuosi }).eq('id', curAs.id);
+  curAs.avoin_vuosi = vuosi;
+  suljeMuokkaaVuosi();
+  lataaAsiakastiedot();
+  toast('Avoin verovuosi vaihdettu: ' + vuosi);
+}
+
+function lataaAsiakastiedot() {
+  updateHeader();
+  loadYhteenveto();
+}
+
+function toast(msg) {
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--fd);color:#e8f0e9;padding:10px 22px;border-radius:6px;font-size:13px;z-index:1000;box-shadow:0 4px 16px rgba(0,0,0,.3);pointer-events:none';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
 }
 
 // Init
