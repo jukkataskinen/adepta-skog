@@ -717,7 +717,7 @@ function lataaVeroraportti() {
 async function lataaArkisto() {
   if (!curAs) return;
   const { data } = await _sb.from('arkisto')
-    .select('id, verovuosi, tiedostonimi, luotu_at')
+    .select('id, verovuosi, tiedostonimi, liite_nimi, liite_koko, luotu_at')
     .eq('asiakas_id', curAs.id)
     .order('verovuosi', { ascending: false });
   const el = document.getElementById('arkisto-lista');
@@ -726,14 +726,28 @@ async function lataaArkisto() {
     el.innerHTML = '<p style="color:var(--inu)">Ei arkistoituja vuosia.</p>';
     return;
   }
-  el.innerHTML = '<table class="data-table"><thead><tr><th>Verovuosi</th><th>Arkistoitu</th><th>Toiminnot</th></tr></thead><tbody>' +
+  el.innerHTML = '<table class="data-table"><thead><tr><th>Verovuosi</th><th>Arkistoitu</th><th>Tositeaineisto</th><th>Toiminnot</th></tr></thead><tbody>' +
     data.map(a => '<tr>' +
       '<td><strong>' + a.verovuosi + '</strong></td>' +
       '<td>' + new Date(a.luotu_at).toLocaleDateString('fi-FI') + '</td>' +
+      '<td>' + (a.liite_nimi ?
+        '<a href="javascript:void(0)" onclick="lataaLiiteTiedosto(\'' + a.id + '\')" style="color:var(--fg);text-decoration:none;font-size:13px">📎 ' + a.liite_nimi + '</a>' :
+        '<span style="color:var(--inu)">—</span>') + '</td>' +
       '<td><a href="/veroraportti?asiakas_id=' + curAs.id + '&vuosi=' + a.verovuosi + '" target="_blank" style="color:var(--fg);text-decoration:none;font-size:13px">Avaa raportti →</a></td>' +
       '</tr>'
     ).join('') +
     '</tbody></table>';
+}
+
+async function lataaLiiteTiedosto(arkistoId) {
+  const { data } = await _sb.from('arkisto')
+    .select('liite_nimi, liite_data')
+    .eq('id', arkistoId).single();
+  if (!data?.liite_data) return;
+  const link = document.createElement('a');
+  link.href = 'data:application/octet-stream;base64,' + data.liite_data;
+  link.download = data.liite_nimi;
+  link.click();
 }
 
 // Vuosi modal
