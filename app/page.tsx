@@ -61,10 +61,10 @@ export default async function Home() {
 
   const navItems = [
     {
-      label: 'Asiakkaat',
+      label: 'Kirjanpidot',
       href: '/asiakas',
       icon: '👥',
-      desc: 'Hallinnoi asiakkaita ja tiloja',
+      desc: 'Laadi kirjanpidot ja hallinnoi asiakastietoja',
     },
     {
       label: 'Käyttäjät',
