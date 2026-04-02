@@ -231,6 +231,7 @@ tr.ar td{height:36px;border-bottom:1px solid var(--bd)}
   </div>
   <div class="tr">
     <span class="cnt" id="row-count"></span>
+    <select id="kb-vuosi-sel" onchange="vaihdaKbVuosi(this.value)" style="padding:5px 8px;font-family:var(--ffb);font-size:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:5px;color:#fff;outline:none;cursor:pointer"></select>
     <button class="bg" onclick="tulostaRaportti()">Tulosta PDF</button>
     <button class="bs" id="save-btn" onclick="tallenna()" disabled>Tallenna</button>
   </div>
@@ -339,11 +340,11 @@ const _sb = supabase.createClient(window._SKOG.supabaseUrl, window._SKOG.supabas
 let ASIAKKAAT = [];
 async function lataaAsiakkaat() {
   const { data } = await _sb.from('asiakkaat')
-    .select('id, etunimi, sukunimi, kotikunta')
+    .select('id, etunimi, sukunimi, kotikunta, avoin_vuosi')
     .eq('organisaatio_id', window._SKOG.orgId)
     .order('sukunimi');
   if (data) {
-    ASIAKKAAT = data.map(a => ({ id: a.id, nimi: a.sukunimi + ', ' + a.etunimi, tila: a.kotikunta || '' }));
+    ASIAKKAAT = data.map(a => ({ id: a.id, nimi: a.sukunimi + ', ' + a.etunimi, tila: a.kotikunta || '', avoin_vuosi: a.avoin_vuosi }));
     fAs = [...ASIAKKAAT]; renderAs();
     // URL param auto-select
     const _urlId = new URLSearchParams(location.search).get('asiakas_id');
@@ -358,6 +359,7 @@ async function lataaAsiakkaat() {
 const AVR=[0,10,14,25.5];
 let rows=[],nid=1,curAs=null,undo=[],dirty=false;
 let AVOIN_VUOSI = window._SKOG.avoinVuosi;
+let KB_LUKITTU = false;
 const pvmMin = () => `${AVOIN_VUOSI}-01-01`;
 const pvmMax = () => `${AVOIN_VUOSI}-12-31`;
 const pvmOk = (v) => { if(!v) return true; return parseInt(v.slice(0,4)) === AVOIN_VUOSI; };
@@ -686,6 +688,9 @@ function _selAs(id){
   document.getElementById('bc-as').textContent=curAs.nimi;
   document.getElementById('asrch').value='';
   fAs=[...ASIAKKAAT]; asHL=-1; renderAs();
+  AVOIN_VUOSI = curAs.avoin_vuosi || 2025;
+  KB_LUKITTU = false;
+  paivitaKbVuosiSel();
   lataaRivit(id);
 }
 async function lataaRivit(asiakas_id) {
@@ -710,7 +715,7 @@ async function lataaRivit(asiakas_id) {
   } else {
     rows = [];
   }
-  render(); setTimeout(()=>focusC(0,0),80);
+  render(); setTimeout(()=>{ focusC(0,0); paivitaLukittuTila(); },80);
 }
 function demoData(){
   rows=[
@@ -719,6 +724,47 @@ function demoData(){
     {id:nid++,pvm:'2025-05-20',kuvaus:'Metsänhoitopalvelu',  summa:1506, alv:25.5,tyyppi:'meno',ennakko:0,kategoria:'Muut vuosimenot'},
     {id:nid++,pvm:'2025-06-10',kuvaus:'Puukauppa (koivikko)',summa:10040,alv:25.5,tyyppi:'tulo',ennakko:2080,kategoria:'Hankintakauppa'},
   ];
+}
+
+// Vuosivalinta
+function paivitaKbVuosiSel() {
+  if (!curAs) return;
+  const avoin = curAs.avoin_vuosi || 2025;
+  const vuodet = [avoin - 2, avoin - 1, avoin, avoin + 1].filter(v => v >= 2020);
+  const sel = document.getElementById('kb-vuosi-sel');
+  if (!sel) return;
+  sel.innerHTML = vuodet.map(v =>
+    '<option value="' + v + '"' + (v === AVOIN_VUOSI ? ' selected' : '') + '>' +
+    v + (v === avoin ? ' (avoin)' : ' (lukittu)') + '</option>'
+  ).join('');
+}
+
+function vaihdaKbVuosi(v) {
+  AVOIN_VUOSI = parseInt(v);
+  const avoin = curAs.avoin_vuosi || 2025;
+  KB_LUKITTU = AVOIN_VUOSI < avoin;
+  lataaRivit(curAs.id);
+  paivitaLukittuTila();
+}
+
+function paivitaLukittuTila() {
+  const saveBtn = document.getElementById('save-btn');
+  const addBtn = document.getElementById('arb');
+  if (KB_LUKITTU) {
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.title = 'Kausi on lukittu'; }
+    if (addBtn) addBtn.style.display = 'none';
+    document.querySelectorAll('#lb input, #lb select, #lb button.tb').forEach(el => {
+      el.disabled = true;
+      el.style.pointerEvents = 'none';
+    });
+  } else {
+    if (saveBtn) { saveBtn.disabled = !dirty; saveBtn.title = ''; }
+    if (addBtn) addBtn.style.display = '';
+    document.querySelectorAll('#lb input, #lb select, #lb button.tb').forEach(el => {
+      el.disabled = false;
+      el.style.pointerEvents = '';
+    });
+  }
 }
 
 // Rivit
