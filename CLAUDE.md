@@ -1,0 +1,83 @@
+# Skog – rakennusohje Claude Codelle
+
+Metsätalouden kirjanpito- ja verosuunnitteluohjelma kirjanpitotoimistolle. Toimisto hoitaa asiakkaidensa (metsänomistajien) metsätilat, kirjaukset, arvonlisäveron, poistot, metsävähennyksen, verosuunnitelman ja veroraportin. Tuotanto: skog.adepta.fi.
+
+Ohjelma rakennetaan uudelleen samalle pohjalle kuin eRappu (`../Claude-cowork/PROJECTS/erappu`) ja Mittarilukema (`../Claude-cowork/PROJECTS/mittarilukema`). Mittarilukema on pohjan siistein versio: kopioi yhteinen runko sieltä ja muuta vain se, mikä on Skogille omaa. Vanha sovellus (`app/`, `lib/`, HTML-sivut) on käytössä, kunnes uusi on otettu käyttöön, ja se toimii laskentasääntöjen lähteenä.
+
+**Älä kysy käyttäjältä mitään, mikä on tässä tai DECISIONS.md:ssä päätetty.** Jos joudut tekemään uuden päätöksen, tee se tämän dokumentin hengessä ja kirjaa se `DECISIONS.md`:ään. Jos et voi edetä puuttuvan tiedon takia, kirjaa asia `BLOCKERS.md`:hen ja jatka seuraavaan tehtävään.
+
+## Työskentelyprotokolla
+
+1. Lue `CLAUDE.md`, `PLAN.md`, `DECISIONS.md` ja `BLOCKERS.md`.
+2. Tee `PLAN.md`:n seuraava tekemätön tehtävä kokonaan: koodi, testit, migraatio ja dokumentaatio.
+3. Aja `npm run lint && npm run typecheck && npm run test`. Korjaa virheet ennen jatkamista.
+4. Merkitse tehtävä tehdyksi `PLAN.md`:ssä ja kirjaa päätökset `DECISIONS.md`:ään (päivä, päätös, perustelu 1–3 riviä).
+5. Commitoi. Pushaa vain Jukan luvalla: push `main`-haaraan julkaisee Verceliin tuotantoon.
+
+Uusi sovellus rakennetaan `v2`-haaraan (DECISIONS 26.9.2026). `main` on vanha tuotantosovellus, ja siihen tehdään vain korjauksia, kunnes `v2` yhdistetään.
+
+## Säännöt
+
+- **Käyttöliittymä suomeksi, koodi ja tietokanta englanniksi.** Kommentit suomeksi ja ne kertovat *miksi*. Sävy: sinuttelu, rauhallinen, ei huutomerkkejä, ei emojeita.
+- **Jokainen uusi taulu:** etuliite `sk_`, `organization_id`, RLS päälle, policyt ja eksplisiittiset GRANTit (`authenticated`, `service_role`). Viittaus toiseen tauluun saman organisaation sisällä varmistetaan triggerillä `sk_check_same_org`. Lisää taulu `tests/db/rls.test.ts`:n listaan.
+- **Kaikki kantakutsut `src/lib/db`-kerroksen kautta:** `db.asUser(sub, tx => ...)` käyttäjän RLS-transaktiossa. `db.asService` vain skripteihin, kirjautumiseen ja taustatöihin. Ei supabase-js:ää, ei service role -avainta sivuilla, ei kantakutsuja selaimesta. Tämä on vanhan sovelluksen suurin virhe: rajaus oli jokaisen reitin varassa, ja se unohtui.
+- **Henkilötiedot:** asiakastiedostot, tositteet, varmuuskopiot ja viennit eivät koskaan gittiin (`.gitignore`, CI-vahti). Skriptit tulostavat vain määriä. Ei henkilötietoja URL-osoitteisiin, lokeihin tai virheviesteihin. Henkilötunnuksia ei käsitellä. Y-tunnus ja kiinteistötunnus saa tallentaa.
+- **Muutokset lokiin:** `audit()` samassa transaktiossa kuin muutos.
+- **Lomakkeet:** server action → `parseForm(schema, formData, backTo)`. Virhe `?virhe=`-parametrilla, sivu näyttää sen `<FormError>`-komponentilla.
+- **Päivämäärät ja rahat:** kanta `date` ja `numeric(14,2)`, näyttö `src/lib/format.ts` (Europe/Helsinki). Pinta-alat `numeric(12,2)`, kuutiot `numeric(12,1)`, prosentit `numeric(5,2)`.
+- **Verolaskenta puhtaina funktioina** `src/lib/tax/`-kansiossa: ei kantakutsuja, syöte sisään ja tulos ulos, yksikkötestit `tests/unit/tax/`. Verosäännöt, joilla on vuosikohtainen arvo (prosentit, rajat), ovat `src/lib/tax/rules.ts`:ssä verovuoden mukaan eikä koodin seassa.
+- **Suljettu verovuosi on lukittu.** Kun vuosi suljetaan, sen kirjauksia, poistoja ja metsävähennyksiä ei voi muuttaa ilman avausta, ja avaus kirjataan lokiin.
+- **Tiedostot** (tositteet, arkistoidut raportit) Supabase Storageen organisaation kansioon, ei kantaan base64:nä.
+- **Ulkoiset palvelut** (sähköposti, tekoälytunnistus) moduulin `index.ts`-rajapinnan takana, ja mock-toteutus on oletus, kun avain puuttuu.
+- **Ohjeet:** kun toiminto muuttuu tai syntyy, päivitä sen ohje `src/lib/help/topics.ts`:ssä samassa muutoksessa, selkokielisenä: lyhyet lauseet, arkisanat, vaiheet numeroituina, ei teknisiä termejä. Kesken oleva toiminto merkitään `upcoming: true`. Uusi sivu lisätään ohjekarttaan `src/lib/help/routes.ts` (testi `tests/unit/help-routes.test.ts`).
+- **Vanhaan tuotantokantaan ei kirjoiteta.** Tiedot siirretään sieltä vain lukemalla, ja vain Jukan luvalla.
+
+## Lukitut päätökset
+
+| Aihe | Päätös |
+|---|---|
+| Runko | Next.js 15 App Router, React 19, TypeScript strict, Tailwind 4, zod 4. Palvelinkomponentit ja server actionit. |
+| Ulkoasu | eRapun ja Mittarilukeman perusilme (`src/app/globals.css`, `src/components/ui.tsx`): `ink`, `cloud`, `line`, `sky` = toiminto, `coral` = vaatii huomiota, `moss` = valmis, `amber` = odottaa. Plus Jakarta Sans. Työpöytä ensin (`StaffShell`). |
+| Tietokanta | Paikallisesti PGlite (`.data/pglite`), tuotannossa **oma** Supabase-projekti (eu-central-1), jota mikään muu sovellus ei käytä. Migraatiot `supabase/migrations/NNNN_nimi.sql`: paikallisesti automaattisesti, Supabaseen Vercelin tuotantobuildissa (`scripts/db/migrate-remote.mts`). |
+| Kirjautuminen | `AUTH_MODE=dev` kehityksessä (käyttäjän valinta, estetty tuotannossa), `AUTH_MODE=auth0` tuotannossa. Ei itserekisteröintiä: käyttäjä lisätään kutsulla tai skriptillä. |
+| Roolit | `owner` pääkäyttäjä (kaikki asiakkaat, käyttäjät, vuoden sulkeminen), `staff` kirjanpitäjä (asiakkaat, joiden vastuukirjanpitäjä hän on). |
+| Organisaatio | Kirjanpitotoimisto. Asiakas (metsänomistaja) ei kirjaudu ohjelmaan ensimmäisessä versiossa. |
+
+## Rakenne (tavoite)
+
+```
+src/app/(henkilokunta)/     sivut (StaffShell, requireStaff)
+src/app/kirjaudu/           kirjautuminen
+src/app/api/                ping (cron), tiedostojen lataus
+src/lib/db/                 kantakerros (PGlite / Postgres), kopio Mittarilukemasta
+src/lib/auth/               istunto, käyttäjä ja roolit, kopio Mittarilukemasta
+src/lib/forms.ts            parseForm, FormError
+src/lib/audit.ts            muutosloki
+src/lib/help/               ohjeet ja ohjekartta
+src/lib/clients/            asiakkaat ja vastuukirjanpitäjä
+src/lib/properties/         metsätilat
+src/lib/ledger/             kirjaukset ja tositteet
+src/lib/tax/                verolaskenta: alv, poistot, metsävähennys, verosuunnitelma, säännöt
+src/lib/reports/            veroraportti PDF:nä, arkistointi
+src/lib/years/              verovuoden avaus, sulkeminen ja lukitus
+src/lib/import/             tiedonsiirto vanhasta kannasta
+supabase/migrations/        0001–
+tests/db/                   RLS- ja kantatestit (tests/helpers/db.ts: freshDb, seedOrg)
+tests/unit/                 puhdas logiikka, erityisesti tests/unit/tax/
+scripts/                    kannan ylläpito, tiedonsiirto, vertailu vanhaan sovellukseen
+legacy/                     vanha sovellus v2-haarassa vain lähteenä, poistetaan käyttöönoton jälkeen
+```
+
+## Komennot (tavoite)
+
+```
+npm run dev                  kehityspalvelin (PGlite)
+npm run db:reset             tyhjä paikallinen kanta
+npm run db:seed:demo         kuvitteellinen demodata
+npm run tuo:vanha -- --org "Nimi" [--kuiva] [--tuotanto]      tiedot vanhasta Skog-kannasta
+npm run vertaa:vero -- --vuosi 2025 [--tuotanto]             veroraportin luvut vanhaa sovellusta vasten
+npm run kayttaja:lisaa -- --email x --org "Nimi" --rooli owner [--luo-org] [--tuotanto]
+npm run lint && npm run typecheck && npm run test
+```
+
+`--tuotanto` kirjoittaa uuteen Supabase-projektiin `.env.local`:n osoitteella. Käytä vain Jukan luvalla.
