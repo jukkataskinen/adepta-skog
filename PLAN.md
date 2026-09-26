@@ -34,7 +34,8 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 ### 0. Vanhan sovelluksen korjaukset (`main`)
 - [x] Päivittäinen ping pitää Supabase-projektit hereillä (26.9.2026)
 - [x] API-reitit tarkistavat asiakkaan organisaation (26.9.2026)
-- [~] Selvitä, ovatko taulut auki anon-avaimelle (BLOCKERS 1). Jos ovat: siirrä kirjanpito-, alv-, veroraportti-, verosuunnitelma- ja käyttäjäsivujen kantakutsut API-reiteille ja sulje anon-policyt.
+- [x] Selvitä, ovatko taulut auki anon-avaimelle: eivät ole (BLOCKERS 1, 26.9.2026)
+- [ ] Erilliset kirjanpito-, alv-, veroraportti-, verosuunnitelma- ja käyttäjäsivut eivät saa tietoja, koska ne käyttävät kantaa selaimesta. Asiakassivun välilehdet korvaavat ne, paitsi arkiston "Avaa raportti" -linkki veroraporttiin. Päätä: siirrä veroraportin kantakutsut API-reiteille vai poista vanhat sivut ja linkki.
 - [ ] Poista kovakoodattu verovuosi 2025 kuudesta reitistä: käytä asiakkaan avointa vuotta tai kuluvaa vuotta.
 - [ ] Varmista Auth0:ssa, että itserekisteröinti on suljettu (BLOCKERS 2).
 
