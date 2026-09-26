@@ -1,0 +1,27 @@
+import { notFound } from "next/navigation";
+import { PageHeader, Panel } from "@/components/ui";
+import { FormError } from "@/components/FormError";
+import { requireStaff } from "@/lib/auth/current-user";
+import { getClient } from "@/lib/clients/queries";
+import { PropertyForm } from "../../../PropertyForm";
+import { createPropertyAction } from "../../../actions";
+
+export const metadata = { title: "Uusi metsätila" };
+
+export default async function NewPropertyPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ virhe?: string }> }) {
+  const { id } = await params;
+  const sp = await searchParams;
+  if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
+  const ctx = await requireStaff();
+  const client = await ctx.run((tx) => getClient(tx, ctx.org.organizationId, id));
+  if (!client) notFound();
+  return (
+    <>
+      <PageHeader title="Uusi metsätila" back={{ href: `/asiakkaat/${id}#metsatilat`, label: `${client.first_name} ${client.last_name}` }} />
+      <FormError message={sp.virhe} />
+      <Panel className="max-w-3xl">
+        <PropertyForm action={createPropertyAction} clientId={id} submitLabel="Lisää metsätila" />
+      </Panel>
+    </>
+  );
+}

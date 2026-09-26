@@ -8,8 +8,11 @@ export interface NavItem {
   roles?: OrgRole[];
 }
 
-/** Päivittäinen työ. Asiakkaat, kirjanpito ja raportit lisätään vaiheissa 3–6 (PLAN.md). */
-export const STAFF_NAV: NavItem[] = [{ href: "/tyopoyta", label: "Työpöytä", icon: "home" }];
+/** Päivittäinen työ. Kirjanpito ja raportit lisätään vaiheissa 4–6 (PLAN.md). */
+export const STAFF_NAV: NavItem[] = [
+  { href: "/tyopoyta", label: "Työpöytä", icon: "home" },
+  { href: "/asiakkaat", label: "Asiakkaat", icon: "users" },
+];
 
 /** Toimiston asetukset ja ohjeet. */
 export const STAFF_NAV_ORG: NavItem[] = [

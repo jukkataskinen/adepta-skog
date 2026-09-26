@@ -9,6 +9,8 @@ import { HELP_TOPICS, sectionId } from "./topics";
  */
 const ROUTES: { pattern: RegExp; slug: string; section?: string }[] = [
   { pattern: /^\/tyopoyta/, slug: "tyopoyta" },
+  { pattern: /^\/asiakkaat\/[^/]+\/metsatilat/, slug: "metsatilat" },
+  { pattern: /^\/asiakkaat/, slug: "asiakkaat" },
   { pattern: /^\/asetukset/, slug: "asetukset" },
 ]
 

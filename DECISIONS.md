@@ -37,3 +37,7 @@
 **Tuonnin ulkopuolelle jäävät kentät.** Vanhan kannan `henkilotunnus_hash` jätetään pois, koska henkilötunnuksia ei käsitellä. `alv_numero`, `metsämaa_ha` sekä kirjauksen ja investoinnin `metsatila_id` jäävät toistaiseksi pois, koska uudessa mallissa niille ei vielä ole kenttää; ne lisätään, jos kirjanpitäjä tarvitsee niitä (PLAN vaihe 2).
 
 **Vanhan kannan lukukäyttäjä.** Tuonti lukee vanhaa kantaa käyttäjällä `skog_lukija`, jolla on vain lukuoikeus Skogin tauluihin. `postgres`-salasanaa ei tarvita eikä nollata, koska sama projekti on Kasamasterin ja adepta-ppr:n käytössä.
+
+**Asiakasta ei poisteta, se arkistoidaan.** Kirjanpitoaineisto on säilytettävä, joten pääkäyttäjä voi vain arkistoida asiakkaan. Arkistoitu piiloutuu listasta, ja sen näkee erillisellä linkillä.
+
+**Uudelle asiakkaalle avataan kuluva verovuosi heti.** Muuten kirjanpitoon ei voisi kirjata ennen kuin vuosi avataan erikseen.

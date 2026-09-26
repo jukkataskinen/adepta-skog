@@ -62,10 +62,11 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [x] Kirjausten luokat ja arvonlisäverokannat `src/lib/tax/rules.ts` (26.9.2026)
 
 ### 3. Perusnäkymät
-- [ ] Asiakaslista ja haku, uusi asiakas, vastuukirjanpitäjän vaihto
-- [ ] Asiakkaan sivu välilehdillä: tiedot, kirjanpito, arvonlisävero, verosuunnitelma, veroraportti, arkisto
-- [ ] Metsätilat: lisäys, muokkaus, metsävähennyspohja
-- [ ] Verovuoden valinta asiakkaalle, suljettu vuosi vain luettavana
+- [x] Asiakaslista ja haku, uusi asiakas, muokkaus, vastuukirjanpitäjän vaihto, arkistointi (26.9.2026)
+- [~] Asiakkaan sivu: tiedot, metsätilat ja verovuodet tehty. Välilehdet kirjanpidolle, arvonlisäverolle, verosuunnitelmalle, veroraportille ja arkistolle tulevat vaiheissa 4–6
+- [x] Metsätilat: lisäys, muokkaus, poisto, metsävähennyspohja ja jäljellä oleva määrä (26.9.2026)
+- [x] Verovuodet asiakkaan sivulla: avaus, sulkeminen ja uudelleen avaus (pääkäyttäjä), loki (26.9.2026)
+- [ ] Verovuoden valinta kirjanpidon välilehdillä, suljettu vuosi vain luettavana (vaihe 4)
 - [ ] Käyttäjät: kutsu sähköpostilla (Auth0), rooli, poisto käytöstä
 - [ ] Ohjeet kaikille näkymille, ohjelinkki jokaiselle sivulle
 - [ ] Kehitystoiveet Mittarilukemasta (sivu, linkki sivun yläkulmaan)

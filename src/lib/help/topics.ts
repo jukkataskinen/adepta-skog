@@ -62,14 +62,46 @@ export const HELP_TOPICS: HelpTopic[] = [
     icon: "users",
     title: "Asiakkaat",
     summary: "Kaikki metsänomistajat yhdessä listassa. Jokaisella asiakkaalla on vastuukirjanpitäjä.",
-    highlights: ["Haku nimellä", "Vastuukirjanpitäjä", "Asiakkaan sivulla kaikki tiedot välilehdillä"],
+    highlights: ["Haku nimellä, Y-tunnuksella tai kunnalla", "Vastuukirjanpitäjä", "Verovuodet ja niiden sulkeminen"],
+    appPath: "/asiakkaat",
+    appLabel: "Asiakkaat",
     sections: [
       {
         title: "Kuka näkee asiakkaan",
-        bullets: ["Pääkäyttäjä näkee kaikki toimiston asiakkaat.", "Kirjanpitäjä näkee asiakkaat, joiden vastuukirjanpitäjä hän on."],
+        bullets: [
+          "Pääkäyttäjä näkee kaikki toimiston asiakkaat.",
+          "Kirjanpitäjä näkee asiakkaat, joiden vastuukirjanpitäjä hän on.",
+          "Kun kirjanpitäjä lisää asiakkaan, hänestä tulee sen vastuukirjanpitäjä.",
+        ],
+      },
+      {
+        title: "Uusi asiakas",
+        steps: [
+          "Avaa Asiakkaat ja valitse Lisää asiakas.",
+          "Kirjoita nimi ja muut tiedot.",
+          "Rastita Arvonlisäverorekisterissä, jos asiakas on rekisterissä.",
+          "Tallenna. Kuluva verovuosi avautuu asiakkaalle heti.",
+        ],
+      },
+      {
+        title: "Vastuukirjanpitäjän vaihto",
+        text: "Pääkäyttäjä vaihtaa vastuukirjanpitäjän asiakkaan sivulla. Vanha kirjanpitäjä ei sen jälkeen näe asiakasta.",
+      },
+      {
+        title: "Verovuodet",
+        steps: [
+          "Asiakkaan sivun alaosassa näet asiakkaan verovuodet.",
+          "Avaa uusi vuosi kirjoittamalla vuosi ja valitsemalla Avaa vuosi.",
+          "Kun vuosi on valmis, pääkäyttäjä valitsee Sulje vuosi.",
+          "Suljetun vuoden kirjauksia ei voi muuttaa. Pääkäyttäjä voi avata vuoden uudelleen, ja avaus jää lokiin.",
+        ],
+      },
+      {
+        title: "Arkistointi",
+        text: "Asiakasta ei poisteta, koska kirjanpito on säilytettävä. Pääkäyttäjä voi arkistoida asiakkaan, jolloin se piiloutuu listasta. Arkistoidut näet listan linkistä.",
       },
     ],
-    upcoming: true,
+    related: ["metsatilat"],
   },
   {
     slug: "metsatilat",
@@ -77,14 +109,30 @@ export const HELP_TOPICS: HelpTopic[] = [
     icon: "map",
     title: "Metsätilat",
     summary: "Asiakkaan metsätilat ja niiden hankintatiedot. Niistä lasketaan metsävähennyksen pohja.",
-    highlights: ["Kiinteistötunnus ja pinta-ala", "Hankintahinta ja -päivä", "Metsävähennyksen pohja"],
+    highlights: ["Kiinteistötunnus ja pinta-ala", "Hankintahinta ja -päivä", "Metsävähennyksen pohja ja jäljellä oleva määrä"],
     sections: [
       {
+        title: "Uusi metsätila",
+        steps: [
+          "Avaa asiakas ja valitse Lisää metsätila.",
+          "Kirjoita tilan nimi ja kiinteistötunnus.",
+          "Kirjoita hankintahinta ja metsämaan osuus hinnasta prosentteina.",
+          "Jos vähennystä on käytetty jo ennen Skogia, kirjoita se omaan kenttäänsä.",
+          "Tallenna.",
+        ],
+      },
+      {
         title: "Metsävähennyksen pohja",
-        text: "Pohja on 60 prosenttia metsämaan hankintamenosta. Ohjelma laskee sen tilan tiedoista ja seuraa, paljonko pohjasta on jo käytetty.",
+        bullets: [
+          "Pohja on 60 prosenttia metsämaan osuudesta hankintahinnasta.",
+          "Käytetty on ennen Skogia käytetty määrä ja Skogissa kirjatut vähennykset yhteensä.",
+          "Jäljellä on pohja miinus käytetty.",
+          "Jos hankintahinta tai metsämaan osuus puuttuu, pohjaa ei lasketa.",
+        ],
       },
     ],
-    upcoming: true,
+    tips: ["Suljetun vuoden metsävähennys estää tilan poistamisen."],
+    related: ["asiakkaat", "verosuunnitelma"],
   },
   {
     slug: "kirjanpito",
