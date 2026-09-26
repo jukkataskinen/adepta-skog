@@ -54,14 +54,16 @@ export interface ImportResult {
   files: { path: string; body: Buffer; contentType: string }[];
 }
 
-export async function importLegacyData(tx: Sql, input: { orgName: string }, data: LegacyData): Promise<ImportResult> {
+export async function importLegacyData(tx: Sql, input: { orgName: string; createOrg?: boolean }, data: LegacyData): Promise<ImportResult> {
   const skipped: Skipped[] = [];
   const counts: Record<string, number> = {};
   const add = (k: string, n = 1) => (counts[k] = (counts[k] ?? 0) + n);
   let guessedCategories = 0;
   const files: ImportResult["files"] = [];
 
-  const [org] = await tx.query<{ id: string }>("select id from sk_organizations where name = $1", [input.orgName]);
+  let [org] = await tx.query<{ id: string }>("select id from sk_organizations where name = $1", [input.orgName]);
+  // Kuivassa ajossa organisaatio luodaan samassa transaktiossa, joka perutaan lopuksi.
+  if (!org && input.createOrg) [org] = await tx.query<{ id: string }>("insert into sk_organizations (name) values ($1) returning id", [input.orgName]);
   if (!org) throw new Error(`Organisaatiota "${input.orgName}" ei ole. Luo se: npm run kayttaja:lisaa -- --luo-org`);
 
   // Käyttäjät ja jäsenyydet. Käyttäjä yhdistyy ensimmäisellä kirjautumisella sähköpostilla (resolve-user).

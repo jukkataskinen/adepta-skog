@@ -9,7 +9,7 @@ import { importLegacyData, type ImportResult, type LegacyArchiveRow } from "../s
  * Tiedot vanhasta Skog-kannasta uuteen (PLAN vaihe 2).
  *
  *   npm run tuo:vanha -- --lista
- *   npm run tuo:vanha -- --vanha-org <tunnus> --org "Toimisto Oy" [--kuiva] [--tuotanto]
+ *   npm run tuo:vanha -- --vanha-org <tunnus> --org "Toimisto Oy" [--luo-org] [--kuiva] [--tuotanto]
  *
  * - Vanha kanta luetaan osoitteesta LEGACY_DATABASE_URL vain lukutilassa.
  *   Vanhaan kantaan ei kirjoiteta (CLAUDE.md).
@@ -89,7 +89,7 @@ let result: ImportResult | null = null;
 const db = await openTargetDb(args);
 try {
   await db.asService(async (tx) => {
-    result = await importLegacyData(tx, { orgName }, { users, clients, properties, deductions, assets, depreciations, transactions, archive });
+    result = await importLegacyData(tx, { orgName, createOrg: args.includes("--luo-org") }, { users, clients, properties, deductions, assets, depreciations, transactions, archive });
     if (dry) throw new DryRun();
     // Tiedostot ennen transaktion päättymistä: jos tallennus epäonnistuu, rivit perutaan.
     // Perutun ajon tiedostot jäävät ämpäriin orvoiksi, mutta ne eivät näy kenellekään.
