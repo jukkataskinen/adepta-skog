@@ -91,9 +91,9 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [ ] Vertailu vanhaan sovellukseen (`vertaa:vero`): vuoden 2025 luvut asiakkaittain, erot selitettynä. Tehdään tuonnin jälkeen, kun uusi Supabase-projekti on olemassa (BLOCKERS 3)
 
 ### 6. Raportit ja arkisto
-- [ ] Veroraportti PDF:nä: kansilehti, sisällysluettelo, tulot ja menot, arvonlisävero, poistot, metsävähennys, LUONNOS-vesileima avoimelle vuodelle
-- [ ] Verovuoden sulkeminen: vahvistus, lukitus, raportti arkistoon
-- [ ] Arkisto: raportit ja tositteet verovuosittain, lataus
+- [x] Veroraportti PDF:nä: kansilehti, sisällysluettelo, tulot ja menot, verolaskelma, arvonlisävero, poistot, metsävähennys, kirjausluettelo, LUONNOS-vesileima avoimelle vuodelle (26.9.2026)
+- [x] Verovuoden sulkeminen arkistoi lopullisen raportin samassa transaktiossa, myös verosuunnitelman "Vahvista ja sulje" (26.9.2026)
+- [x] Veroraportti ja arkisto -välilehti: raportin avaus, arkistoidut raportit ja tositteet verovuosittain (26.9.2026)
 
 ### 7. Käyttöönotto
 - [ ] Rinnakkaisajo: sama vuosi molemmissa, erot selitetty

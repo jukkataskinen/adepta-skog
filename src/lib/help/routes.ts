@@ -13,6 +13,7 @@ const ROUTES: { pattern: RegExp; slug: string; section?: string }[] = [
   { pattern: /^\/asiakkaat\/[^/]+\/kirjanpito/, slug: "kirjanpito" },
   { pattern: /^\/asiakkaat\/[^/]+\/alv/, slug: "alv" },
   { pattern: /^\/asiakkaat\/[^/]+\/verosuunnitelma/, slug: "verosuunnitelma" },
+  { pattern: /^\/asiakkaat\/[^/]+\/raportti/, slug: "veroraportti" },
   { pattern: /^\/asiakkaat/, slug: "asiakkaat" },
   { pattern: /^\/asetukset/, slug: "asetukset" },
 ]

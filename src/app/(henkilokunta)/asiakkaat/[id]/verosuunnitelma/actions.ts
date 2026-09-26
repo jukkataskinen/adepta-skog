@@ -7,6 +7,7 @@ import { requireStaff } from "@/lib/auth/current-user";
 import { fail } from "@/lib/forms";
 import { audit } from "@/lib/audit";
 import { loadPlanData, planTotals } from "@/lib/tax/load";
+import { archiveReport } from "@/lib/reports/archive";
 import { allocateForestDeduction, computePlan, forestDeductionLimits, validateForestDeduction } from "@/lib/tax/plan";
 
 const num = (v: FormDataEntryValue | null) => {
@@ -74,6 +75,7 @@ export async function confirmPlanAction(formData: FormData) {
     if (close) {
       await tx.query("update sk_tax_years set status = 'closed', closed_at = now(), closed_by = $2 where id = $1", [y.id, ctx.user.id]);
       await audit(tx, { organizationId: ctx.org.organizationId, userId: ctx.user.id, action: "tax_year.close", entity: "sk_tax_years", entityId: y.id, details: { year } });
+      await archiveReport(tx, { organizationId: ctx.org.organizationId, clientId, year, userId: ctx.user.id });
     }
   });
   revalidatePath(`/asiakkaat/${clientId}`, "layout");

@@ -7,6 +7,7 @@ import { requireRole, requireStaff } from "@/lib/auth/current-user";
 import { emptyToNull, fail, isUniqueViolation, parseForm } from "@/lib/forms";
 import { audit } from "@/lib/audit";
 import { isValidBusinessId, normalizeBusinessId, normalizePropertyCode } from "@/lib/validation/finnish";
+import { archiveReport } from "@/lib/reports/archive";
 
 const optionalText = (max = 200) => z.preprocess(emptyToNull, z.string().max(max).nullable());
 // Suomalainen desimaalipilkku ja välilyönnit tuhaterottimina hyväksytään.
@@ -267,6 +268,10 @@ export async function setTaxYearStatusAction(formData: FormData) {
         organizationId: ctx.org.organizationId, userId: ctx.user.id, action: input.status === "closed" ? "tax_year.close" : "tax_year.reopen",
         entity: "sk_tax_years", entityId: input.yearId, details: { year: rows[0].year },
       });
+      // Suljetun vuoden raportti arkistoon samassa transaktiossa.
+      if (input.status === "closed") {
+        await archiveReport(tx, { organizationId: ctx.org.organizationId, clientId: input.clientId, year: rows[0].year, userId: ctx.user.id });
+      }
     }
     return rows.length;
   });

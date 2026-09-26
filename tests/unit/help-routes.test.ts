@@ -61,6 +61,7 @@ describe("ohjelinkit", () => {
     expect(helpFor("/tyopoyta")?.href).toBe("/ohjeet/tyopoyta");
     expect(helpFor("/asiakkaat/00000000-0000-0000-0000-000000000000/metsatilat/uusi")?.slug).toBe("metsatilat");
     expect(helpFor("/asiakkaat/uusi")?.slug).toBe("asiakkaat");
+    expect(helpFor("/asiakkaat/00000000-0000-0000-0000-000000000000/raportti")?.slug).toBe("veroraportti");
     expect(helpFor("/asiakkaat/00000000-0000-0000-0000-000000000000/verosuunnitelma")?.slug).toBe("verosuunnitelma");
     expect(helpFor("/asiakkaat/00000000-0000-0000-0000-000000000000/alv")?.slug).toBe("alv");
     expect(helpFor("/asiakkaat/00000000-0000-0000-0000-000000000000/kirjanpito/00000000-0000-0000-0000-000000000000")?.slug).toBe("kirjanpito");

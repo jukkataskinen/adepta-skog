@@ -53,3 +53,9 @@
 **Vahvistus korvaa vuoden aiemmat luvut.** Vahvistus poistaa vuoden aiemmat poistot ja metsävähennykset ja kirjoittaa uudet. Suljetulle vuodelle tämä ei onnistu (lukitustriggeri), joten suljettu suunnitelma pysyy sellaisenaan.
 
 **Poistorivi myös nollapoistolle.** Menojäännöspoiston voi jättää tekemättä. Rivi tallennetaan silti, jotta poistamaton arvo siirtyy seuraavan vuoden alkuun ketjuna.
+
+**Raportti pdf-libillä, ei selaimen tulostuksella.** Vanha sovellus teki raportin HTML-sivuna. Uusi tekee PDF:n palvelimella (sama kirjasto kuin Mittarilukeman kirjeissä), jotta arkistoitu raportti on tiedosto, joka ei muutu, vaikka ohjelma muuttuu.
+
+**Arkistoitu raportti syntyy sulkemisen transaktiossa.** Jos raportin teko tai tallennus epäonnistuu, vuosi jää avoimeksi. Uudelleen suljettaessa syntyy uusi versio, ja vanha säilyy. Raportti-välilehden linkki tekee raportin aina nykyisillä luvuilla; virallinen versio on arkistossa.
+
+**Raportti käyttää vahvistettuja lukuja.** Poistot ja metsävähennys tulevat vahvistetusta verosuunnitelmasta, eivät laskurin oletuksista. Jos suunnitelmaa ei ole vahvistettu, raportissa on huomautus.

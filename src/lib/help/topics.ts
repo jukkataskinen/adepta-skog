@@ -270,14 +270,38 @@ export const HELP_TOPICS: HelpTopic[] = [
     icon: "folder",
     title: "Veroraportti ja arkisto",
     summary: "Veroilmoitusta tukeva raportti PDF:nä. Raportit ja tositteet säilyvät arkistossa verovuosittain.",
-    highlights: ["Kansilehti ja sisällysluettelo", "LUONNOS-merkintä avoimelle vuodelle", "Tositteet samassa paikassa"],
+    highlights: ["Kansilehti ja sisällysluettelo", "LUONNOS-merkintä avoimelle vuodelle", "Raportti arkistoon, kun vuosi suljetaan"],
     sections: [
       {
+        title: "Raportin avaaminen",
+        steps: [
+          "Avaa asiakas ja valitse välilehti Veroraportti ja arkisto.",
+          "Valitse vuosi.",
+          "Valitse Avaa luonnos tai Avaa raportti. Raportti aukeaa uuteen välilehteen, josta voit tulostaa tai tallentaa sen.",
+        ],
+      },
+      {
         title: "Raportin sisältö",
-        bullets: ["Tulot ja menot", "Arvonlisävero", "Poistot", "Metsävähennys"],
+        bullets: [
+          "Kansilehti ja sisällysluettelo.",
+          "Tulot, menot ja verolaskelma.",
+          "Arvonlisävero neljänneksittäin.",
+          "Investoinnit ja poistot.",
+          "Metsävähennys tiloittain.",
+          "Kaikki vuoden kirjaukset.",
+        ],
+      },
+      {
+        title: "Arkisto",
+        bullets: [
+          "Kun pääkäyttäjä sulkee vuoden, lopullinen raportti tallentuu arkistoon.",
+          "Jos vuosi avataan ja suljetaan uudelleen, arkistoon tulee uusi versio. Vanha säilyy.",
+          "Arkistossa näkyvät myös vuoden tositteet.",
+        ],
       },
     ],
-    upcoming: true,
+    tips: ["Avoimen vuoden raportissa on LUONNOS-merkintä jokaisella sivulla."],
+    related: ["verosuunnitelma", "kirjanpito"],
   },
   {
     slug: "asetukset",
