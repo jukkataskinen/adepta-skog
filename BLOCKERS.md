@@ -4,7 +4,7 @@ Asiat, jotka odottavat tietoa tai päätöstä.
 
 1. ~~**Ovatko taulut auki anon-avaimelle?**~~ Ratkaistu 26.9.2026 rivimäärillä: eivät ole. `asiakkaat`, `tapahtumat`, `metsatilat`, `investoinnit` ja `metsavahennykset` antavat anon-avaimella virheen (policy lukee asetusta `app.current_org_id`, jota ei ole asetettu). `kayttajat`, `organisaatiot`, `arkisto` ja `poistot` palauttavat nolla riviä. Kirjoitusoikeutta ei testattu. Seuraus: selaimesta kantaa käyttävät sivut (kirjanpito, alv, veroraportti, verosuunnitelma, käyttäjät) eivät saa tietoja.
 2. **Auth0:n itserekisteröinti.** Etusivu luo jokaiselle uudelle kirjautujalle oman organisaation. Varmistettava, että Skog-sovelluksessa rekisteröityminen on suljettu.
-3. **Uusi Supabase-projekti.** Jukka luo projektin ja antaa osoitteen ja avaimet `.env.local`:iin ja Verceliin.
+3. ~~**Uusi Supabase-projekti.**~~ Ratkaistu 26.9.2026: projekti luotu (eu-west-1), migraatiot 0001–0003 ajettu. Alkuperäinen: Jukka luo projektin ja antaa osoitteen ja avaimet `.env.local`:iin ja Verceliin.
 4. **Verosäännöt.** Vahvistettava Verohallinnon ohjeista (26.9.2026). Uusi sovellus poikkeaa vanhasta kahdessa kohdassa:
    1) Metsävähennyksen vuosiraja: uusi 60 % metsätalouden puhtaasta pääomatulosta (poistojen jälkeen, ennen vähennystä), vanha 60 % bruttotuloista.
    2) Menojäännöspoiston pohja: uusi poistamaton arvo vuoden alussa (edellisen vuoden loppuarvo), vanha hankintahinta miinus jäännösarvo joka vuosi.

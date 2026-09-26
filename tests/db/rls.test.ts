@@ -107,6 +107,21 @@ describe("organisaatioiden eristys", () => {
     ).rejects.toThrow(/row-level security/);
   });
 
+  it("julkisella anon-roolilla ei ole oikeuksia tauluihin", async () => {
+    await expect(
+      db.asService(async (tx) => {
+        await tx.query("set local role anon");
+        return tx.query("select id from sk_clients");
+      }),
+    ).rejects.toThrow(/permission denied/);
+    await expect(
+      db.asService(async (tx) => {
+        await tx.query("set local role anon");
+        return tx.query("select name from sk_schema_migrations");
+      }),
+    ).rejects.toThrow(/permission denied/);
+  });
+
   it("kirjautumaton rooli ei näe mitään", async () => {
     const rows = await db.asUser("tuntematon|0", (tx) => tx.query("select id from sk_organizations"));
     expect(rows).toHaveLength(0);

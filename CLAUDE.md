@@ -38,7 +38,7 @@ Uusi sovellus rakennetaan `v2`-haaraan (DECISIONS 26.9.2026). `main` on vanha tu
 |---|---|
 | Runko | Next.js 15 App Router, React 19, TypeScript strict, Tailwind 4, zod 4. Palvelinkomponentit ja server actionit. |
 | Ulkoasu | eRapun ja Mittarilukeman perusilme (`src/app/globals.css`, `src/components/ui.tsx`): `ink`, `cloud`, `line`, `sky` = toiminto, `coral` = vaatii huomiota, `moss` = valmis, `amber` = odottaa. Plus Jakarta Sans. Työpöytä ensin (`StaffShell`). |
-| Tietokanta | Paikallisesti PGlite (`.data/pglite`), tuotannossa **oma** Supabase-projekti (eu-central-1), jota mikään muu sovellus ei käytä. Migraatiot `supabase/migrations/NNNN_nimi.sql`: paikallisesti automaattisesti, Supabaseen Vercelin tuotantobuildissa (`scripts/db/migrate-remote.mts`). |
+| Tietokanta | Paikallisesti PGlite (`.data/pglite`), tuotannossa **oma** Supabase-projekti (eu-west-1, Irlanti), jota mikään muu sovellus ei käytä. Migraatiot `supabase/migrations/NNNN_nimi.sql`: paikallisesti automaattisesti, Supabaseen Vercelin tuotantobuildissa (`scripts/db/migrate-remote.mts`). |
 | Kirjautuminen | `AUTH_MODE=dev` kehityksessä (käyttäjän valinta, estetty tuotannossa), `AUTH_MODE=auth0` tuotannossa. Ei itserekisteröintiä: käyttäjä lisätään kutsulla tai skriptillä. |
 | Roolit | `owner` pääkäyttäjä (kaikki asiakkaat, käyttäjät, vuoden sulkeminen), `staff` kirjanpitäjä (asiakkaat, joiden vastuukirjanpitäjä hän on). |
 | Organisaatio | Kirjanpitotoimisto. Asiakas (metsänomistaja) ei kirjaudu ohjelmaan ensimmäisessä versiossa. |

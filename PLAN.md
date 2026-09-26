@@ -45,7 +45,8 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [x] Migraatio 0001: `sk_organizations`, `sk_users`, `sk_org_members` (owner, staff), `sk_audit_log`, `sk_check_same_org`, RLS-testit (26.9.2026)
 - [x] Kirjautuminen: dev-tila toimii (26.9.2026)
 - [ ] Auth0 tuotantoon: nykyinen Skog-sovellus Auth0:ssa, itserekisteröinti pois (BLOCKERS 2)
-- [ ] Oma Supabase-projekti (BLOCKERS 3), osoite Verceliin, migraatiot buildissa.
+- [x] Oma Supabase-projekti (eu-west-1), migraatiot 0001–0003 ajettu, anon-roolin oikeudet poistettu (26.9.2026)
+- [ ] Osoite ja avaimet Verceliin (DATABASE_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, STORAGE_MODE=supabase)
 - [ ] Vercelin v2-esikatselu omalla kannallaan. Tuotanto pysyy vanhassa.
 - [x] Ping-reitti ja cron uuteen runkoon: oma kanta SQL:llä, Kasamaster omalla avaimellaan (26.9.2026)
 - [x] `.gitignore` ja CI-vahti henkilötiedoille (26.9.2026)

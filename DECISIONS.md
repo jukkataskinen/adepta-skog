@@ -59,3 +59,7 @@
 **Arkistoitu raportti syntyy sulkemisen transaktiossa.** Jos raportin teko tai tallennus epäonnistuu, vuosi jää avoimeksi. Uudelleen suljettaessa syntyy uusi versio, ja vanha säilyy. Raportti-välilehden linkki tekee raportin aina nykyisillä luvuilla; virallinen versio on arkistossa.
 
 **Raportti käyttää vahvistettuja lukuja.** Poistot ja metsävähennys tulevat vahvistetusta verosuunnitelmasta, eivät laskurin oletuksista. Jos suunnitelmaa ei ole vahvistettu, raportissa on huomautus.
+
+**Supabase-projekti Irlannissa (eu-west-1), Vercel dub1.** Projekti syntyi Irlantiin eikä Frankfurtiin kuten suunniteltiin. Sama alue kuin Mittarilukemalla, ja se on EU:ssa, joten projektia ei luoda uudelleen. Vercelin funktiot ajetaan samalla alueella (dub1).
+
+**Anon-roolin oikeudet pois (migraatio 0003).** Supabase antaa oletuksena julkiselle anon-roolille oikeudet public-skeeman uusiin tauluihin ja funktioihin. Skog ei käytä julkista avainta, joten oikeudet poistetaan, ja migraatiokirjanpitoon laitetaan RLS.
