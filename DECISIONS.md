@@ -21,3 +21,15 @@
 **Vercelin alue fra1.** Kanta on Frankfurtissa (eu-central-1), joten funktiot ajetaan samassa paikassa.
 
 **Kehitystoiveet myöhemmin.** Mittarilukeman kehitystoiveet vaativat oman taulunsa ja sivunsa. Linkki poistettiin sivun yläkulmasta, kunnes ne tuodaan (PLAN vaihe 3).
+
+**Luokat koodissa, ei kannassa.** Kirjauksen luokka on tunnus (`standing_sale` jne.), ja luokat oletusverokantoineen ovat tiedostossa `src/lib/tax/rules.ts`. Luokkia on vähän ja ne muuttuvat harvoin, ja vanhan sovelluksen nimet ovat samassa listassa tiedonsiirtoa varten.
+
+**Verovuosi tulee kirjauksen päivästä.** Metsätalouden verovuosi on kalenterivuosi, joten `tax_year` on päivästä laskettu sarake. Vanhassa kannassa vuosi oli erillinen kenttä; ristiriitaiset rivit jätetään tuonnissa pois ja listataan.
+
+**Suljetun vuoden lukitus kannassa.** Triggeri estää suljetun vuoden kirjausten, poistojen ja metsävähennysten lisäämisen, muuttamisen ja poistamisen, myös kirjauksen siirron vuodelta toiselle. Vanhassa sovelluksessa lukitus oli vain käyttöliittymässä.
+
+**Asiakastaulun säännöt ilman apufunktiota.** `sk_can_access_client` ei näe samassa lauseessa lisättyä riviä, jolloin `insert ... returning` kaatui. Asiakastaulun säännöt lukevat siksi rivin omat sarakkeet; alaiset taulut käyttävät funktiota.
+
+**Tiedonsiirron säännöt.** Vanhan sovelluksen lukija-rooli ei siirry (uudessa ei ole lukuroolia). Avointa vuotta aiemmat vuodet tuodaan suljettuina, koska vanhassa sovelluksessa vain avointa vuotta pystyi muokkaamaan. Myydyn investoinnin myyntipäivää ei ollut, joten se asetetaan viimeisen poistovuoden loppuun. Metsätilan "käytetty ennen ohjelmaa" on vanhan kentän ja ohjelmassa kirjattujen vähennysten erotus. Tositteet tallennetaan ennen transaktion loppua, jotta epäonnistunut tallennus perii rivit.
+
+**Tiedostot palvelimen kautta.** Storage-ämpärille ei anneta käyttäjäkohtaisia sääntöjä. Palvelin tarkistaa oikeuden `sk_documents`-rivin kautta RLS:llä ja käyttää Storagea service role -avaimella, joka ei päädy selaimeen.

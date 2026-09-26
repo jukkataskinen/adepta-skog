@@ -7,3 +7,4 @@ Asiat, jotka odottavat tietoa tai päätöstä.
 3. **Uusi Supabase-projekti.** Jukka luo projektin ja antaa osoitteen ja avaimet `.env.local`:iin ja Verceliin.
 4. **Verosäännöt.** Metsävähennyksen, poistojen ja arvonlisäveron prosentit ja rajat vahvistetaan Verohallinnon ohjeista verovuosittain. Vanhan sovelluksen laskenta on lähtökohta, mutta sen lähteitä ei ole kirjattu.
 5. **Hankintatyön 125 m³ ja koneen vaihto.** Mainitaan `brief.md`:ssä, mutta vanhassa sovelluksessa niitä ei ole. Tarvitaan kuvaus siitä, miten kirjanpitäjä käyttää niitä ja mihin raporttiin ne kuuluvat.
+6. **Vanhan kannan osoite tiedonsiirtoon.** `npm run tuo:vanha` tarvitsee `.env.local`:iin `LEGACY_DATABASE_URL`:n (vanhan skog-projektin tietokantaosoite, Supabase → Connect). Sen jälkeen: `--lista` näyttää organisaatiot, ja `--kuiva` koeajaa tuonnin paikalliseen kantaan. Samalla vanhan kannan rakenne talteen `legacy/schema.sql`:ään.

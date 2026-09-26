@@ -52,11 +52,13 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [x] Työpöytä, asetukset (yhteystiedot, käyttäjät, loki) ja ohjeet (26.9.2026)
 
 ### 2. Tietomalli ja tiedonsiirto
-- [ ] Migraatiot: `sk_clients`, `sk_forest_properties`, `sk_tax_years`, `sk_transactions`, `sk_assets`, `sk_depreciations`, `sk_forest_deductions`, `sk_archive`, `sk_attachments`. RLS: `staff` näkee vain asiakkaat, joiden vastuukirjanpitäjä hän on.
-- [ ] Storage-ämpäri tositteille ja raporteille organisaation kansioon, policyt.
-- [ ] Demodata (`db:seed:demo`): kuvitteellinen toimisto, kolme asiakasta, kaksi verovuotta.
-- [ ] Tiedonsiirto vanhasta kannasta (`tuo:vanha`): vain luku, `--kuiva` tulostaa määrät. Tositteet base64-kentästä Storageen.
-- [ ] Vanhan kannan rakenne talteen `legacy/schema.sql`:ään vertailua varten (ilman tietoja).
+- [x] Migraatio 0002: `sk_clients`, `sk_forest_properties`, `sk_tax_years`, `sk_transactions`, `sk_assets`, `sk_depreciations`, `sk_forest_deductions`, `sk_documents`. RLS: kirjanpitäjä näkee vain vastuuasiakkaansa. Suljetun vuoden lukitus kannassa. Saman asiakkaan tarkistus (26.9.2026)
+- [x] Storage-ämpäri `documents` (vain Supabasessa) ja tallennusmoduuli `src/lib/storage` (paikallinen kansio oletuksena) (26.9.2026)
+- [x] Demodata (`db:seed:demo`): kaksi toimistoa, kolme asiakasta, verovuodet 2024 (suljettu) ja 2025 (26.9.2026)
+- [x] Tiedonsiirto vanhasta kannasta (`tuo:vanha`): muunnokset `src/lib/import/legacy.ts`, kirjoitus `src/lib/import/run.ts`, testit kuvitteellisella aineistolla, toistettava ajo (26.9.2026)
+- [~] Tiedonsiirron koeajo oikealla aineistolla `--kuiva` (BLOCKERS 6)
+- [~] Vanhan kannan rakenne talteen `legacy/schema.sql`:ään vertailua varten (ilman tietoja) (BLOCKERS 6)
+- [x] Kirjausten luokat ja arvonlisäverokannat `src/lib/tax/rules.ts` (26.9.2026)
 
 ### 3. Perusnäkymät
 - [ ] Asiakaslista ja haku, uusi asiakas, vastuukirjanpitäjän vaihto

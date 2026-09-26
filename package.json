@@ -15,7 +15,8 @@
     "db:reset": "tsx scripts/db-reset.mts",
     "db:seed:demo": "tsx scripts/seed-demo.mts",
     "db:migrate:remote": "tsx scripts/db/migrate-remote.mts",
-    "kayttaja:lisaa": "tsx --env-file-if-exists=.env.local scripts/add-user.mts"
+    "kayttaja:lisaa": "tsx --env-file-if-exists=.env.local scripts/add-user.mts",
+    "tuo:vanha": "tsx --env-file-if-exists=.env.local scripts/import-legacy.mts"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.11.0",

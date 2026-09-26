@@ -60,7 +60,8 @@ src/lib/ledger/             kirjaukset ja tositteet
 src/lib/tax/                verolaskenta: alv, poistot, metsävähennys, verosuunnitelma, säännöt
 src/lib/reports/            veroraportti PDF:nä, arkistointi
 src/lib/years/              verovuoden avaus, sulkeminen ja lukitus
-src/lib/import/             tiedonsiirto vanhasta kannasta
+src/lib/import/             tiedonsiirto vanhasta kannasta: muunnokset (legacy.ts) ja kirjoitus (run.ts)
+src/lib/storage/            tositteet ja raportit: paikallinen kansio tai Supabase Storage
 supabase/migrations/        0001–
 tests/db/                   RLS- ja kantatestit (tests/helpers/db.ts: freshDb, seedOrg)
 tests/unit/                 puhdas logiikka, erityisesti tests/unit/tax/
