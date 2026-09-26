@@ -40,14 +40,16 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [ ] Varmista Auth0:ssa, että itserekisteröinti on suljettu (BLOCKERS 2).
 
 ### 1. Perusta (`v2`)
-- [ ] `v2`-haara. Vanha `app/`, `lib/` ja `middleware.ts` siirretään `legacy/`-kansioon lähteeksi ja rajataan pois buildista ja tyyppitarkistuksesta.
-- [ ] Runko Mittarilukemasta: Next 15, React 19, Tailwind 4, zod 4, vitest, eslint. Kopioi `src/lib/db`, `src/lib/auth`, `src/lib/forms.ts`, `src/lib/audit.ts`, `src/lib/format.ts`, `src/lib/help`, `src/components`, `tests/helpers`, `scripts/db`. Poista vesihuoltoon liittyvä.
-- [ ] Migraatio 0001: `sk_organizations`, `sk_members` (rooli), `sk_audit_log`, `sk_check_same_org`, RLS-testit.
-- [ ] Kirjautuminen: dev-tila ja Auth0 (nykyinen Skog-sovellus Auth0:ssa), ei itserekisteröintiä.
+- [x] `v2`-haara. Vanha sovellus `legacy/`-kansiossa, rajattu pois buildista, tyyppitarkistuksesta ja lintistä (26.9.2026)
+- [x] Runko Mittarilukemasta: Next 15, React 19, Tailwind 4, zod 4, vitest, eslint. Kantakerros, kirjautuminen, lomakkeet, muutosloki, ohjeet, ulkoasu, testiapurit ja migraatioskripti (26.9.2026)
+- [x] Migraatio 0001: `sk_organizations`, `sk_users`, `sk_org_members` (owner, staff), `sk_audit_log`, `sk_check_same_org`, RLS-testit (26.9.2026)
+- [x] Kirjautuminen: dev-tila toimii (26.9.2026)
+- [ ] Auth0 tuotantoon: nykyinen Skog-sovellus Auth0:ssa, itserekisteröinti pois (BLOCKERS 2)
 - [ ] Oma Supabase-projekti (BLOCKERS 3), osoite Verceliin, migraatiot buildissa.
 - [ ] Vercelin v2-esikatselu omalla kannallaan. Tuotanto pysyy vanhassa.
-- [ ] Ping-reitti ja cron uuteen runkoon.
-- [ ] `.gitignore` ja CI-vahti henkilötiedoille.
+- [x] Ping-reitti ja cron uuteen runkoon: oma kanta SQL:llä, Kasamaster omalla avaimellaan (26.9.2026)
+- [x] `.gitignore` ja CI-vahti henkilötiedoille (26.9.2026)
+- [x] Työpöytä, asetukset (yhteystiedot, käyttäjät, loki) ja ohjeet (26.9.2026)
 
 ### 2. Tietomalli ja tiedonsiirto
 - [ ] Migraatiot: `sk_clients`, `sk_forest_properties`, `sk_tax_years`, `sk_transactions`, `sk_assets`, `sk_depreciations`, `sk_forest_deductions`, `sk_archive`, `sk_attachments`. RLS: `staff` näkee vain asiakkaat, joiden vastuukirjanpitäjä hän on.
@@ -63,6 +65,7 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [ ] Verovuoden valinta asiakkaalle, suljettu vuosi vain luettavana
 - [ ] Käyttäjät: kutsu sähköpostilla (Auth0), rooli, poisto käytöstä
 - [ ] Ohjeet kaikille näkymille, ohjelinkki jokaiselle sivulle
+- [ ] Kehitystoiveet Mittarilukemasta (sivu, linkki sivun yläkulmaan)
 
 ### 4. Kirjanpito
 - [ ] Kirjausten syöttö taulukkona, tallennus rivi kerrallaan (ei koko vuoden poistoa ja uudelleen kirjoitusta)

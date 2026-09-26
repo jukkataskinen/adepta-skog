@@ -1,3 +1,5 @@
 {
+  "framework": "nextjs",
+  "regions": ["fra1"],
   "crons": [{ "path": "/api/ping", "schedule": "0 6 * * *" }]
 }
