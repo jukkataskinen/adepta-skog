@@ -6,6 +6,7 @@ import { requireStaff } from "@/lib/auth/current-user";
 import { getClient, listProperties, listResponsibleOptions, listTaxYears } from "@/lib/clients/queries";
 import { formatDate, formatEur, formatNumber } from "@/lib/format";
 import { addTaxYearAction, setArchivedAction, setResponsibleAction, setTaxYearStatusAction } from "../actions";
+import { ClientTabs } from "../ClientTabs";
 
 export const metadata = { title: "Asiakas" };
 
@@ -42,6 +43,7 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
           </LinkButton>
         }
       />
+      <ClientTabs clientId={id} active="tiedot" />
       <FormError message={sp.virhe} />
       {sp.ilmoitus === "tallennettu" ? (
         <div className="mb-5">

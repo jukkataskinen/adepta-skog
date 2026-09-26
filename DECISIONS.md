@@ -41,3 +41,9 @@
 **Asiakasta ei poisteta, se arkistoidaan.** Kirjanpitoaineisto on säilytettävä, joten pääkäyttäjä voi vain arkistoida asiakkaan. Arkistoitu piiloutuu listasta, ja sen näkee erillisellä linkillä.
 
 **Uudelle asiakkaalle avataan kuluva verovuosi heti.** Muuten kirjanpitoon ei voisi kirjata ennen kuin vuosi avataan erikseen.
+
+**Kirjaus lomakkeella rivi kerrallaan.** Vanha sovellus tallensi koko vuoden kerralla poistamalla ja kirjoittamalla rivit uudelleen, jolloin loki ja tositteiden linkit katosivat. Uudessa jokainen kirjaus tallennetaan erikseen. Taulukkosyöttö voidaan lisätä myöhemmin (PLAN vaihe 4).
+
+**Investointi syntyy hankintakirjauksesta.** Kun luokka on Käyttöomaisuuden hankinta, ohjelma luo investoinnin kirjauksen summalla ja päivällä. Hankinnan poisto poistaa investoinnin vain, jos sillä ei ole poistoja. Myyntikirjaus merkitsee investoinnin myydyksi, ja myynnin poisto palauttaa sen.
+
+**Tositteet vain PDF:nä tai kuvana, enintään 4 Mt.** Raja tulee Vercelin pyynnön koosta (4,5 Mt). Suljetun vuoden tositetta ei voi poistaa, koska kirjanpitoaineisto on säilytettävä.

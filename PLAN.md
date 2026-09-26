@@ -72,10 +72,13 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [ ] Kehitystoiveet Mittarilukemasta (sivu, linkki sivun yläkulmaan)
 
 ### 4. Kirjanpito
-- [ ] Kirjausten syöttö taulukkona, tallennus rivi kerrallaan (ei koko vuoden poistoa ja uudelleen kirjoitusta)
-- [ ] Tositteen liittäminen kirjaukseen (Storage)
-- [ ] Luokat ja arvonlisäveroprosentit verovuoden säännöistä
-- [ ] Investoinnin kirjaus kirjauksesta, koneen myynti ja myyntivoitto
+- [x] Kirjanpito asiakkaan välilehdellä: kirjaukset vuosittain, summat, lisäys, muokkaus ja poisto rivi kerrallaan, suljettu vuosi vain luettavana (26.9.2026)
+- [ ] Nopeampi syöttö taulukossa suoraan (kuten vanhassa sovelluksessa), jos lomake osoittautuu hitaaksi
+- [x] Tositteen liittäminen kirjaukseen, lataus RLS:n kautta, suljetun vuoden tositteita ei voi poistaa (26.9.2026)
+- [ ] Poistetun tositteen tiedosto pois Storagesta (nyt jää orvoksi)
+- [x] Luokat ja oletusverokanta päivän mukaan, Hankintatyö-luokka vanhasta sovelluksesta (26.9.2026)
+- [x] Investoinnin hankinta kirjauksesta luo investoinnin, myynti merkitsee sen myydyksi (26.9.2026)
+- [ ] Myyntivoitto (vaihe 5)
 
 ### 5. Verolaskenta (`src/lib/tax`)
 - [ ] Verosäännöt verovuosittain (`rules.ts`): prosentit ja rajat, lähde kommenttiin (BLOCKERS 4)

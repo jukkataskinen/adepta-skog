@@ -139,33 +139,47 @@ export const HELP_TOPICS: HelpTopic[] = [
     group: "Kirjanpito",
     icon: "list",
     title: "Kirjanpito",
-    summary: "Metsätalouden tulot ja menot verovuosittain, tositteet mukana.",
-    highlights: ["Kirjaukset taulukkona", "Tosite jokaiseen kirjaukseen", "Arvonlisävero lasketaan valmiiksi"],
+    summary: "Metsätalouden tulot, menot ja investoinnit verovuosittain, tositteet mukana.",
+    highlights: ["Kirjaukset vuosittain", "Arvonlisävero lasketaan valmiiksi", "Tosite jokaiseen kirjaukseen"],
     sections: [
       {
-        title: "Suljettu vuosi",
-        text: "Kun verovuosi on suljettu, sen kirjauksia ei voi muuttaa. Pääkäyttäjä voi avata vuoden, ja avaus jää lokiin.",
-      },
-    ],
-    upcoming: true,
-  },
-  {
-    slug: "investoinnit",
-    group: "Kirjanpito",
-    icon: "hammer",
-    title: "Investoinnit ja poistot",
-    summary: "Koneet, tiet ja ojat poistetaan vuosittain. Ohjelma laskee poistot ja jäljellä olevan arvon.",
-    highlights: ["Tasapoisto tai menojäännöspoisto", "Koneen myynti ja myyntivoitto", "Poistot verosuunnitelmaan"],
-    sections: [
-      {
-        title: "Poistotavat",
-        bullets: [
-          "Tasapoisto: sama summa joka vuosi poistoajan loppuun.",
-          "Menojäännöspoisto: 25 prosenttia jäljellä olevasta arvosta joka vuosi.",
+        title: "Uusi kirjaus",
+        steps: [
+          "Avaa asiakas ja valitse välilehti Kirjanpito.",
+          "Valitse verovuosi sivun yläosasta.",
+          "Täytä sivun alaosan lomake: päivä, luokka, selite ja summa ilman arvonlisäveroa.",
+          "Jätä Alv % tyhjäksi, niin ohjelma käyttää luokan tavallista verokantaa. Pystykaupassa se on yleinen verokanta, tuissa ja korvauksissa nolla.",
+          "Jos puukaupasta on pidätetty ennakkoa, kirjoita se kenttään Ennakonpidätys.",
+          "Valitse Lisää kirjaus.",
         ],
       },
+      {
+        title: "Muokkaus ja poisto",
+        text: "Avaa kirjaus päivästä. Voit muuttaa tietoja, lisätä tositteen tai poistaa kirjauksen. Muutokset jäävät lokiin.",
+      },
+      {
+        title: "Tositteet",
+        steps: [
+          "Avaa kirjaus.",
+          "Valitse tiedosto kohdasta Lisää tosite. PDF tai kuva, enintään 4 Mt.",
+          "Valitse Tallenna tosite.",
+          "Tosite aukeaa, kun klikkaat sen nimeä.",
+        ],
+      },
+      {
+        title: "Investoinnit",
+        bullets: [
+          "Koneen tai muun investoinnin hankinta kirjataan luokalla Käyttöomaisuuden hankinta. Valitse samalla poistotapa, niin ohjelma luo investoinnin.",
+          "Myynti kirjataan luokalla Käyttöomaisuuden myynti. Valitse myytävä investointi, niin se merkitään myydyksi.",
+          "Poistot lasketaan verosuunnitelmassa.",
+        ],
+      },
+      {
+        title: "Suljettu vuosi",
+        text: "Kun verovuosi on suljettu, sen kirjauksia ja tositteita ei voi muuttaa. Pääkäyttäjä voi avata vuoden asiakkaan tiedoissa, ja avaus jää lokiin.",
+      },
     ],
-    upcoming: true,
+    related: ["asiakkaat", "investoinnit"],
   },
   {
     slug: "verosuunnitelma",

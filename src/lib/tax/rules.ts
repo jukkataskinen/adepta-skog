@@ -29,6 +29,8 @@ export const CATEGORIES: Category[] = [
   { code: "forestry_subsidy", label: "Metsätalouden tuet", group: "Korvaukset ja tuet", kind: "income", vat: "none", legacyName: "Metsätalouden tuet" },
   { code: "asset_purchase", label: "Käyttöomaisuuden hankinta", group: "Investoinnit", kind: "investment", vat: "general", legacyName: "Käyttöomaisuuden hankinta" },
   { code: "asset_sale", label: "Käyttöomaisuuden myynti", group: "Investoinnit", kind: "income", vat: "general", legacyName: "Käyttöomaisuuden myynti" },
+  // Oma hankintatyö arvostetaan Verohallinnon taksoilla (vanha sovellus: HT_TAKSAT). Laskuri tulee vaiheessa 5 (BLOCKERS 5).
+  { code: "delivery_work", label: "Hankintatyö", group: "Menot", kind: "expense", vat: "none", legacyName: "Hankintatyö" },
   { code: "wages", label: "Palkkausmenot", group: "Menot", kind: "expense", vat: "none", legacyName: "Palkkausmenot" },
   { code: "travel", label: "Matkakulut", group: "Menot", kind: "expense", vat: "general", legacyName: "Matkakulut" },
   { code: "other_expense", label: "Muut vuosimenot", group: "Menot", kind: "expense", vat: "general", legacyName: "Muut vuosimenot" },
