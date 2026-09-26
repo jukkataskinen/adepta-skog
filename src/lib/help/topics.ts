@@ -182,24 +182,87 @@ export const HELP_TOPICS: HelpTopic[] = [
     related: ["asiakkaat", "investoinnit"],
   },
   {
+    slug: "investoinnit",
+    group: "Kirjanpito",
+    icon: "hammer",
+    title: "Investoinnit ja poistot",
+    summary: "Koneet, tiet ja ojat poistetaan vuosittain. Ohjelma laskee poistot ja jäljellä olevan arvon.",
+    highlights: ["Tasapoisto tai menojäännöspoisto", "Koneen myynti: myyntivoitto tai -tappio", "Poistot valitaan verosuunnitelmassa"],
+    sections: [
+      {
+        title: "Poistotavat",
+        bullets: [
+          "Menojäännöspoisto: enintään 25 prosenttia arvosta, joka on vuoden alussa vielä poistamatta. Poisto on vapaaehtoinen, joten voit tehdä pienemmän tai jättää sen tekemättä.",
+          "Tasapoisto: sama summa joka vuosi poistoajan loppuun. Poisto on pakollinen.",
+        ],
+      },
+      {
+        title: "Koneen myynti",
+        steps: [
+          "Kirjaa myynti kirjanpitoon luokalla Käyttöomaisuuden myynti ja valitse myytävä investointi.",
+          "Myyntivuonna konetta ei poisteta.",
+          "Jos hinta on suurempi kuin poistamaton arvo, erotus on myyntivoittoa ja lisätään tuloihin.",
+          "Jos hinta on pienempi, erotus on myyntitappiota ja vähennetään.",
+        ],
+      },
+    ],
+    related: ["kirjanpito", "verosuunnitelma"],
+  },
+  {
+    slug: "alv",
+    group: "Verotus ja raportit",
+    icon: "stamp",
+    title: "Arvonlisävero",
+    summary: "Arvonlisävero lasketaan kirjauksista neljänneksittäin ja koko vuodelta.",
+    highlights: ["Myynnin ja ostojen vero", "Maksettava tai palautettava", "Myynnit verokannoittain"],
+    sections: [
+      {
+        title: "Näin luet yhteenvedon",
+        bullets: [
+          "Myynnin vero lasketaan tuloista, esimerkiksi puukaupasta.",
+          "Ostojen vero lasketaan menoista ja investoinneista.",
+          "Maksettava on myynnin vero miinus ostojen vero. Jos luku on miinuksella, veroa palautetaan.",
+          "Neljännekset auttavat, jos asiakas ilmoittaa useammin kuin kerran vuodessa.",
+        ],
+      },
+    ],
+    tips: ["Jos asiakas ei ole arvonlisäverorekisterissä, sivulla näkyy muistutus."],
+    related: ["kirjanpito"],
+  },
+  {
     slug: "verosuunnitelma",
     group: "Verotus ja raportit",
     icon: "coins",
     title: "Verosuunnitelma",
     summary: "Arvio vuoden verotettavasta tulosta. Valitse, paljonko metsävähennystä ja poistoja käytetään.",
-    highlights: ["Verotettava pääomatulo", "Metsävähennyksen käyttö", "Vahvistus sulkee vuoden"],
+    highlights: ["Verotettava pääomatulo ja vero", "Metsävähennyksen rajat valmiina", "Vahvistus tallentaa poistot ja vähennyksen"],
     sections: [
       {
-        title: "Vuoden sulkeminen",
+        title: "Suunnitelman teko",
         steps: [
-          "Tarkista kirjaukset ja poistot.",
-          "Valitse metsävähennyksen määrä.",
-          "Vahvista suunnitelma. Vuoden poistot ja metsävähennys tallentuvat.",
-          "Vuosi sulkeutuu, ja veroraportti arkistoidaan.",
+          "Avaa asiakas ja valitse välilehti Verosuunnitelma.",
+          "Valitse vuosi.",
+          "Kirjoita jokaisen koneen poisto. Tasapoisto täyttyy itsestään.",
+          "Kirjoita metsävähennys tai valitse Käytä enimmäismäärä.",
+          "Laskelma oikealla päivittyy heti.",
+          "Valitse Vahvista suunnitelma. Poistot ja metsävähennys tallentuvat.",
         ],
       },
+      {
+        title: "Metsävähennyksen rajat",
+        bullets: [
+          "Vähennys on vähintään 1 500 euroa tai ei lainkaan.",
+          "Vuodessa enintään 60 prosenttia puhtaasta pääomatulosta.",
+          "Yhteensä enintään tilojen käyttämätön pohja.",
+        ],
+      },
+      {
+        title: "Vuoden sulkeminen",
+        text: "Pääkäyttäjä voi valita Vahvista ja sulje vuosi. Suljetun vuoden suunnitelmaa ei voi muuttaa.",
+      },
     ],
-    upcoming: true,
+    tips: ["Pääomatulon vero on 30 prosenttia 30 000 euroon asti ja 34 prosenttia sen yli."],
+    related: ["investoinnit", "metsatilat"],
   },
   {
     slug: "veroraportti",

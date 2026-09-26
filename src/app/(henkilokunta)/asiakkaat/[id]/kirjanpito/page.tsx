@@ -9,6 +9,7 @@ import { grossAmount, summarize, vatAmount } from "@/lib/ledger/summary";
 import { category } from "@/lib/tax/rules";
 import { formatDate, formatEur } from "@/lib/format";
 import { ClientTabs } from "../../ClientTabs";
+import { YearNav } from "../../YearNav";
 import { TransactionForm } from "./TransactionForm";
 import { saveTransactionAction } from "./actions";
 
@@ -52,26 +53,14 @@ export default async function LedgerPage({
   return (
     <>
       <PageHeader title={`${c.first_name} ${c.last_name}`.trim()} subtitle="Kirjanpito" back={{ href: "/asiakkaat", label: "Asiakkaat" }} />
-      <ClientTabs clientId={id} active="kirjanpito" />
+      <ClientTabs clientId={id} active="kirjanpito" year={year} />
       <FormError message={sp.virhe} />
 
       {year === null ? (
         <EmptyState title="Ei verovuosia">Avaa verovuosi asiakkaan tiedoissa.</EmptyState>
       ) : (
         <>
-          <nav className="mb-5 flex flex-wrap gap-2" aria-label="Verovuosi">
-            {years.map((y) => (
-              <Link
-                key={y.year}
-                href={`/asiakkaat/${id}/kirjanpito?vuosi=${y.year}`}
-                aria-current={y.year === year ? "page" : undefined}
-                className={`rounded-full border px-3 py-1 text-sm font-semibold ${y.year === year ? "border-ink bg-ink text-paper" : "border-line bg-paper text-ink/70 hover:text-ink"}`}
-              >
-                {y.year}
-                {y.status === "closed" ? " · suljettu" : ""}
-              </Link>
-            ))}
-          </nav>
+          <YearNav years={years} year={year} basePath={`/asiakkaat/${id}/kirjanpito`} />
 
           {closed ? (
             <div className="mb-5">

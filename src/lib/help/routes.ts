@@ -11,6 +11,8 @@ const ROUTES: { pattern: RegExp; slug: string; section?: string }[] = [
   { pattern: /^\/tyopoyta/, slug: "tyopoyta" },
   { pattern: /^\/asiakkaat\/[^/]+\/metsatilat/, slug: "metsatilat" },
   { pattern: /^\/asiakkaat\/[^/]+\/kirjanpito/, slug: "kirjanpito" },
+  { pattern: /^\/asiakkaat\/[^/]+\/alv/, slug: "alv" },
+  { pattern: /^\/asiakkaat\/[^/]+\/verosuunnitelma/, slug: "verosuunnitelma" },
   { pattern: /^\/asiakkaat/, slug: "asiakkaat" },
   { pattern: /^\/asetukset/, slug: "asetukset" },
 ]

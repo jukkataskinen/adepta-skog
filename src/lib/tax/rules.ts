@@ -71,3 +71,25 @@ export const DECLINING_BALANCE_MAX_PCT = 25;
 
 /** Metsävähennyksen pohja: osuus metsämaan hankintamenosta. */
 export const FOREST_DEDUCTION_BASE_PCT = 60;
+
+/**
+ * Pääomatulon vero: alempi kanta rajaan asti, ylempi sen yli. Voimassa
+ * verovuodesta 2015 (30 % / 34 %, raja 30 000 €). Vanha sovellus käytti samoja.
+ */
+const CAPITAL_INCOME_TAX: { fromYear: number; lowPct: number; highPct: number; threshold: number }[] = [
+  { fromYear: 2015, lowPct: 30, highPct: 34, threshold: 30000 },
+];
+
+export function capitalIncomeTaxRule(year: number) {
+  let rule = CAPITAL_INCOME_TAX[0];
+  for (const r of CAPITAL_INCOME_TAX) if (year >= r.fromYear) rule = r;
+  return rule;
+}
+
+/**
+ * Metsävähennys vuodessa enintään tämä osuus metsätalouden puhtaasta
+ * pääomatulosta ennen vähennystä, ja vähintään MIN euroa (pienempää ei tehdä).
+ * Vanha sovellus laski ylärajan bruttotuloista (BLOCKERS 4).
+ */
+export const FOREST_DEDUCTION_ANNUAL_PCT = 60;
+export const FOREST_DEDUCTION_MIN = 1500;

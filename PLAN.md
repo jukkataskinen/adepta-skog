@@ -81,13 +81,14 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [ ] Myyntivoitto (vaihe 5)
 
 ### 5. Verolaskenta (`src/lib/tax`)
-- [ ] Verosäännöt verovuosittain (`rules.ts`): prosentit ja rajat, lähde kommenttiin (BLOCKERS 4)
-- [ ] Arvonlisävero: kausiyhteenveto ja vuosi
-- [ ] Poistot: tasapoisto ja menojäännöspoisto, jäännösarvo, myynti
-- [ ] Metsävähennys: pohja, käytetty kertymä, vuoden enimmäismäärä
-- [ ] Hankintatyön kertymä verovuodessa (BLOCKERS 5)
-- [ ] Verosuunnitelma: verotettava pääomatulo, metsävähennyksen ja poistojen valinta, vahvistus tallentaa poistot ja vähennyksen
-- [ ] Vertailu vanhaan sovellukseen (`vertaa:vero`): vuoden 2025 luvut asiakkaittain, erot selitettynä
+- [x] Verosäännöt `rules.ts`: pääomatulon vero 30/34 % (raja 30 000 €), metsävähennys 60 % ja vähintään 1 500 €, menojäännöspoisto 25 % (26.9.2026)
+- [~] Sääntöjen vahvistus Verohallinnon ohjeista (BLOCKERS 4)
+- [x] Arvonlisävero-välilehti: neljännekset, vuosi ja myynnit verokannoittain (26.9.2026)
+- [x] Poistot: tasapoisto (pakollinen), menojäännöspoisto (vapaaehtoinen), poistamaton arvo, myyntivoitto ja -tappio (26.9.2026)
+- [x] Metsävähennys: pohja, käytetty, vuoden enimmäismäärä, vähimmäismäärä, jako tiloille (26.9.2026)
+- [~] Hankintatyön laskuri (taksat × m³, 125 m³ raja) (BLOCKERS 5). Luokka Hankintatyö on jo kirjanpidossa
+- [x] Verosuunnitelma-välilehti: laskuri, palvelin laskee uudelleen vahvistettaessa, vahvistus tallentaa poistot ja vähennyksen, pääkäyttäjä voi sulkea vuoden samalla (26.9.2026)
+- [ ] Vertailu vanhaan sovellukseen (`vertaa:vero`): vuoden 2025 luvut asiakkaittain, erot selitettynä. Tehdään tuonnin jälkeen, kun uusi Supabase-projekti on olemassa (BLOCKERS 3)
 
 ### 6. Raportit ja arkisto
 - [ ] Veroraportti PDF:nä: kansilehti, sisällysluettelo, tulot ja menot, arvonlisävero, poistot, metsävähennys, LUONNOS-vesileima avoimelle vuodelle
