@@ -108,8 +108,13 @@ const text = (v: string | null | undefined): string | null => {
   return t ? t : null;
 };
 
-const date = (v: string | null | undefined): string | null => {
-  const m = v?.match(/^(\d{4}-\d{2}-\d{2})/);
+// pg palauttaa date-sarakkeen oletuksena Date-oliona paikallisena keskiyönä, joten luetaan paikalliset osat.
+const date = (v: string | Date | null | undefined): string | null => {
+  if (v instanceof Date) {
+    if (Number.isNaN(v.getTime())) return null;
+    return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, "0")}-${String(v.getDate()).padStart(2, "0")}`;
+  }
+  const m = typeof v === "string" ? v.match(/^(\d{4}-\d{2}-\d{2})/) : null;
   return m ? m[1] : null;
 };
 

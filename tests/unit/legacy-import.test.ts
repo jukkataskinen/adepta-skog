@@ -57,6 +57,11 @@ describe("vanhan kannan muunnos", () => {
     expect(!isSkipped(u) && u.categoryGuessed).toBe(true);
   });
 
+  it("kirjaus: päivä kelpaa myös Date-oliona", () => {
+    const t = mapTransaction({ id: "k4", asiakas_id: "c1", tyyppi: "meno", kuvaus: "", paivamaara: new Date(2025, 4, 2) as unknown as string, summa_alv0: 10, alv_prosentti: 0, kategoria: "Muut vuosimenot", ennakko: null, viite: null, verovuosi: 2025 });
+    expect(!isSkipped(t) && t.row.bookedOn).toBe("2025-05-02");
+  });
+
   it("kirjaus: päivän on oltava verovuodella", () => {
     const t = mapTransaction({ id: "k3", asiakas_id: "c1", tyyppi: "meno", kuvaus: "", paivamaara: "2024-12-31", summa_alv0: 10, alv_prosentti: 0, kategoria: "Muut vuosimenot", ennakko: null, viite: null, verovuosi: 2025 });
     expect(isSkipped(t)).toBe(true);

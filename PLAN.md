@@ -56,8 +56,9 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [x] Storage-ämpäri `documents` (vain Supabasessa) ja tallennusmoduuli `src/lib/storage` (paikallinen kansio oletuksena) (26.9.2026)
 - [x] Demodata (`db:seed:demo`): kaksi toimistoa, kolme asiakasta, verovuodet 2024 (suljettu) ja 2025 (26.9.2026)
 - [x] Tiedonsiirto vanhasta kannasta (`tuo:vanha`): muunnokset `src/lib/import/legacy.ts`, kirjoitus `src/lib/import/run.ts`, testit kuvitteellisella aineistolla, toistettava ajo (26.9.2026)
-- [~] Tiedonsiirron koeajo oikealla aineistolla `--kuiva` (BLOCKERS 6)
-- [~] Vanhan kannan rakenne talteen `legacy/schema.sql`:ään vertailua varten (ilman tietoja) (BLOCKERS 6)
+- [x] Tiedonsiirron koeajo oikealla aineistolla `--kuiva`: kaikki rivit siirtyvät, 2 kirjauksen luokka pääteltiin (26.9.2026)
+- [ ] Tuonnin ulkopuolelle jääneet kentät: `alv_numero`, `metsämaa_ha`, kirjauksen ja investoinnin metsätila (DECISIONS 26.9.2026)
+- [x] Vanhan kannan rakenne `legacy/schema.sql` (scripts/dump-legacy-schema.mts) (26.9.2026)
 - [x] Kirjausten luokat ja arvonlisäverokannat `src/lib/tax/rules.ts` (26.9.2026)
 
 ### 3. Perusnäkymät

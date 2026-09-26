@@ -30,6 +30,9 @@ if (!legacyUrl) {
   process.exit(1);
 }
 
+// Päivät merkkijonoina (1082 = date), jotta aikavyöhyke ei siirrä päivää.
+pg.types.setTypeParser(1082, (v: string) => v);
+
 const legacy = new pg.Client({ connectionString: stripSslMode(legacyUrl), ssl: { rejectUnauthorized: false } });
 await legacy.connect();
 await legacy.query("begin transaction read only");
