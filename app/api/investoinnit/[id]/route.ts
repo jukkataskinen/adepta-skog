@@ -1,24 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth0 } from '@/lib/auth0'
-import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { vaadiKayttaja, riviOmassaOrganisaatiossa } from '@/lib/access'
+
+// asiakas_id puuttuu tarkoituksella: investointia ei saa siirtää toiselle asiakkaalle
+const MUOKATTAVAT = ['kuvaus', 'hankintapvm', 'hankintahinta', 'jaannosarvo', 'poistoaika_vuotta', 'poistotapa', 'aktiivinen'] as const
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
-  const session = await auth0.getSession(request)
-  if (!session) return NextResponse.json({ error: 'Ei istuntoa' }, { status: 401 })
-  if (!supabase) return NextResponse.json({ error: 'Supabase ei konfiguroitu' }, { status: 500 })
-
-  const { data: kayttaja } = await supabase
-    .from('kayttajat')
-    .select('organisaatio_id')
-    .eq('auth_sub', session.user.sub)
-    .single()
-  if (!kayttaja) return NextResponse.json({ error: 'Käyttäjää ei löydy' }, { status: 404 })
+  const ok = await vaadiKayttaja(request)
+  if ('virhe' in ok) return ok.virhe
+  if (!(await riviOmassaOrganisaatiossa(ok, 'investoinnit', params.id))) {
+    return NextResponse.json({ error: 'Investointia ei löydy' }, { status: 404 })
+  }
 
   const body = await request.json()
+  const muutokset = Object.fromEntries(MUOKATTAVAT.filter(k => k in body).map(k => [k, body[k]]))
 
-  const { error } = await supabase
+  const { error } = await ok.supabase
     .from('investoinnit')
-    .update(body)
+    .update(muutokset)
     .eq('id', params.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

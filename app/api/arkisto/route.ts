@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth0 } from '@/lib/auth0'
-import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { vaadiKayttaja, asiakasOmassaOrganisaatiossa, eiLoydy } from '@/lib/access'
 
 export async function POST(request: NextRequest) {
-  const session = await auth0.getSession(request)
-  if (!session) return NextResponse.json({ error: 'Ei istuntoa' }, { status: 401 })
-  if (!supabase) return NextResponse.json({ error: 'Supabase ei konfiguroitu' }, { status: 500 })
+  const ok = await vaadiKayttaja(request)
+  if ('virhe' in ok) return ok.virhe
 
   const body = await request.json()
   const { asiakas_id, verovuosi } = body
+  if (!(await asiakasOmassaOrganisaatiossa(ok, asiakas_id))) return eiLoydy()
 
-  const { error } = await supabase.from('arkisto').upsert({
+  const { error } = await ok.supabase.from('arkisto').upsert({
     asiakas_id,
     verovuosi,
     tiedostonimi: 'veroraportti_' + verovuosi + '.pdf',
@@ -22,15 +21,15 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const session = await auth0.getSession(request)
-  if (!session) return NextResponse.json({ error: 'Ei istuntoa' }, { status: 401 })
-  if (!supabase) return NextResponse.json({ error: 'Supabase ei konfiguroitu' }, { status: 500 })
+  const ok = await vaadiKayttaja(request)
+  if ('virhe' in ok) return ok.virhe
 
   const { searchParams } = new URL(request.url)
   const asiakas_id = searchParams.get('asiakas_id')
   if (!asiakas_id) return NextResponse.json({ error: 'asiakas_id puuttuu' }, { status: 400 })
+  if (!(await asiakasOmassaOrganisaatiossa(ok, asiakas_id))) return eiLoydy()
 
-  const { data, error } = await supabase
+  const { data, error } = await ok.supabase
     .from('arkisto')
     .select('id, verovuosi, tiedostonimi, liite_nimi, liite_koko, luotu_at')
     .eq('asiakas_id', asiakas_id)

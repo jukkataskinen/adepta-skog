@@ -16,6 +16,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     .eq('id', params.id)
     .eq('organisaatio_id', kayttaja.organisaatio_id)
     .single()
+  // Ilman tätä metsätilat ja investoinnit palautuisivat myös toisen organisaation asiakkaalta
+  if (!asiakas) return NextResponse.json({ error: 'Asiakasta ei löydy' }, { status: 404 })
 
   const { data: metsatilat } = await supabase
     .from('metsatilat')

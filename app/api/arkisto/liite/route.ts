@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth0 } from '@/lib/auth0'
-import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { vaadiKayttaja, asiakasOmassaOrganisaatiossa, eiLoydy } from '@/lib/access'
 
 export async function POST(request: NextRequest) {
-  const session = await auth0.getSession(request)
-  if (!session) return NextResponse.json({ error: 'Ei istuntoa' }, { status: 401 })
-  if (!supabase) return NextResponse.json({ error: 'Supabase ei konfiguroitu' }, { status: 500 })
+  const ok = await vaadiKayttaja(request)
+  if ('virhe' in ok) return ok.virhe
 
   const body = await request.json()
   const { asiakas_id, verovuosi, liite_nimi, liite_data, liite_koko } = body
+  if (!(await asiakasOmassaOrganisaatiossa(ok, asiakas_id))) return eiLoydy()
 
   // Upsert arkisto row and attach the liite in one operation
-  const { error } = await supabase
+  const { error } = await ok.supabase
     .from('arkisto')
     .upsert({
       asiakas_id,

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth0 } from '@/lib/auth0'
-import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { vaadiKayttaja, riviOmassaOrganisaatiossa } from '@/lib/access'
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
-  const session = await auth0.getSession(request)
-  if (!session) return NextResponse.json({ error: 'Ei istuntoa' }, { status: 401 })
-  if (!supabase) return NextResponse.json({ error: 'Supabase ei konfiguroitu' }, { status: 500 })
+  const ok = await vaadiKayttaja(request)
+  if ('virhe' in ok) return ok.virhe
+  if (!(await riviOmassaOrganisaatiossa(ok, 'arkisto', params.id))) {
+    return NextResponse.json({ error: 'Arkistoa ei löydy' }, { status: 404 })
+  }
 
-  const { data, error } = await supabase
+  const { data, error } = await ok.supabase
     .from('arkisto')
     .select('id, verovuosi, tiedostonimi, liite_nimi, liite_koko, liite_data, luotu_at')
     .eq('id', params.id)

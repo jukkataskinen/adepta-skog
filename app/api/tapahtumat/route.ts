@@ -1,21 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth0 } from '@/lib/auth0'
-import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { vaadiKayttaja, asiakasOmassaOrganisaatiossa, eiLoydy } from '@/lib/access'
 
 export async function GET(request: NextRequest) {
-  const session = await auth0.getSession(request)
-  if (!session) return NextResponse.json({ error: 'Ei istuntoa' }, { status: 401 })
-  if (!supabase) return NextResponse.json({ error: 'Supabase ei konfiguroitu' }, { status: 500 })
+  const ok = await vaadiKayttaja(request)
+  if ('virhe' in ok) return ok.virhe
+  const { supabase } = ok
 
   const { searchParams } = new URL(request.url)
   const asiakas_id = searchParams.get('asiakas_id')
   const vuosi = searchParams.get('vuosi')
 
   if (!asiakas_id) return NextResponse.json({ error: 'asiakas_id puuttuu' }, { status: 400 })
-
-  const { data: kayttaja } = await supabase
-    .from('kayttajat').select('organisaatio_id').eq('auth_sub', session.user.sub).single()
-  if (!kayttaja) return NextResponse.json({ error: 'Käyttäjää ei löydy' }, { status: 404 })
+  if (!(await asiakasOmassaOrganisaatiossa(ok, asiakas_id))) return eiLoydy()
 
   let query = supabase
     .from('tapahtumat')
@@ -31,18 +27,16 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth0.getSession(request)
-  if (!session) return NextResponse.json({ error: 'Ei istuntoa' }, { status: 401 })
-  if (!supabase) return NextResponse.json({ error: 'Supabase ei konfiguroitu' }, { status: 500 })
-
-  const { data: kayttaja } = await supabase
-    .from('kayttajat').select('id, organisaatio_id').eq('auth_sub', session.user.sub).single()
-  if (!kayttaja) return NextResponse.json({ error: 'Käyttäjää ei löydy' }, { status: 404 })
+  const ok = await vaadiKayttaja(request)
+  if ('virhe' in ok) return ok.virhe
+  const { supabase, kayttaja } = ok
 
   const body = await request.json()
   const { asiakas_id, vuosi, rivit } = body
 
   if (!asiakas_id || !vuosi) return NextResponse.json({ error: 'asiakas_id ja vuosi vaaditaan' }, { status: 400 })
+  // Tallennus poistaa ensin koko vuoden kirjaukset, joten tarkistus on tehtävä ennen sitä
+  if (!(await asiakasOmassaOrganisaatiossa(ok, asiakas_id))) return eiLoydy()
 
   const { error: delErr } = await supabase
     .from('tapahtumat').delete().eq('asiakas_id', asiakas_id).eq('verovuosi', vuosi)

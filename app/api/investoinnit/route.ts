@@ -18,6 +18,14 @@ export async function GET(request: NextRequest) {
     .single()
   if (!kayttaja) return NextResponse.json({ error: 'Käyttäjää ei löydy' }, { status: 404 })
 
+  const { data: asiakas } = await supabase
+    .from('asiakkaat')
+    .select('id')
+    .eq('id', asiakas_id)
+    .eq('organisaatio_id', kayttaja.organisaatio_id)
+    .maybeSingle()
+  if (!asiakas) return NextResponse.json({ error: 'Asiakasta ei löydy' }, { status: 404 })
+
   const { data, error } = await supabase
     .from('investoinnit')
     .select('id, kuvaus, hankintahinta, jaannosarvo, poistoaika_vuotta, poistotapa, aktiivinen')
