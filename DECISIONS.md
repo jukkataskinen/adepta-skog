@@ -63,3 +63,15 @@
 **Supabase-projekti Irlannissa (eu-west-1), Vercel dub1.** Projekti syntyi Irlantiin eikä Frankfurtiin kuten suunniteltiin. Sama alue kuin Mittarilukemalla, ja se on EU:ssa, joten projektia ei luoda uudelleen. Vercelin funktiot ajetaan samalla alueella (dub1).
 
 **Anon-roolin oikeudet pois (migraatio 0003).** Supabase antaa oletuksena julkiselle anon-roolille oikeudet public-skeeman uusiin tauluihin ja funktioihin. Skog ei käytä julkista avainta, joten oikeudet poistetaan, ja migraatiokirjanpitoon laitetaan RLS.
+
+## 2026-09-27
+
+**Käyttäjää ei poisteta, se poistetaan käytöstä (0006).** Jäsenyysriville tulee `deactivated_at`, ja RLS-funktiot `sk_my_org_ids` ja `sk_has_org_role` ohittavat käytöstä poistetut, joten pääsy katkeaa kaikista säännöistä kerralla. Rivi säilyy, jotta loki ja sulkijatiedot pysyvät, ja käyttäjän voi ottaa takaisin käyttöön.
+
+**Vastuuasiakkaat siirretään käytöstä poiston yhteydessä.** Jos käyttäjä on arkistoimattomien asiakkaiden vastuukirjanpitäjä, käytöstä poisto estetään, kunnes valitaan käytössä oleva kirjanpitäjä, jolle asiakkaat siirtyvät samassa transaktiossa (myös arkistoidut). Muuten asiakkaat jäisivät kirjanpitäjälle, joka ei näe niitä. Käytöstä poistettua ei voi valita vastuukirjanpitäjäksi (triggeri tarkistaa vain vaihtuvan arvon).
+
+**Ei itserekisteröintiä myöskään sovelluksessa.** Kirjautuminen tuntemattomalla osoitteella ei enää luo käyttäjäriviä; käyttäjä ohjataan Ei käyttöoikeutta -sivulle. Käyttäjä syntyy vain pääkäyttäjän lisäyksestä tai skriptistä, joten Auth0:n rekisteröinnin sulkeminen ei ole ainoa suoja.
+
+**Kutsu: Auth0-tunnus ja sähköposti rajapintojen takana.** Kutsu luo tarvittaessa Auth0-tunnuksen (Management API) ja lähettää salasanan asetuslinkin, joka myös varmentaa osoitteen. Sähköposti on Mittarilukeman moduuli (Resend). Molempien oletus on testitila (`AUTH0_ADMIN_MODE=mock`, `EMAIL_MODE=mock`), eikä kumpaakaan ole ajettu oikeaa palvelua vasten.
+
+**Kutsun epäonnistuminen ei peru lisäystä.** Ulkoiset kutsut tehdään transaktion ulkopuolella. Jos viesti ei lähde, käyttäjä jää listaan ja kutsun voi lähettää uudelleen; `invited_at` kertoo viimeisimmän onnistuneen lähetyksen.

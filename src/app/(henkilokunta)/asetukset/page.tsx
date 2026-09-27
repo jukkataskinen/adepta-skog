@@ -1,8 +1,9 @@
-import { Button, Field, Input, Notice, PageHeader, Panel, SectionTitle, Select, Table, Td, Th } from "@/components/ui";
+import { Badge, Button, Field, Input, Notice, PageHeader, Panel, SectionTitle, Select, Table, Td, Th } from "@/components/ui";
 import { FormError } from "@/components/FormError";
 import { requireRole, ROLE_LABEL, type OrgRole } from "@/lib/auth/current-user";
-import { formatDateTime } from "@/lib/format";
-import { addMemberAction, changeMemberRoleAction, removeMemberAction, updateContactAction } from "./actions";
+import { formatDate, formatDateTime } from "@/lib/format";
+import { emailMode } from "@/lib/email";
+import { addMemberAction, changeMemberRoleAction, deactivateMemberAction, inviteMemberAction, reactivateMemberAction, updateContactAction } from "./actions";
 
 export const metadata = { title: "Asetukset" };
 
@@ -21,10 +22,16 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         [orgId],
       )
     )[0],
-    members: await tx.query<{ id: string; name: string; email: string; role: OrgRole; pending: boolean }>(
-      `select u.id, coalesce(u.full_name, u.email) as name, u.email, m.role, u.auth_sub like 'pending|%' as pending
+    members: await tx.query<{
+      id: string; name: string; email: string; role: OrgRole; pending: boolean;
+      invited_at: string | null; deactivated_at: string | null; client_count: number;
+    }>(
+      `select u.id, coalesce(u.full_name, u.email) as name, u.email, m.role, u.auth_sub like 'pending|%' as pending,
+              m.invited_at, m.deactivated_at,
+              (select count(*)::int from sk_clients c
+                where c.organization_id = m.organization_id and c.responsible_user_id = u.id and c.archived_at is null) as client_count
          from sk_org_members m join sk_users u on u.id = m.user_id
-        where m.organization_id = $1 order by m.role, name`,
+        where m.organization_id = $1 order by m.deactivated_at is not null, m.role, name`,
       [orgId],
     ),
     log: await tx.query<{ id: string; action: string; entity: string; created_at: string; user_name: string | null }>(
@@ -35,6 +42,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     ),
   }));
   const { org } = data;
+  const active = data.members.filter((m) => !m.deactivated_at);
+  const testMode = emailMode() === "mock";
 
   return (
     <>
@@ -47,8 +56,24 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       ) : null}
       {sp.ilmoitus === "kayttaja" ? (
         <div className="mb-5">
-          <Notice tone="ok" title="Käyttäjä lisätty.">
-            Kerro käyttäjälle osoite skog.adepta.fi. Hän kirjautuu samalla sähköpostiosoitteella, jolla hänet lisättiin.
+          <Notice tone="ok" title="Käyttäjä lisätty ja kutsu lähetetty.">
+            {testMode
+              ? "Sähköposti on testitilassa, joten viestiä ei lähetetty. Kerro käyttäjälle osoite skog.adepta.fi. Hän kirjautuu samalla sähköpostiosoitteella, jolla hänet lisättiin."
+              : "Käyttäjä saa sähköpostiin ohjeen kirjautumiseen. Hän kirjautuu samalla sähköpostiosoitteella, jolla hänet lisättiin."}
+          </Notice>
+        </div>
+      ) : null}
+      {sp.ilmoitus === "kutsu" ? (
+        <div className="mb-5">
+          <Notice tone="ok" title="Kutsu lähetetty.">
+            {testMode ? "Sähköposti on testitilassa, joten viestiä ei lähetetty." : null}
+          </Notice>
+        </div>
+      ) : null}
+      {sp.ilmoitus === "poistettu" ? (
+        <div className="mb-5">
+          <Notice tone="ok" title="Käyttäjä poistettu käytöstä.">
+            Hän ei pääse enää kirjautumaan tähän toimistoon. Tiedot ja loki säilyvät, ja voit ottaa hänet takaisin käyttöön.
           </Notice>
         </div>
       ) : null}
@@ -101,49 +126,98 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             </tr>
           </thead>
           <tbody>
-            {data.members.map((m) => (
-              <tr key={m.id}>
-                <Td className="font-semibold">
-                  {m.name}
-                  {m.pending ? <span className="block text-xs font-normal text-ink/55">Ei vielä kirjautunut</span> : null}
-                </Td>
-                <Td>{m.email}</Td>
-                <Td>
-                  {m.id === ctx.user.id ? (
-                    ROLE_LABEL[m.role]
-                  ) : (
-                    <form action={changeMemberRoleAction} className="flex items-center gap-2">
-                      <input type="hidden" name="userId" value={m.id} />
-                      <label htmlFor={`role-${m.id}`} className="sr-only">
-                        Rooli
-                      </label>
-                      <select id={`role-${m.id}`} name="role" defaultValue={m.role} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm">
-                        {(["owner", "staff"] as const).map((r) => (
-                          <option key={r} value={r}>
-                            {ROLE_LABEL[r]}
-                          </option>
-                        ))}
-                      </select>
-                      <button className="text-sm font-semibold text-sky">Tallenna</button>
-                    </form>
-                  )}
-                </Td>
-                <Td className="text-right">
-                  {m.id !== ctx.user.id ? (
-                    <form action={removeMemberAction}>
-                      <input type="hidden" name="userId" value={m.id} />
-                      <button className="text-sm font-semibold text-coral">Poista</button>
-                    </form>
-                  ) : null}
-                </Td>
-              </tr>
-            ))}
+            {data.members.map((m) => {
+              const others = active.filter((o) => o.id !== m.id);
+              return (
+                <tr key={m.id} className={m.deactivated_at ? "text-ink/55" : undefined}>
+                  <Td className="font-semibold">
+                    {m.name}
+                    {m.deactivated_at ? (
+                      <span className="mt-1 block">
+                        <Badge>Poistettu käytöstä {formatDate(m.deactivated_at)}</Badge>
+                      </span>
+                    ) : m.pending ? (
+                      <span className="block text-xs font-normal text-ink/55">
+                        Ei vielä kirjautunut{m.invited_at ? `, kutsu lähetetty ${formatDate(m.invited_at)}` : ""}
+                      </span>
+                    ) : null}
+                    {!m.deactivated_at && m.client_count > 0 ? (
+                      <span className="block text-xs font-normal text-ink/55">Vastuuasiakkaita {m.client_count}</span>
+                    ) : null}
+                  </Td>
+                  <Td>{m.email}</Td>
+                  <Td>
+                    {m.id === ctx.user.id || m.deactivated_at ? (
+                      ROLE_LABEL[m.role]
+                    ) : (
+                      <form action={changeMemberRoleAction} className="flex items-center gap-2">
+                        <input type="hidden" name="userId" value={m.id} />
+                        <label htmlFor={`role-${m.id}`} className="sr-only">
+                          Rooli
+                        </label>
+                        <select id={`role-${m.id}`} name="role" defaultValue={m.role} className="rounded-lg border border-line bg-paper px-2 py-1 text-sm">
+                          {(["owner", "staff"] as const).map((r) => (
+                            <option key={r} value={r}>
+                              {ROLE_LABEL[r]}
+                            </option>
+                          ))}
+                        </select>
+                        <button className="text-sm font-semibold text-sky">Tallenna</button>
+                      </form>
+                    )}
+                  </Td>
+                  <Td className="text-right">
+                    {m.id === ctx.user.id ? null : m.deactivated_at ? (
+                      <form action={reactivateMemberAction}>
+                        <input type="hidden" name="userId" value={m.id} />
+                        <button className="text-sm font-semibold text-sky">Ota käyttöön</button>
+                      </form>
+                    ) : (
+                      <div className="flex flex-col items-end gap-2">
+                        {m.pending ? (
+                          <form action={inviteMemberAction}>
+                            <input type="hidden" name="userId" value={m.id} />
+                            <button className="text-sm font-semibold text-sky">{m.invited_at ? "Lähetä kutsu uudelleen" : "Lähetä kutsu"}</button>
+                          </form>
+                        ) : null}
+                        <form action={deactivateMemberAction} className="flex flex-wrap items-center justify-end gap-2">
+                          <input type="hidden" name="userId" value={m.id} />
+                          {m.client_count > 0 ? (
+                            <>
+                              <label htmlFor={`transfer-${m.id}`} className="text-xs text-ink/65">
+                                Asiakkaat siirtyvät
+                              </label>
+                              <select id={`transfer-${m.id}`} name="transferTo" required defaultValue="" className="rounded-lg border border-line bg-paper px-2 py-1 text-sm">
+                                <option value="" disabled>
+                                  Valitse kirjanpitäjä
+                                </option>
+                                {others.map((o) => (
+                                  <option key={o.id} value={o.id}>
+                                    {o.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </>
+                          ) : null}
+                          <button className="text-sm font-semibold text-coral">Poista käytöstä</button>
+                        </form>
+                      </div>
+                    )}
+                  </Td>
+                </tr>
+              );
+            })}
           </tbody>
         </Table>
+        <p className="mt-2 text-xs text-ink/55">
+          Käytöstä poistettu ei pääse kirjautumaan. Hänen tietonsa ja tekemänsä muutokset säilyvät. Jos hän on asiakkaiden vastuukirjanpitäjä, valitse
+          ensin, kenelle asiakkaat siirtyvät.
+        </p>
         <Panel className="mt-4 max-w-3xl">
           <h3 className="font-semibold">Lisää käyttäjä</h3>
           <p className="mt-1 text-sm text-ink/65">
-            Käyttäjä kirjautuu Auth0-tunnuksella. Jos hänellä ei vielä ole tunnusta, se luodaan Auth0:ssa samalla sähköpostiosoitteella.
+            Käyttäjä saa sähköpostiin kutsun ja ohjeen kirjautumiseen. Jos hänellä ei vielä ole tunnusta, kutsussa on linkki salasanan asettamiseen.
+            Vain lisätyt käyttäjät pääsevät sisään.
           </p>
           <form action={addMemberAction} className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,2fr)_minmax(0,1fr)_auto] sm:items-end">
             <Field label="Sähköposti" htmlFor="member-email">

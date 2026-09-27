@@ -54,6 +54,9 @@ src/lib/auth/               istunto, käyttäjä ja roolit, kopio Mittarilukemas
 src/lib/forms.ts            parseForm, FormError
 src/lib/audit.ts            muutosloki
 src/lib/help/               ohjeet ja ohjekartta
+src/lib/members.ts          käyttäjien lisäys, kutsu, roolit, käytöstä poisto
+src/lib/email/              sähköposti (mock / Resend)
+src/lib/accounts/           Auth0-tunnusten luonti kutsussa (mock / Management API)
 src/lib/clients/            asiakkaat ja vastuukirjanpitäjä
 src/lib/properties/         metsätilat
 src/lib/ledger/             kirjaukset ja tositteet

@@ -16,6 +16,7 @@ export interface UserRow {
  * Auth0-tenanttiin, jossa tunnisteet vaihtuvat (DECISIONS 25.9.2026).
  * Varmentamatonta osoitetta ei yhdistetä: silloin kuka tahansa voisi ottaa
  * toisen tunnuksen haltuunsa rekisteröimällä saman osoitteen.
+ * Tuntemattomalle osoitteelle palautetaan null (DECISIONS 27.9.2026).
  */
 export async function resolveUser(tx: Sql, identity: SessionIdentity): Promise<UserRow | null> {
   const [bySub] = await tx.query<UserRow>("select id, email, full_name from sk_users where auth_sub = $1", [identity.sub]);
@@ -33,9 +34,7 @@ export async function resolveUser(tx: Sql, identity: SessionIdentity): Promise<U
     return byEmail;
   }
 
-  const [created] = await tx.query<UserRow>("insert into sk_users (auth_sub, email) values ($1, $2) returning id, email, full_name", [
-    identity.sub,
-    identity.email,
-  ]);
-  return created;
+  // Ei itserekisteröintiä: tuntematon osoite ei luo käyttäjää. Käyttäjä syntyy
+  // vain, kun pääkäyttäjä lisää hänet tai skripti kayttaja:lisaa ajetaan.
+  return null;
 }

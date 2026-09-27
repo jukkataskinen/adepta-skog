@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { Brand } from "@/components/Brand";
 import { Button, Notice, Panel } from "@/components/ui";
 import { getCurrentUser, ROLE_LABEL, type OrgRole } from "@/lib/auth/current-user";
-import { authMode, devLoginAllowed } from "@/lib/auth/session";
+import { authMode, devLoginAllowed, getSessionIdentity } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { devLogin } from "@/app/actions/session";
 
@@ -16,6 +16,8 @@ const LOGIN_LINK =
 export default async function LoginPage() {
   if (authMode() === "auth0") {
     if (await getCurrentUser()) redirect("/tyopoyta");
+    // Auth0-istunto on, mutta käyttäjää ei ole kutsuttu: kirjautumislinkki toisi takaisin tänne.
+    if (await getSessionIdentity()) redirect("/ei-oikeutta");
     return (
       <div className="mx-auto flex min-h-dvh max-w-[var(--container-content)] flex-col justify-center px-5 py-10">
         <Brand size={30} />
@@ -34,7 +36,7 @@ export default async function LoginPage() {
           `select u.id, u.email, u.full_name,
                   (select string_agg(m.role || ':' || o.name, ', ' order by o.name)
                      from sk_org_members m join sk_organizations o on o.id = m.organization_id
-                    where m.user_id = u.id) as roles
+                    where m.user_id = u.id and m.deactivated_at is null) as roles
              from sk_users u order by u.full_name nulls last, u.email`,
         ),
       )

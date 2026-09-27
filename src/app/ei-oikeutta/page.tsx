@@ -8,7 +8,8 @@ export default function NoAccess() {
       <Brand size={28} />
       <h1 className="mt-8 text-3xl">Tunnuksellasi ei ole vielä käyttöoikeutta</h1>
       <p className="mt-3 text-ink/70">
-        Käyttöoikeus syntyy, kun kirjanpitotoimiston pääkäyttäjä lisää sinut. Ota yhteyttä toimistoon.
+        Käyttöoikeus syntyy, kun kirjanpitotoimiston pääkäyttäjä lisää sinut. Jos sinulla on ollut oikeus, pääkäyttäjä on voinut poistaa
+        sen käytöstä. Ota yhteyttä toimistoon.
       </p>
       <a href="/kirjaudu/ulos" className="mt-8 text-sky">
         Kirjaudu ulos

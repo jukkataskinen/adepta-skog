@@ -33,10 +33,10 @@ describe("käyttäjän tunnistus kirjautuessa", () => {
     expect(user).toBeNull();
   });
 
-  it("uusi osoite luo käyttäjän ilman oikeuksia", async () => {
+  it("kutsumaton osoite ei luo käyttäjää (ei itserekisteröintiä)", async () => {
     const user = await db.asService((tx) => resolveUser(tx, { sub: "auth0|uusi", email: "uusi@example.test", emailVerified: true }));
-    expect(user?.email).toBe("uusi@example.test");
-    const members = await db.asService((tx) => tx.query("select 1 from sk_org_members where user_id = $1", [user!.id]));
-    expect(members).toHaveLength(0);
+    expect(user).toBeNull();
+    const rows = await db.asService((tx) => tx.query("select 1 from sk_users where lower(email) = 'uusi@example.test' or auth_sub = 'auth0|uusi'"));
+    expect(rows).toHaveLength(0);
   });
 });
