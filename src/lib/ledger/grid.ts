@@ -1,6 +1,8 @@
 import { CATEGORIES, category, categoryByNo, defaultVatRate, SMALL_ASSET_LIMIT, TIMBER_SALE_CODES, type TransactionKind } from "@/lib/tax/rules";
 import { netFromGross } from "@/lib/tax/amounts";
 import type { PendingSuggestion } from "@/lib/documents/receipt-suggestions";
+import { isCompilation, parsePagesColumn, type DocumentType } from "@/lib/ai/receipts/schema";
+import { duplicateWarnings, type ExistingEntry } from "@/lib/ai/receipts/duplicates";
 import {
   ASSET_CLASS_MESSAGE,
   effectiveKind,
@@ -49,8 +51,13 @@ export interface GridRow {
   assetId?: string | null;
   assetDescription?: string | null;
   documentCount?: number;
+  /** Kokoomatiedosto tai saman tiedoston toinen kirjaus: tiedosto ja sivut, joilla kirjauksen tiedot ovat. */
+  sourceDocumentId?: string | null;
+  sourcePages?: number[];
   /** Tositteen tunnistuksen ehdotus, josta rivi on tehty. Tallennuksessa rivi hyväksyy ehdotuksen. */
   suggestionId?: string | null;
+  /** Ehdotuksen rivin numero (0-pohjainen): palvelin hakee sen sivut tallennetusta ehdotuksesta. */
+  suggestionLine?: number | null;
   /** Ehdotuksen näyttötiedot. Eivät vaikuta tallennukseen. */
   suggestion?: SuggestionInfo;
 }
@@ -64,6 +71,17 @@ export interface SuggestionInfo {
   first: boolean;
   /** Tositteen päivä vvvv-kk-pp, tai null, jos sitä ei tunnistettu. */
   sourceDate: string | null;
+  /** Lähdeasiakirjan kuvaus, laji ja sivut tiedostossa. */
+  sourceDocument: string;
+  documentType: DocumentType;
+  documentIndex: number;
+  pages: number[];
+  contractNumber: string | null;
+  invoiceNumber: string | null;
+  /** Tiedostossa on useita asiakirjoja: se jää vuoden tositteeksi. */
+  compilation: boolean;
+  /** Mahdollinen päällekkäisyys olemassa olevan kirjauksen tai toisen ehdotuksen kanssa. */
+  duplicateWarning?: string | null;
 }
 
 export type GridField = "bookedOn" | "description" | "category" | "amountGross" | "vatRate" | "forestPropertyId" | "kind";
@@ -107,6 +125,9 @@ export interface StoredTransaction {
   asset_description?: string | null;
   forest_property_id: string | null;
   document_count?: number;
+  source_document_id?: string | null;
+  /** smallint[]: ajurista riippuen taulukko tai teksti "{3,4}". */
+  source_pages?: unknown;
 }
 
 /** Tallennettu kirjaus taulukon riviksi. Rivin avain on kirjauksen tunniste. */
@@ -129,6 +150,8 @@ export function rowFromStored(t: StoredTransaction): GridRow {
     assetId: t.asset_id,
     assetDescription: t.asset_description ?? null,
     documentCount: t.document_count ?? 0,
+    sourceDocumentId: t.source_document_id ?? null,
+    sourcePages: parsePagesColumn(t.source_pages),
   };
 }
 
@@ -138,25 +161,57 @@ export function rowFromStored(t: StoredTransaction): GridRow {
  * mukaan pysyvä, jotta sivun päivitys ei tuo samoja rivejä kahdesti.
  * Jos asiakas ei ole arvonlisäverorekisterissä, alv on 0 % kuten muillakin
  * uusilla riveillä: kulu on koko kuitin summa. Puuttuva päivä täytetään
- * oletuspäivällä, ja rivi näyttää siitä varoituksen.
+ * oletuspäivällä, ja rivi näyttää siitä varoituksen; vuosi-ilmoituksen rivi saa
+ * vuoden viimeisen päivän, koska ilmoitus on koko vuoden yhteenveto.
+ * Sopimus- tai laskunumero tallentuu kirjauksen viitteeksi, jotta
+ * päällekkäisyyden tarkistus löytää kirjauksen myöhemmin.
  */
-export function rowsFromSuggestion(s: PendingSuggestion, opts: { vatRegistered: boolean; defaultDate: string }): GridRow[] {
+export function rowsFromSuggestion(s: PendingSuggestion, opts: { vatRegistered: boolean; defaultDate: string; year?: number }): GridRow[] {
+  const compilation = isCompilation(s.lines);
   return s.lines.map((l, i) => {
     const cat = category(l.category);
+    const missingDate = l.documentType === "timber_annual_summary" && opts.year ? `31.12.${opts.year}` : opts.defaultDate;
+    const reference = l.contractNumber ? `Sopimus ${l.contractNumber}` : l.invoiceNumber ? `Lasku ${l.invoiceNumber}` : "";
     return {
-      ...emptyGridRow(`s-${s.id}-${i}`, l.date ? toFinnishDate(l.date) : opts.defaultDate),
+      ...emptyGridRow(`s-${s.id}-${i}`, l.date ? toFinnishDate(l.date) : missingDate),
       description: l.description,
       category: cat ? cat.code : "",
       kind: cat ? cat.kind : "",
       amountGross: formatAmountInput(l.amountGross),
       vatRate: numberInput(opts.vatRegistered ? l.vatRate : 0),
       withholding: l.withholding > 0 && TIMBER_SALE_CODES.includes(l.category) ? formatAmountInput(l.withholding) : "",
+      reference: reference.slice(0, 100),
       suggestionId: s.id,
+      suggestionLine: i,
       suggestion: {
         documentId: s.document_id, documentName: s.file_name, confidence: l.confidence, reasoning: l.reasoning, first: i === 0, sourceDate: l.date,
+        sourceDocument: l.sourceDocument, documentType: l.documentType, documentIndex: l.documentIndex, pages: l.pages, contractNumber: l.contractNumber,
+        invoiceNumber: l.invoiceNumber, compilation,
       },
     };
   });
+}
+
+/**
+ * Päällekkäisyysvaroitukset ehdotusriveille: vertailu asiakkaan saman vuoden
+ * kirjauksiin ja muiden asiakirjojen ehdotusriveihin (src/lib/ai/receipts/duplicates.ts).
+ */
+export function withDuplicateWarnings(
+  rows: GridRow[],
+  stored: Pick<StoredTransaction, "booked_on" | "category" | "amount_gross" | "description" | "reference">[],
+): GridRow[] {
+  const existing: ExistingEntry[] = stored.map((t) => ({
+    bookedOn: t.booked_on, category: t.category, amountGross: Number(t.amount_gross), description: t.description, reference: t.reference,
+  }));
+  const candidates = rows.flatMap((r) => {
+    const sg = r.suggestion;
+    const gross = parseAmount(r.amountGross);
+    if (!sg || gross === null || Number.isNaN(gross)) return [];
+    const label = `${sg.sourceDocument || sg.documentName}: ${r.description}`.slice(0, 120);
+    return [{ key: r.key, group: `${r.suggestionId}:${sg.documentIndex}`, category: r.category, amountGross: gross, contractNumber: sg.contractNumber, invoiceNumber: sg.invoiceNumber, label }];
+  });
+  const warnings = duplicateWarnings(candidates, existing);
+  return rows.map((r) => (r.suggestion && warnings.has(r.key) ? { ...r, suggestion: { ...r.suggestion, duplicateWarning: warnings.get(r.key) } } : r));
 }
 
 /**

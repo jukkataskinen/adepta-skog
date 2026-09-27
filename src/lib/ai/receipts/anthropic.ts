@@ -23,14 +23,19 @@ export const RECOGNITION_TIMEOUT_MS = 90_000;
 const categoryList = CATEGORIES.map((c) => `- ${c.code}: ${c.label} (${c.group}; ${c.kind === "income" ? "tulo" : c.kind === "expense" ? "meno" : "investointi"})`).join("\n");
 
 /** Ohje on vakio, jotta se ei paljasta mitään asiakkaasta ja pysyy samana joka kutsussa. */
-export const RECEIPT_SYSTEM_PROMPT = `You read Finnish forestry receipts, invoices and timber sale settlements (puukauppatilitys, tilityslaskelma) for a forestry accounting office. From the attached document, produce one or more bookkeeping line suggestions. A human accountant reviews every suggestion before anything is saved, so when something is unclear, give your best reading and lower the confidence rather than leaving a line out.
+export const RECEIPT_SYSTEM_PROMPT = `You read Finnish forestry receipts, invoices and timber sale documents (puukauppatilitys, tilityslaskelma, puukaupan vuosi-ilmoitus) for a forestry accounting office. From the attached file, produce bookkeeping line suggestions. A human accountant reviews every suggestion before anything is saved, so when something is unclear, give your best reading and lower the confidence rather than leaving a line out.
+
+The file may be a scanned bundle that contains several separate documents (for example a timber buyer's annual summary followed by a few invoices). Go through every page. Identify each separate document and number them in page order with document_index (1, 2, 3...). Every line gets the document_index, a short source_document description in Finnish (for example "Puukaupan vuosi-ilmoitus, Metsäliitto" or "Lasku 1182, Metsäpalvelu Oy"), the document_type, and the 1-based pages of the file where its figures are. Do not list the same invoice twice, even if a copy or a reminder of it appears on another page.
+
+Payment details are not costs. A bank transfer form (tilisiirtolomake), reference number (viitenumero), IBAN, due date (eräpäivä) or "maksettava yhteensä" box is part of the same invoice. Never make a separate line from them. They must not add a second line with the invoice total.
 
 Rules:
 - amount_gross is the amount including VAT, as a positive number in euros, exactly as printed. vat_rate is the VAT percentage shown on the document (0 if none is shown or the item is VAT exempt).
 - date is the invoice, receipt or settlement date as YYYY-MM-DD, or null if no date is visible.
 - category must be one of the codes below. Timber sales: standing_sale (pystykauppa), delivery_sale (hankintakauppa), firewood_sale (polttopuu). Ordinary costs go to other_expense, travel to travel. Use asset_purchase only for machines, forest roads, ditches or buildings costing over 600 euros without VAT.
-- Timber sale settlement: put the timber sale as the first line with its total including VAT, and put the tax withholding (ennakonpidätys) on that same line in the withholding field. Do not make a separate line for the withholding. Costs deducted in the settlement (for example mittauskulut, korjuukulut, leimikon suunnittelu, metsänhoitomaksu) become their own other_expense lines with positive amounts.
-- A document with several separate receipts gives one line per receipt. An ordinary invoice or receipt gives one line with its total.
+- Ordinary invoice or receipt (document_type invoice or receipt): one line with its total including VAT, unless it clearly has items that belong to different categories. Put the invoice number in invoice_number and the printed total in document_total.
+- Timber sale settlement for one sale (document_type timber_settlement): put the timber sale as the first line with its total including VAT, and put the tax withholding (ennakonpidätys) on that same line in the withholding field. Do not make a separate line for the withholding. Costs deducted in the settlement (for example mittauskulut, korjuukulut, leimikon suunnittelu, metsänhoitomaksu) become their own other_expense lines with positive amounts. Put the contract number (sopimusnumero, kauppanumero) in contract_number.
+- Timber buyer's annual summary (vuosi-ilmoitus, vuosiyhteenveto; document_type timber_annual_summary) summarises the whole year for the seller. Make lines per contract: one timber sale line per contract with amount_gross = sales income without VAT (myyntitulo alv 0 %) + VAT (arvonlisävero), the withholding of that contract in withholding, and contract_number set. Standing sales (pystykauppa) and delivery sales (hankintakauppa) are listed separately; use the matching category. If a promotion fee (menekinedistämismaksu) is greater than 0, add it as its own other_expense line for that contract. Use the date of the sale if the summary shows one; otherwise use the last day of the year the summary covers (YYYY-12-31).
 - withholding is 0 on every line that is not a timber sale.
 - description: counterparty and a short explanation in Finnish, at most 60 characters. Never include personal identity codes (henkilötunnus), bank account numbers or street addresses.
 - reasoning: in Finnish, at most 200 characters, where the amount, date and category came from.
@@ -64,7 +69,7 @@ export function anthropicRecognizer(opts: { apiKey: string; model?: string; clie
             thinking: { type: "adaptive" },
             output_config: { effort: "medium", format: zodOutputFormat(recognitionOutputSchema) },
             system: RECEIPT_SYSTEM_PROMPT,
-            messages: [{ role: "user", content: [source, { type: "text", text: "Tunnista tämän tositteen kirjausehdotukset." }] }],
+            messages: [{ role: "user", content: [source, { type: "text", text: "Tunnista tämän tiedoston kaikki asiakirjat ja niiden kirjausehdotukset." }] }],
           },
           { signal },
         );

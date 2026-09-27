@@ -7,7 +7,7 @@ import { getClient } from "@/lib/clients/queries";
 import { defaultYear, listAssets, listPropertyOptions, listTransactions, listYears } from "@/lib/ledger/queries";
 import { summarize } from "@/lib/ledger/summary";
 import { vatOf } from "@/lib/tax/amounts";
-import { rowFromStored, rowsFromSuggestion } from "@/lib/ledger/grid";
+import { rowFromStored, rowsFromSuggestion, withDuplicateWarnings } from "@/lib/ledger/grid";
 import { listPendingSuggestions } from "@/lib/documents/receipt-suggestions";
 import { receiptRecognizer } from "@/lib/ai/receipts";
 import { category } from "@/lib/tax/rules";
@@ -20,6 +20,7 @@ import { LedgerGrid } from "./LedgerGrid";
 import { toFinnishDate } from "@/lib/ledger/transaction-input";
 import { listYearReceipts } from "@/lib/documents/year-receipts";
 import { YearReceipts } from "./YearReceipts";
+import { documentHref, parsePagesColumn, sourceDocumentLabel } from "@/lib/ai/receipts/schema";
 
 export const metadata = { title: "Kirjanpito" };
 // Tositteen tunnistus (server action tältä sivulta) voi kestää kymmeniä sekunteja.
@@ -126,7 +127,10 @@ export default async function LedgerPage({
               clientId={id}
               year={year}
               initialRows={rows.map(rowFromStored)}
-              suggestionRows={data.suggestions.flatMap((sg) => rowsFromSuggestion(sg, { vatRegistered: c.vat_registered, defaultDate: toFinnishDate(defaultDate) }))}
+              suggestionRows={withDuplicateWarnings(
+                data.suggestions.flatMap((sg) => rowsFromSuggestion(sg, { vatRegistered: c.vat_registered, defaultDate: toFinnishDate(defaultDate), year })),
+                rows,
+              )}
               properties={data.properties}
               assets={data.assets}
               vatRegistered={c.vat_registered}
@@ -175,7 +179,14 @@ export default async function LedgerPage({
                       <Td numeric>{formatEur(vatOf(net, gross))}</Td>
                       <Td numeric>{formatEur(net)}</Td>
                       <Td numeric>{Number(r.withholding) ? formatEur(r.withholding) : "–"}</Td>
-                      <Td>{r.document_count ? `${r.document_count} kpl` : <span className="text-ink/45">Ei</span>}</Td>
+                      <Td>
+                        {r.document_count ? `${r.document_count} kpl` : r.source_document_id ? null : <span className="text-ink/45">Ei</span>}
+                        {r.source_document_id ? (
+                          <a href={documentHref(id, r.source_document_id, parsePagesColumn(r.source_pages))} target="_blank" rel="noreferrer" className="block font-semibold text-sky hover:underline">
+                            {sourceDocumentLabel(parsePagesColumn(r.source_pages))}
+                          </a>
+                        ) : null}
+                      </Td>
                     </tr>
                   );
                 })}

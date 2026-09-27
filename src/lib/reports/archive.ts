@@ -13,7 +13,7 @@ import { appendAttachments, loadAttachments } from "./attachments";
  * Lopullisen raportin loppuun liitetään vuoden tositteet.
  */
 export async function archiveReport(tx: Sql, input: { organizationId: string; clientId: string; year: number; userId: string }): Promise<string> {
-  const data = await loadReportData(tx, input.organizationId, input.clientId, input.year);
+  const data = await loadReportData(tx, input.organizationId, input.clientId, input.year, { attachmentRefs: true });
   if (!data) throw new Error("Raportin tiedot puuttuvat");
   const report = await renderTaxReport(data);
   const bytes = Buffer.from(await appendAttachments(report, await loadAttachments(tx, input.clientId, input.year), { year: input.year }));

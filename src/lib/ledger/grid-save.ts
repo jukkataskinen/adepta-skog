@@ -2,7 +2,7 @@ import type { Sql } from "@/lib/db/types";
 import { listPropertyOptions, listTransactions } from "@/lib/ledger/queries";
 import { DEPRECIATED_MESSAGE } from "@/lib/ledger/transaction-input";
 import { deleteTransaction, LedgerError, saveTransaction, type Actor } from "@/lib/ledger/write";
-import { acceptSuggestion, dismissSuggestion, lockPendingSuggestions, SuggestionError } from "@/lib/documents/receipt-suggestions";
+import { acceptSuggestion, dismissSuggestion, lockPendingSuggestions, SuggestionError, type CreatedFromSuggestion, type LockedSuggestion } from "@/lib/documents/receipt-suggestions";
 import { MAX_GRID_ROWS, planGridChanges, rowFromStored, validateGridRow, type GridRow, type RowErrors, type ValidGridRow } from "@/lib/ledger/grid";
 
 /**
@@ -50,7 +50,9 @@ export async function saveLedgerGrid(
   // Investoinnin linkki tulee kannasta, ei selaimelta.
   // Ehdotuksen tunniste on vain uudella rivillä: tallennettu kirjaus ei enää ole ehdotus.
   const rows = input.rows.map((r) =>
-    r.id ? { ...r, assetId: storedById.get(r.id)?.asset_id ?? null, suggestionId: null } : { ...r, assetId: null, suggestionId: r.suggestionId || null },
+    r.id
+      ? { ...r, assetId: storedById.get(r.id)?.asset_id ?? null, suggestionId: null, suggestionLine: null }
+      : { ...r, assetId: null, suggestionId: r.suggestionId || null, suggestionLine: r.suggestionId ? (r.suggestionLine ?? null) : null },
   );
   const changes = planGridChanges(original, rows, input.deletedIds, year);
   const staleDeletes = changes.deleted.filter((id) => !storedById.has(id));
@@ -60,9 +62,9 @@ export async function saveLedgerGrid(
 
   // Tunnistuksen ehdotukset: rivit hyväksyvät ehdotuksensa. Ehdotuksen on oltava
   // yhä odottava, jotta samasta tositteesta ei synny kirjauksia kahdesti.
-  const suggestionOf = new Map(changes.created.filter((r) => r.suggestionId).map((r) => [r.key, r.suggestionId!]));
-  const suggestionIds = [...new Set(suggestionOf.values())];
-  let suggestions: Map<string, { documentId: string }>;
+  const suggestionOf = new Map(changes.created.filter((r) => r.suggestionId).map((r) => [r.key, { id: r.suggestionId!, line: r.suggestionLine ?? null }]));
+  const suggestionIds = [...new Set([...suggestionOf.values()].map((v) => v.id))];
+  let suggestions: Map<string, LockedSuggestion>;
   try {
     suggestions = await lockPendingSuggestions(tx, clientId, year, suggestionIds);
   } catch (err) {
@@ -104,7 +106,7 @@ export async function saveLedgerGrid(
 
   const details = { source: "table" };
   for (const id of changes.deleted) await deleteTransaction(tx, actor, clientId, id, details);
-  const created = new Map<string, string[]>();
+  const created = new Map<string, CreatedFromSuggestion[]>();
   for (const v of valid) {
     try {
       const txId = await saveTransaction(
@@ -118,15 +120,21 @@ export async function saveLedgerGrid(
         },
         details,
       );
-      const sid = !v.id ? suggestionOf.get(v.key) : undefined;
-      if (sid) created.set(sid, [...(created.get(sid) ?? []), txId]);
+      const from = !v.id ? suggestionOf.get(v.key) : undefined;
+      if (from) {
+        // Rivin numero tarkistetaan tallennettua ehdotusta vasten; sivut tulevat kannasta.
+        const lineCount = suggestions.get(from.id)?.lines.length ?? 0;
+        const line = from.line !== null && Number.isInteger(from.line) && from.line >= 0 && from.line < lineCount ? from.line : null;
+        created.set(from.id, [...(created.get(from.id) ?? []), { transactionId: txId, line }]);
+      }
     } catch (err) {
       if (err instanceof LedgerError) throw new GridSaveError(`${plural(1)} Mitään ei tallennettu.`, { [v.key]: { category: err.message } });
       throw err;
     }
   }
   for (const sid of suggestionIds) {
-    await acceptSuggestion(tx, { actor, clientId, suggestionId: sid, documentId: suggestions.get(sid)!.documentId, transactionIds: created.get(sid) ?? [] });
+    const locked = suggestions.get(sid)!;
+    await acceptSuggestion(tx, { actor, clientId, suggestionId: sid, documentId: locked.documentId, lines: locked.lines, created: created.get(sid) ?? [] });
   }
   // Ehdotukset, joiden kaikki rivit poistettiin taulukosta, hylätään.
   for (const sid of new Set(input.dismissedSuggestionIds ?? [])) {

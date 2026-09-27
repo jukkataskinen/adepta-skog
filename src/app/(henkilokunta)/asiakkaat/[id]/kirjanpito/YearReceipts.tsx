@@ -176,8 +176,8 @@ export function YearReceipts({
               <button
                 type="button"
                 className="inline-flex min-h-9 items-center rounded-xl border border-sky px-3 text-sm font-semibold text-sky hover:bg-sky-soft disabled:opacity-50"
-                disabled={busy || receipts.every((r) => r.pending_suggestion)}
-                onClick={() => void recognize(receipts.filter((r) => !r.pending_suggestion))}
+                disabled={busy || receipts.every((r) => r.pending_suggestion || r.booked_count > 0)}
+                onClick={() => void recognize(receipts.filter((r) => !r.pending_suggestion && !r.booked_count))}
               >
                 Tunnista kaikki
               </button>
@@ -199,6 +199,11 @@ export function YearReceipts({
                     {recognizing === r.id ? <span className="text-xs text-ink/60">Tunnistetaan…</span> : null}
                     {failed[r.id] ? <span className="text-xs text-coral">{failed[r.id]}</span> : null}
                     {r.pending_suggestion && recognizing !== r.id ? <span className="text-xs font-semibold text-sky">Ehdotus taulukossa</span> : null}
+                    {r.booked_count ? (
+                      <span className="text-xs font-semibold text-moss">
+                        Kirjattu: {r.booked_count === 1 ? "yksi kirjaus" : `${r.booked_count} kirjausta`}. Tiedosto on vuoden tositeaineistona raportin liitteissä.
+                      </span>
+                    ) : null}
                   </span>
                   <span className="flex items-center gap-3 text-ink/60">
                     {size(r.size_bytes)}
@@ -209,6 +214,7 @@ export function YearReceipts({
                         disabled={busy}
                         onClick={() => {
                           if (r.pending_suggestion && !window.confirm("Tositteesta on jo ehdotus. Uusi tunnistus korvaa sen. Jatketaanko?")) return;
+                          if (r.booked_count && !window.confirm("Tiedostosta on jo tehty kirjauksia. Uusi tunnistus ehdottaa samat rivit uudelleen. Jatketaanko?")) return;
                           void recognize([r]);
                         }}
                       >

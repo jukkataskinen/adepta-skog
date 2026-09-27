@@ -112,6 +112,6 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [ ] `legacy/` pois
 
 ### Myöhemmin
-- [~] Kuittiskanneri: tositteiden tunnistus tehty (28.9.2026). Vuoden tositteista Tunnista ja Tunnista kaikki, tekoäly (Claude, testitila oletuksena) ehdottaa kirjaukset taulukkoon, kirjanpitäjä tarkistaa ja tallentaa, tosite liittyy kirjaukseen; migraatio 0010. Odottaa avainta ja tietosuoja-asiakirjoja (BLOCKERS 8). Kuvaus puhelimella puuttuu.
+- [~] Kuittiskanneri: tositteiden tunnistus tehty (28.9.2026). Vuoden tositteista Tunnista ja Tunnista kaikki, tekoäly (Claude, testitila oletuksena) ehdottaa kirjaukset taulukkoon, kirjanpitäjä tarkistaa ja tallentaa, tosite liittyy kirjaukseen; migraatio 0010. Korjattu oikean aineiston jälkeen (28.9.2026): kokoomatiedosto jää vuoden tositteeksi ja kirjauksissa on viittaus tiedostoon ja sivuihin (0011), puukaupan vuosi-ilmoitus sopimuksittain, päällekkäisyysvaroitus, maksutiedot eivät tee rivejä. Odottaa avainta ja tietosuoja-asiakirjoja (BLOCKERS 8). Kuvaus puhelimella puuttuu. Avoin: tunnistuksen toimivuus oikealla monisivuisella skannauksella (aikaraja 90 s, max_tokens 16000) varmistetaan, kun avain on käytössä.
 - [ ] Metsänomistajan oma näkymä (vain luku)
 - [ ] Yhteinen pohjarepo eRapulle, Mittarilukemalle ja Skogille (`TEMPLATES`)

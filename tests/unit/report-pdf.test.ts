@@ -7,7 +7,7 @@ import { vatSummary } from "@/lib/tax/vat";
 
 function sample(status: "open" | "closed", transactions = 3): ReportData {
   const tx = Array.from({ length: transactions }, (_, i) => ({
-    bookedOn: `2025-0${(i % 9) + 1}-15`, kind: "income" as const, category: "Pystykauppa", description: `Leimikko ${i} – kuusikko`, net: 1000 + i, vatRate: 25.5, gross: 1255 + i, withholding: 0,
+    bookedOn: `2025-0${(i % 9) + 1}-15`, kind: "income" as const, category: "Pystykauppa", description: `Leimikko ${i} – kuusikko`, net: 1000 + i, vatRate: 25.5, gross: 1255 + i, withholding: 0, attachment: i % 3 ? null : `${i + 1}, s. 2`,
   }));
   return {
     year: 2025,
