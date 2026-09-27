@@ -8,34 +8,22 @@ import { requireStaff, type StaffContext } from "@/lib/auth/current-user";
 import { emptyToNull, fail, parseForm } from "@/lib/forms";
 import { audit } from "@/lib/audit";
 import type { Sql } from "@/lib/db/types";
-import { category, defaultVatRate } from "@/lib/tax/rules";
-import { ASSET_CLASS_PCTS, SMALL_ASSET_LIMIT } from "@/lib/tax/rules";
+import { ASSET_CLASS_PCTS, category, SMALL_ASSET_LIMIT } from "@/lib/tax/rules";
+import { effectiveVatRate, transactionFieldsSchema, type BatchRowInput, type BatchState } from "@/lib/ledger/transaction-input";
+import { saveTransactionBatch } from "@/lib/ledger/batch";
 import { documentPath, getStorage } from "@/lib/storage";
 
 const uuid = z.string().uuid();
-const money = (min: number) =>
-  z.preprocess((v) => {
-    const e = emptyToNull(v);
-    return e === null ? null : Number(String(e).replace(/\s/g, "").replace(",", "."));
-  }, z.number({ message: "Tarkista summa." }).min(min).max(1e10).nullable());
 
-const transactionSchema = z.object({
+// Perustiedot tarkistetaan samalla skeemalla kuin taulukkosyötössä (src/lib/ledger/transaction-input.ts).
+const transactionSchema = transactionFieldsSchema.extend({
   clientId: uuid,
   transactionId: z.preprocess(emptyToNull, uuid.nullable()),
-  bookedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tarkista päivä."),
-  category: z.string().refine((c) => category(c) !== null, "Valitse luokka."),
-  description: z.string().max(500).default(""),
-  amountNet: money(-1e10).refine((v) => v !== null, "Anna summa ilman arvonlisäveroa."),
-  vatRate: money(0).refine((v) => v === null || v < 100, "Tarkista verokanta."),
-  withholding: money(0),
-  reference: z.preprocess(emptyToNull, z.string().max(100).nullable()),
   // Investoinnin hankinta: hyödykelaji eli menojäännöspoiston enimmäisprosentti.
   // Metsätaloudessa ei ole tasapoistoa (docs/verosaannot-selvitys-2026-09-27.md).
   assetRatePct: z.preprocess(emptyToNull, z.coerce.number().refine((v) => ASSET_CLASS_PCTS.includes(v), "Valitse hyödykkeen laji.").nullable()),
   // Myynti: myytävä investointi.
   saleAssetId: z.preprocess(emptyToNull, uuid.nullable()),
-  // Vapaaehtoinen: kaikki menot eivät kohdistu yhdelle tilalle.
-  forestPropertyId: z.preprocess(emptyToNull, uuid.nullable()),
 });
 
 /** Kantavirhe ymmärrettäväksi: suljettu vuosi, puuttuva oikeus tai toisen asiakkaan rivi. */
@@ -62,8 +50,7 @@ export async function saveTransactionAction(formData: FormData) {
   const back = editing ? `/asiakkaat/${clientId}/kirjanpito/${formData.get("transactionId")}` : `/asiakkaat/${clientId}/kirjanpito?vuosi=${year}`;
   const input = parseForm(transactionSchema, formData, back);
   const cat = category(input.category)!;
-  // Tyhjä verokanta = luokan oletus kirjauksen päivälle.
-  const vatRate = input.vatRate ?? defaultVatRate(cat.code, input.bookedOn);
+  const vatRate = effectiveVatRate(input);
   const amount = input.amountNet!;
   if (cat.code === "asset_sale" && !input.saleAssetId && !editing) fail(back, "Valitse myytävä investointi.");
 
@@ -132,6 +119,45 @@ export async function saveTransactionAction(formData: FormData) {
   }
   revalidatePath(`/asiakkaat/${clientId}/kirjanpito`);
   redirect(`/asiakkaat/${clientId}/kirjanpito?vuosi=${input.bookedOn.slice(0, 4)}${editing ? "" : "&lisatty=1"}`);
+}
+
+const batchRowSchema = z.object({
+  key: z.string().max(40),
+  bookedOn: z.string().max(40),
+  category: z.string().max(100),
+  description: z.string().max(2000),
+  amountNet: z.string().max(40),
+  vatRate: z.string().max(40),
+  withholding: z.string().max(40),
+  reference: z.string().max(400),
+  forestPropertyId: z.string().max(400),
+});
+
+/**
+ * Taulukkosyöttö: monta uutta kirjausta kerralla yhdessä transaktiossa.
+ * Palauttaa tilan eikä ohjaa uudelleen, koska rivikohtaiset virheet ja syötetyt
+ * arvot eivät mahdu URL-osoitteeseen (eikä henkilötietoa saa sinne).
+ */
+export async function saveTransactionBatchAction(formData: FormData): Promise<BatchState> {
+  const ctx = await requireStaff();
+  const clientId = uuid.parse(formData.get("clientId"));
+  const year = z.coerce.number().int().min(2000).max(2100).parse(formData.get("year"));
+  let rows: BatchRowInput[];
+  try {
+    rows = z.array(batchRowSchema).parse(JSON.parse(String(formData.get("rows") ?? "[]")));
+  } catch {
+    return { status: "error", message: "Taulukon tietoja ei voitu lukea. Tarkista rivit.", rowErrors: {} };
+  }
+  let result: BatchState;
+  try {
+    result = await ctx.run((tx) => saveTransactionBatch(tx, { organizationId: ctx.org.organizationId, userId: ctx.user.id, clientId, year, rows }));
+  } catch (err) {
+    const f = friendly(err);
+    if (f) return { status: "error", message: f, rowErrors: {} };
+    throw err;
+  }
+  if (result.status === "saved") revalidatePath(`/asiakkaat/${clientId}/kirjanpito`);
+  return result;
 }
 
 export async function deleteTransactionAction(formData: FormData) {

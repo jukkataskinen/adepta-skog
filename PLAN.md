@@ -76,7 +76,7 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 
 ### 4. Kirjanpito
 - [x] Kirjanpito asiakkaan välilehdellä: kirjaukset vuosittain, summat, lisäys, muokkaus ja poisto rivi kerrallaan, suljettu vuosi vain luettavana (26.9.2026)
-- [ ] Nopeampi syöttö taulukossa suoraan (kuten vanhassa sovelluksessa), jos lomake osoittautuu hitaaksi
+- [x] Nopeampi syöttö taulukossa suoraan (kuten vanhassa sovelluksessa): Kirjanpito → Taulukkosyöttö, näppäimistö, liittäminen Excelistä, kaikki tai ei mitään (27.9.2026)
 - [x] Tositteen liittäminen kirjaukseen, lataus RLS:n kautta, suljetun vuoden tositteita ei voi poistaa (26.9.2026)
 - [x] Poistetun tositteen tiedosto pois Storagesta (27.9.2026)
 - [x] Luokat ja oletusverokanta päivän mukaan, Hankintatyö-luokka vanhasta sovelluksesta (26.9.2026)
