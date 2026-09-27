@@ -168,7 +168,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     icon: "list",
     title: "Kirjanpito",
     summary: "Metsätalouden tulot, menot ja investoinnit verovuosittain, tositteet mukana.",
-    highlights: ["Koko vuosi taulukossa, näppäimistöllä", "Summa kuten kuitissa, arvonlisävero lasketaan", "Rivit Excelistä", "Tosite jokaiseen kirjaukseen"],
+    highlights: ["Koko vuosi taulukossa, näppäimistöllä", "Summa kuten kuitissa, arvonlisävero lasketaan", "Rivit Excelistä", "Tosite jokaiseen kirjaukseen", "Tekoäly ehdottaa kirjaukset tositteesta"],
     sections: [
       {
         title: "Taulukkosyöttö",
@@ -296,6 +296,28 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Myös yksittäisten kirjausten tositteet tulevat raportin liitteiksi.",
           "Veroraportti ja arkisto -välilehdeltä voit avata luonnoksen tositteineen jo ennen sulkemista.",
           "Suljetun vuoden tositteita ei voi poistaa eikä lisätä.",
+        ],
+      },
+      {
+        title: "Tositteiden tunnistus",
+        text: "Ohjelma voi lukea vuoden tositteen ja ehdottaa kirjauksia. Tekoäly tekee vain ehdotuksen. Sinä tarkistat sen ja päätät, mitä kirjataan.",
+        steps: [
+          "Lisää tosite kohtaan Vuoden tositteet.",
+          "Valitse tositteen kohdalta Tunnista. Tunnista kaikki lukee kerralla kaikki tositteet, joista ei vielä ole ehdotusta.",
+          "Odota hetki. Ehdotukset tulevat taulukon loppuun sinisinä riveinä, ja niissä on merkki Ehdotus.",
+          "Tarkista jokainen rivi: päivä, selite, luokka, summa, alv ja puukaupan ennakonpidätys. Rivin alla näkyy, kuinka varma tekoäly oli ja mistä se päätteli tiedot. Merkistä Ehdotus tosite aukeaa.",
+          "Korjaa, mikä on väärin. Valitse tarvittaessa metsätila.",
+          "Tallenna taulukko (Ctrl + S). Vasta nyt rivit tallentuvat kirjauksiksi.",
+        ],
+        bullets: [
+          "Tallennettu tosite liitetään ensimmäiseen kirjaukseen. Se ei enää ole vuoden tosite vaan kirjauksen tosite.",
+          "Puukaupan tilityksestä tulee usein monta riviä: puukauppa ennakonpidätyksineen ja esimerkiksi mittauskulut.",
+          "Jos ehdotus on väärä, valitse Hylkää ehdotus. Tosite jää vuoden tositteisiin. Voit myös poistaa yksittäisen ehdotusrivin.",
+          "Jos päivä puuttuu tai on toiselta vuodelta, rivillä on varoitus. Päivän on oltava valitulla vuodella.",
+          "Jos tositetta ei voitu tunnistaa, kirjaa se käsin tavalliseen tapaan.",
+          "Tosite lähetetään tunnistuspalveluun (Anthropic). Palveluun ei lähetetä asiakkaan nimeä eikä muita tietoja ohjelmasta.",
+          "Suljetun vuoden tositteita ei tunnisteta.",
+          "Kun kokeilet ohjelmaa ilman tunnistuspalvelua, ehdotus tehdään tiedoston nimestä, eikä tositetta lähetetä minnekään.",
         ],
       },
       {

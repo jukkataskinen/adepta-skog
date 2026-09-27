@@ -67,6 +67,8 @@ src/lib/years/              verovuoden avaus, sulkeminen ja lukitus
 src/lib/compare/            vertailu vanhaan sovellukseen (legacy-tax)
 src/lib/import/             tiedonsiirto vanhasta kannasta: muunnokset (legacy.ts) ja kirjoitus (run.ts)
 src/lib/storage/            tositteet ja raportit: paikallinen kansio tai Supabase Storage
+src/lib/ai/receipts/        tositteiden tunnistus: index (tila), anthropic (Claude), mock, schema (tarkistus)
+src/lib/documents/          vuoden tositteet ja tunnistuksen ehdotukset
 supabase/migrations/        0001–
 tests/db/                   RLS- ja kantatestit (tests/helpers/db.ts: freshDb, seedOrg)
 tests/unit/                 puhdas logiikka, erityisesti tests/unit/tax/

@@ -1,5 +1,6 @@
 import { CATEGORIES, category, categoryByNo, defaultVatRate, SMALL_ASSET_LIMIT, TIMBER_SALE_CODES, type TransactionKind } from "@/lib/tax/rules";
 import { netFromGross } from "@/lib/tax/amounts";
+import type { PendingSuggestion } from "@/lib/documents/receipt-suggestions";
 import {
   ASSET_CLASS_MESSAGE,
   effectiveKind,
@@ -48,6 +49,21 @@ export interface GridRow {
   assetId?: string | null;
   assetDescription?: string | null;
   documentCount?: number;
+  /** Tositteen tunnistuksen ehdotus, josta rivi on tehty. Tallennuksessa rivi hyväksyy ehdotuksen. */
+  suggestionId?: string | null;
+  /** Ehdotuksen näyttötiedot. Eivät vaikuta tallennukseen. */
+  suggestion?: SuggestionInfo;
+}
+
+export interface SuggestionInfo {
+  documentId: string;
+  documentName: string;
+  confidence: number;
+  reasoning: string;
+  /** Ehdotuksen ensimmäinen rivi: Hylkää-painike ja tositteen liitos. */
+  first: boolean;
+  /** Tositteen päivä vvvv-kk-pp, tai null, jos sitä ei tunnistettu. */
+  sourceDate: string | null;
 }
 
 export type GridField = "bookedOn" | "description" | "category" | "amountGross" | "vatRate" | "forestPropertyId" | "kind";
@@ -114,6 +130,45 @@ export function rowFromStored(t: StoredTransaction): GridRow {
     assetDescription: t.asset_description ?? null,
     documentCount: t.document_count ?? 0,
   };
+}
+
+/**
+ * Tunnistuksen ehdotus taulukon riveiksi. Rivit ovat uusia (id null), joten ne
+ * tallentuvat vasta taulukon tallennuksessa. Avain on ehdotuksen ja rivin
+ * mukaan pysyvä, jotta sivun päivitys ei tuo samoja rivejä kahdesti.
+ * Jos asiakas ei ole arvonlisäverorekisterissä, alv on 0 % kuten muillakin
+ * uusilla riveillä: kulu on koko kuitin summa. Puuttuva päivä täytetään
+ * oletuspäivällä, ja rivi näyttää siitä varoituksen.
+ */
+export function rowsFromSuggestion(s: PendingSuggestion, opts: { vatRegistered: boolean; defaultDate: string }): GridRow[] {
+  return s.lines.map((l, i) => {
+    const cat = category(l.category);
+    return {
+      ...emptyGridRow(`s-${s.id}-${i}`, l.date ? toFinnishDate(l.date) : opts.defaultDate),
+      description: l.description,
+      category: cat ? cat.code : "",
+      kind: cat ? cat.kind : "",
+      amountGross: formatAmountInput(l.amountGross),
+      vatRate: numberInput(opts.vatRegistered ? l.vatRate : 0),
+      withholding: l.withholding > 0 && TIMBER_SALE_CODES.includes(l.category) ? formatAmountInput(l.withholding) : "",
+      suggestionId: s.id,
+      suggestion: {
+        documentId: s.document_id, documentName: s.file_name, confidence: l.confidence, reasoning: l.reasoning, first: i === 0, sourceDate: l.date,
+      },
+    };
+  });
+}
+
+/**
+ * Ehdotusrivin varoitus päivästä: päivä on muulta vuodelta, tai sitä ei
+ * tunnistettu tositteesta eikä kirjanpitäjä ole vielä muuttanut oletuspäivää.
+ */
+export function suggestionDateWarning(r: GridRow, year: number, initialBookedOn?: string): string | null {
+  if (!r.suggestion) return null;
+  const iso = normalizeDate(r.bookedOn, year);
+  if (iso && Number(iso.slice(0, 4)) !== year) return `Päivä ${toFinnishDate(iso)} on muulta vuodelta kuin ${year}. Tarkista päivä ja vuosi.`;
+  if (!r.suggestion.sourceDate && r.bookedOn === initialBookedOn) return "Tositteesta ei tunnistettu päivää. Tarkista päivä.";
+  return null;
 }
 
 /** Uusi rivi on tyhjä, jos siihen ei ole kirjoitettu mitään (päivä tulee valmiina edelliseltä riviltä). */

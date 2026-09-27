@@ -20,6 +20,7 @@
     "vertaa:vero": "tsx --env-file-if-exists=.env.local scripts/compare-tax.mts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "@auth0/nextjs-auth0": "^4.11.0",
     "@electric-sql/pglite": "^0.3.0",
     "next": "^15.5.25",

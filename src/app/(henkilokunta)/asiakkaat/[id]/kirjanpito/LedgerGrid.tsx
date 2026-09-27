@@ -25,7 +25,9 @@ import {
   planGridChanges,
   rowKind,
   rowNet,
+  sameRow,
   selectCategory,
+  suggestionDateWarning,
   toggleKind,
   type GridField,
   type GridRow,
@@ -37,6 +39,7 @@ import {
 import type { AssetOption, PropertyOption } from "@/lib/ledger/queries";
 import { GridDialog } from "./GridDialog";
 import { DeliveryWorkInputs, useDeliveryWork } from "./DeliveryWorkCalculator";
+import { dismissSuggestionAction } from "./receipt-actions";
 
 let seq = 0;
 const newKey = () => `n${Date.now().toString(36)}${(seq++).toString(36)}`;
@@ -68,6 +71,7 @@ export function LedgerGrid({
   clientId,
   year,
   initialRows,
+  suggestionRows = [],
   properties,
   assets,
   vatRegistered,
@@ -77,6 +81,8 @@ export function LedgerGrid({
   clientId: string;
   year: number;
   initialRows: GridRow[];
+  /** Tositteiden tunnistuksen ehdotukset uusina riveinä (rowsFromSuggestion). */
+  suggestionRows?: GridRow[];
   properties: PropertyOption[];
   assets: AssetOption[];
   vatRegistered: boolean;
@@ -88,7 +94,9 @@ export function LedgerGrid({
   const col = (f: GridField) => columns.indexOf(f);
 
   const [original, setOriginal] = useState<GridRow[]>(initialRows);
-  const [rows, setRows] = useState<GridRow[]>(() => (initialRows.length ? initialRows : [emptyGridRow(newKey(), defaultDate)]));
+  const [rows, setRows] = useState<GridRow[]>(() =>
+    initialRows.length || suggestionRows.length ? [...initialRows, ...suggestionRows] : [emptyGridRow(newKey(), defaultDate)],
+  );
   const [deleted, setDeleted] = useState<string[]>([]);
   const [undoStack, setUndoStack] = useState<{ index: number; row: GridRow }[]>([]);
   const [errors, setErrors] = useState<Record<string, RowErrors>>({});
@@ -110,8 +118,40 @@ export function LedgerGrid({
   const digits = useRef<{ buffer: string; timer: ReturnType<typeof setTimeout> | null }>({ buffer: "", timer: null });
   const leaving = useRef(false);
 
+  // Ehdotukset: taulukossa olevat ehdotukset ja niiden alkuperäiset rivit. Koskematon
+  // ehdotusrivi ei ole tallentamaton muutos poistumisvaroitusta varten, koska ehdotus
+  // on tallessa kannassa ja palaa taulukkoon.
+  const suggestionSnapshot = useRef(new Map<string, GridRow>(suggestionRows.map((r) => [r.key, r])));
+  const knownSuggestions = useRef(new Set<string>(suggestionRows.map((r) => r.suggestionId!).filter(Boolean)));
+  const suggestionKey = suggestionRows.map((r) => r.key).join("|");
+  useEffect(() => {
+    const incoming = new Set(suggestionRows.map((r) => r.suggestionId!));
+    const added = suggestionRows.filter((r) => !knownSuggestions.current.has(r.suggestionId!));
+    const removed = [...knownSuggestions.current].filter((id) => !incoming.has(id));
+    if (!added.length && !removed.length) return;
+    for (const r of added) {
+      knownSuggestions.current.add(r.suggestionId!);
+      suggestionSnapshot.current.set(r.key, r);
+    }
+    for (const id of removed) knownSuggestions.current.delete(id);
+    setRows((rs) => {
+      let next = rs.filter((r) => !r.suggestionId || !removed.includes(r.suggestionId));
+      // Uudet ehdotukset loppuun, mutta ennen lopun tyhjää riviä.
+      const tail = next.length && isBlankGridRow(next[next.length - 1]) ? next.length - 1 : next.length;
+      next = [...next.slice(0, tail), ...added, ...next.slice(tail)];
+      return next.length ? next : [emptyGridRow(newKey(), defaultDate)];
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestionKey]);
+
   const changes = useMemo(() => planGridChanges(original, rows, deleted, year), [original, rows, deleted, year]);
   const dirty = changeCount(changes) > 0;
+  const untouchedSuggestion = (r: GridRow) => {
+    const o = r.suggestionId ? suggestionSnapshot.current.get(r.key) : undefined;
+    return Boolean(o && sameRow(o, r, year));
+  };
+  const pendingSuggestions = rows.filter((r) => r.suggestionId).length;
+  const warnDirty = changes.updated.length + changes.deleted.length + changes.created.filter((r) => !untouchedSuggestion(r)).length > 0;
 
   // ---------------------------------------------------------------------------
   // Fokus
@@ -447,8 +487,12 @@ export function LedgerGrid({
       .map((r) => ({
         key: r.key, id: r.id, bookedOn: r.bookedOn, description: r.description, category: r.category, amountGross: r.amountGross, vatRate: r.vatRate,
         withholding: r.withholding, forestPropertyId: r.forestPropertyId, kind: r.kind, reference: r.reference, assetRatePct: r.assetRatePct, saleAssetId: r.saleAssetId,
+        suggestionId: r.id ? null : (r.suggestionId ?? null),
       }));
-    fd.set("payload", JSON.stringify({ rows: payload, deletedIds: deleted }));
+    // Ehdotus, jonka kaikki rivit on poistettu taulukosta, hylätään tallennuksessa.
+    const present = new Set(rowsRef.current.map((r) => r.suggestionId).filter(Boolean));
+    const dismissedSuggestionIds = [...knownSuggestions.current].filter((id) => !present.has(id));
+    fd.set("payload", JSON.stringify({ rows: payload, deletedIds: deleted, dismissedSuggestionIds }));
     startTransition(async () => {
       const res = await action(fd);
       setResult(res);
@@ -460,12 +504,16 @@ export function LedgerGrid({
         setDeleted([]);
         setUndoStack([]);
         htOffered.current = new Set(res.rows.map((r) => r.key));
+        // Tallennetut ehdotukset on hyväksytty ja tyhjennetyt hylätty.
+        knownSuggestions.current = new Set();
+        suggestionSnapshot.current = new Map();
       }
     });
   }, [action, clientId, year, deleted, defaultDate, pending]);
 
   function revert() {
-    setRows(original.length ? original : [emptyGridRow(newKey(), defaultDate)]);
+    const sugg = [...suggestionSnapshot.current.values()].filter((r) => knownSuggestions.current.has(r.suggestionId!));
+    setRows(original.length || sugg.length ? [...original, ...sugg] : [emptyGridRow(newKey(), defaultDate)]);
     setDeleted([]);
     setUndoStack([]);
     setErrors({});
@@ -492,10 +540,27 @@ export function LedgerGrid({
     return () => document.removeEventListener("keydown", onKey);
   });
 
+  /** Ehdotuksen hylkäys heti kantaan: tosite jää vuoden tositteeksi, ja rivit poistuvat taulukosta. */
+  async function dismissSuggestion(suggestionId: string) {
+    if (!window.confirm("Hylätäänkö ehdotus? Tosite jää vuoden tositteisiin, ja voit tunnistaa sen uudelleen.")) return;
+    const res = await dismissSuggestionAction({ clientId, suggestionId });
+    if (!res.ok) {
+      showToast(res.error);
+      return;
+    }
+    knownSuggestions.current.delete(suggestionId);
+    setRows((rs) => {
+      const next = rs.filter((r) => r.suggestionId !== suggestionId);
+      return next.length ? next : [emptyGridRow(newKey(), defaultDate)];
+    });
+    setUndoStack((u) => u.filter((op) => op.row.suggestionId !== suggestionId));
+    showToast("Ehdotus hylätty.");
+  }
+
   // Varoitus poistuttaessa, jos muutoksia ei ole tallennettu. Sivun sisäiset linkit
   // eivät laukaise beforeunloadia, joten niihin kysytään erikseen.
   useEffect(() => {
-    if (!dirty) return;
+    if (!warnDirty) return;
     const message = "Sinulla on tallentamattomia muutoksia. Poistutaanko silti?";
     function onBeforeUnload(e: BeforeUnloadEvent) {
       if (leaving.current) return;
@@ -520,7 +585,7 @@ export function LedgerGrid({
       window.removeEventListener("beforeunload", onBeforeUnload);
       document.removeEventListener("click", onClick, true);
     };
-  }, [dirty]);
+  }, [warnDirty]);
 
   // ---------------------------------------------------------------------------
   // Näkymä
@@ -542,6 +607,7 @@ export function LedgerGrid({
   const cellClass = (bad: boolean, extra = "") =>
     `h-9 w-full rounded-md border bg-paper px-2 outline-none focus:border-sky focus:ring-2 focus:ring-sky/30 ${bad ? "border-coral" : "border-transparent hover:border-line"} ${extra}`;
   const dialogRow = dialog ? rows.find((r) => r.key === dialog.key) : undefined;
+  const suggestionWarning = (r: GridRow) => suggestionDateWarning(r, year, suggestionSnapshot.current.get(r.key)?.bookedOn);
   const count = changeCount(changes);
 
   return (
@@ -595,9 +661,16 @@ export function LedgerGrid({
                 onPaste: (e: ClipboardEvent<HTMLElement>) => onPaste(e, i, f),
               });
               const menuHere = menu?.row === i;
+              const sg = r.suggestion && r.suggestionId && !r.id ? r.suggestion : null;
+              const dateWarning = sg ? suggestionWarning(r) : null;
+              const confidencePct = sg ? Math.round(sg.confidence * 100) : 0;
               return [
-                <tr key={r.key} className={`border-t border-line align-top ${r.id ? "" : "bg-sky-soft/30"}`}>
-                  <td className="px-2 py-2.5 text-right tabular text-ink/45">{i + 1}</td>
+                <tr
+                  key={r.key}
+                  className={`border-t align-top ${sg ? "border-sky/30 bg-sky-soft" : r.id ? "border-line" : "border-line bg-sky-soft/30"}`}
+                  title={sg ? `Ehdotus: ${sg.reasoning}` : undefined}
+                >
+                  <td className={`px-2 py-2.5 text-right tabular ${sg ? "border-l-4 border-sky font-semibold text-sky" : "text-ink/45"}`}>{i + 1}</td>
                   <td className="px-1 py-1 min-w-[6.5rem]">
                     <input
                       {...common("bookedOn")}
@@ -734,7 +807,18 @@ export function LedgerGrid({
                     </td>
                   ) : null}
                   <td className="whitespace-nowrap px-2 py-2.5">
-                    {r.id ? (
+                    {sg ? (
+                      <a
+                        href={`/asiakkaat/${clientId}/tositteet/${sg.documentId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        tabIndex={-1}
+                        className="rounded-full bg-sky px-2 py-0.5 text-xs font-bold text-paper hover:bg-sky/85"
+                        title={`Avaa tosite ${sg.documentName}`}
+                      >
+                        Ehdotus
+                      </a>
+                    ) : r.id ? (
                       // Tavallinen linkki: tallentamattomista muutoksista varoitetaan ennen siirtymistä.
                       <a href={`/asiakkaat/${clientId}/kirjanpito/${r.id}`} tabIndex={-1} className="text-xs font-semibold text-sky hover:underline">
                         {r.documentCount ? `${r.documentCount} kpl` : "Lisää"}
@@ -769,6 +853,30 @@ export function LedgerGrid({
                     </button>
                   </td>
                 </tr>,
+                sg ? (
+                  <tr key={`${r.key}-s`} className="bg-sky-soft">
+                    <td className="border-l-4 border-sky" />
+                    <td colSpan={columns.length + 5} className="px-2 pb-2 text-xs text-ink/70">
+                      <span className="font-semibold text-sky">Tekoälyn ehdotus</span>
+                      {" · "}
+                      <a href={`/asiakkaat/${clientId}/tositteet/${sg.documentId}`} target="_blank" rel="noreferrer" tabIndex={-1} className="font-semibold text-sky hover:underline">
+                        {sg.documentName}
+                      </a>
+                      {" · "}
+                      <span className={confidencePct < 60 ? "font-semibold text-amber" : ""}>Varmuus {confidencePct} %</span>
+                      {sg.reasoning ? ` · ${sg.reasoning}` : ""}
+                      {dateWarning ? <span className="block font-semibold text-amber">{dateWarning}</span> : null}
+                      {sg.first ? (
+                        <span className="block">
+                          Tarkista ja muokkaa rivit, ja tallenna. Tosite liitetään ensimmäiseen kirjaukseen.{" "}
+                          <button type="button" tabIndex={-1} className="font-semibold text-coral hover:underline" onClick={() => void dismissSuggestion(r.suggestionId!)}>
+                            Hylkää ehdotus
+                          </button>
+                        </span>
+                      ) : null}
+                    </td>
+                  </tr>
+                ) : null,
                 messages.length ? (
                   <tr key={`${r.key}-e`}>
                     <td />
@@ -858,7 +966,14 @@ export function LedgerGrid({
             Peru muutokset
           </Button>
         ) : null}
-        {dirty ? <span className="text-sm text-amber">Muutokset on vielä tallentamatta.</span> : null}
+        {warnDirty ? <span className="text-sm text-amber">Muutokset on vielä tallentamatta.</span> : null}
+        {pendingSuggestions ? (
+          <span className="text-sm text-sky">
+            {pendingSuggestions === 1
+              ? "1 ehdotusrivi odottaa tarkistusta. Se tallentuu kirjaukseksi, kun tallennat."
+              : `${pendingSuggestions} ehdotusriviä odottaa tarkistusta. Ne tallentuvat kirjauksiksi, kun tallennat.`}
+          </span>
+        ) : null}
       </div>
 
       <div className="rounded-xl border border-line bg-cloud/40 px-4 py-3 text-xs leading-relaxed text-ink/70">

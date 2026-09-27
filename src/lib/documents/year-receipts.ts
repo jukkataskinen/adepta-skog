@@ -97,12 +97,16 @@ export interface YearReceipt {
   content_type: string;
   size_bytes: number;
   created_at: string;
+  /** Tositteesta on tunnistettu ehdotus, joka odottaa taulukossa. */
+  pending_suggestion: boolean;
 }
 
 export async function listYearReceipts(tx: Sql, clientId: string, year: number): Promise<YearReceipt[]> {
   return tx.query<YearReceipt>(
-    `select id, file_name, content_type, size_bytes, created_at::text from sk_documents
-      where client_id = $1 and tax_year = $2 and kind = 'receipt' and transaction_id is null order by created_at`,
+    `select d.id, d.file_name, d.content_type, d.size_bytes, d.created_at::text,
+            exists (select 1 from sk_receipt_suggestions s where s.document_id = d.id and s.status = 'pending') as pending_suggestion
+       from sk_documents d
+      where d.client_id = $1 and d.tax_year = $2 and d.kind = 'receipt' and d.transaction_id is null order by d.created_at`,
     [clientId, year],
   );
 }

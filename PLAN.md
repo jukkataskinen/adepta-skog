@@ -110,6 +110,6 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [ ] `legacy/` pois
 
 ### Myöhemmin
-- [ ] Kuittiskanneri mobiilissa: kuva tositteesta, tekoäly tunnistaa summan, päivän ja toimittajan (mock oletuksena)
+- [~] Kuittiskanneri: tositteiden tunnistus tehty (28.9.2026). Vuoden tositteista Tunnista ja Tunnista kaikki, tekoäly (Claude, testitila oletuksena) ehdottaa kirjaukset taulukkoon, kirjanpitäjä tarkistaa ja tallentaa, tosite liittyy kirjaukseen; migraatio 0010. Odottaa avainta ja tietosuoja-asiakirjoja (BLOCKERS 8). Kuvaus puhelimella puuttuu.
 - [ ] Metsänomistajan oma näkymä (vain luku)
 - [ ] Yhteinen pohjarepo eRapulle, Mittarilukemalle ja Skogille (`TEMPLATES`)

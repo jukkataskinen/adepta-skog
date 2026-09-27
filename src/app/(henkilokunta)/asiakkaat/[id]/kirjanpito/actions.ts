@@ -99,11 +99,13 @@ const gridRowSchema = z.object({
   reference: z.string().max(400),
   assetRatePct: z.string().max(10),
   saleAssetId: z.string().max(60),
+  suggestionId: z.string().uuid().nullable().optional(),
 });
 
 const gridPayloadSchema = z.object({
   rows: z.array(gridRowSchema).max(MAX_GRID_ROWS),
   deletedIds: z.array(z.string().uuid()).max(MAX_GRID_ROWS),
+  dismissedSuggestionIds: z.array(z.string().uuid()).max(MAX_GRID_ROWS).optional(),
 });
 
 /**
@@ -124,9 +126,12 @@ export async function saveLedgerGridAction(formData: FormData): Promise<GridSave
   }
   const actor = { organizationId: ctx.org.organizationId, userId: ctx.user.id };
   try {
-    const counts = await ctx.run((tx) => saveLedgerGrid(tx, { actor, clientId, year, rows: payload.rows, deletedIds: payload.deletedIds }));
+    const counts = await ctx.run((tx) =>
+      saveLedgerGrid(tx, { actor, clientId, year, rows: payload.rows, deletedIds: payload.deletedIds, dismissedSuggestionIds: payload.dismissedSuggestionIds }),
+    );
     const rows = await ctx.run((tx) => listTransactions(tx, clientId, year));
     revalidatePath(`/asiakkaat/${clientId}/kirjanpito`);
+    revalidatePath(`/asiakkaat/${clientId}/raportti`);
     return { status: "saved", ...counts, rows: rows.map(rowFromStored) };
   } catch (err) {
     if (err instanceof GridSaveError) return { status: "error", message: err.message, rowErrors: err.rowErrors };
