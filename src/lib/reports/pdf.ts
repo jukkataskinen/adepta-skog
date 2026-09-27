@@ -1,5 +1,6 @@
 import { degrees, PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } from "pdf-lib";
 import { forestSaleLines } from "@/lib/tax/forest-sale";
+import { ADDITIONAL_PREPAYMENT_MIN, additionalPrepaymentDueDate, annualVatDueDate } from "@/lib/tax/rules";
 import type { ReportData } from "./data";
 
 /**
@@ -189,6 +190,52 @@ class Writer {
     });
   }
 
+  /** Tiivis yhteenveto: nimike vasemmalla, summa oikealla, viimeiset rivit korostettuina. */
+  summaryTable(rows: [string, string][]) {
+    const cols: Col[] = [{ width: 120 }, { width: 50, align: "right" }];
+    rows.forEach(([label, value]) => {
+      const strong = label.startsWith("Verotettava") || label.startsWith("Arvioitu");
+      this.row([label, value], cols, strong ? { tone: "total" } : {});
+    });
+    this.y -= 8 * MM;
+  }
+
+  /** Kaksi maksulaatikkoa rinnakkain, kuten vanhan raportin maksutiedote. */
+  paymentBoxes(...boxes: { title: string; amount: string; tone: "pay" | "refund" | "none"; lead: string; lines: string[] }[]) {
+    const gap = 5 * MM;
+    const width = (RIGHT - LEFT - gap) / 2;
+    const pad = 5 * MM;
+    const heightOf = (b: (typeof boxes)[number]) =>
+      18 + 30 + 14 + wrap(this.f.regular, b.lead, 8.5, width - 2 * pad).length * 11 + 8 + b.lines.reduce((h, l) => h + wrap(this.f.regular, l, 8.5, width - 2 * pad).length * 11 + 2, 0) + pad;
+    const h = Math.max(...boxes.map(heightOf));
+    this.ensure(h + 10);
+    boxes.forEach((b, i) => {
+      const x = LEFT + i * (width + gap);
+      const top = this.y;
+      this.page.drawRectangle({ x, y: top - h, width, height: h, borderColor: LINE, borderWidth: 0.8, color: WHITE });
+      const color = b.tone === "pay" ? NEGATIVE : b.tone === "refund" ? ACCENT_DARK : INK;
+      this.page.drawRectangle({ x, y: top - h, width: 2.4, height: h, color: b.tone === "pay" ? NEGATIVE : b.tone === "refund" ? ACCENT : LINE });
+      let y = top - pad - 7;
+      this.page.drawText(safe(this.f.bold, b.title.toUpperCase()), { x: x + pad, y, size: 7.5, font: this.f.bold, color: MUTED });
+      y -= 30;
+      this.page.drawText(safe(this.f.bold, b.amount), { x: x + pad, y, size: 22, font: this.f.bold, color });
+      y -= 16;
+      for (const l of wrap(this.f.bold, b.lead, 8.5, width - 2 * pad)) {
+        this.page.drawText(l, { x: x + pad, y, size: 8.5, font: this.f.bold, color: INK });
+        y -= 11;
+      }
+      y -= 6;
+      for (const line of b.lines) {
+        for (const l of wrap(this.f.regular, line, 8.5, width - 2 * pad)) {
+          this.page.drawText(l, { x: x + pad, y, size: 8.5, font: this.f.regular, color: INK });
+          y -= 11;
+        }
+        y -= 2;
+      }
+    });
+    this.y -= h + 6 * MM;
+  }
+
   /** Tunnuslukulaatikot rivissä (vanhan raportin mt-box). */
   figures(items: { label: string; value: string; accent?: boolean; negative?: boolean }[]) {
     const h = 20 * MM;
@@ -209,6 +256,7 @@ class Writer {
 }
 
 const SECTIONS: { title: string; description: string }[] = [
+  { title: "Yhteenveto ja maksutiedote", description: "Tuleeko veroa maksettavaksi vai palautusta, ja paljonko arvonlisäveroa tilitetään ja milloin." },
   { title: "Tulot, menot ja verolaskelma", description: "Tulot ja menot luokittain, poistot, metsävähennys ja arvioitu pääomatulon vero." },
   { title: "Arvonlisävero", description: "Myynnin ja ostojen vero neljänneksittäin ja koko vuodelta sekä myynnit verokannoittain." },
   { title: "Investoinnit ja poistot", description: "Investoinnit poistamattomine arvoineen, vuoden poistot ja myynnit." },
@@ -236,10 +284,65 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
   };
   const two: Col[] = [{ width: 120 }, { width: 50, align: "right" }];
 
-  // 1. Tulot, menot ja verolaskelma
-  section(0);
   const r = data.result;
   const dep = data.depreciation.reduce((s, d) => s + d.amount, 0);
+
+  // 1. Yhteenveto ja maksutiedote: kaksi asiakkaan tärkeintä kysymystä.
+  section(0);
+  const taxLeft = Math.round((r.tax.total - data.plan.withholding) * 100) / 100;
+  w.summaryTable([
+    ["Tulot ilman arvonlisäveroa", eur(data.plan.income)],
+    ["Menot ja poistot", eur(-(data.plan.expense + dep))],
+    ["Metsävähennys ja yrittäjävähennys", eur(-(data.plan.recordedDeduction + r.entrepreneurDeduction))],
+    ...(r.saleResult ? ([["Luovutusvoitot ja -tappiot", eur(r.saleResult)]] as [string, string][]) : []),
+    ["Verotettava pääomatulo", eur(r.taxable)],
+    ["Arvioitu pääomatulon vero", eur(r.tax.total)],
+    ["Ennakonpidätykset", eur(-data.plan.withholding)],
+  ]);
+  const vatPayable = data.vat.year.payable;
+  const vatRef = data.client.taxAccountReference;
+  w.paymentBoxes(
+    {
+      title: "Pääomatulon vero",
+      amount: eur(Math.abs(taxLeft)),
+      tone: taxLeft > 0 ? "pay" : "refund",
+      lead: taxLeft > 0 ? "Arviolta maksettavaa (jäännösvero eli mätky)" : taxLeft < 0 ? "Arviolta palautusta" : "Ei maksettavaa eikä palautusta",
+      lines:
+        taxLeft > 0
+          ? [
+              "Mätkyjä ja korkoa voi välttää lisäennakolla.",
+              `Pyydä lisäennakko OmaVerossa ja maksa se viimeistään ${date(additionalPrepaymentDueDate(data.year))}. Silloin korkoa ei tule.`,
+              `Lisäennakon vähimmäismäärä on ${ADDITIONAL_PREPAYMENT_MIN} €. Tilinumero ja viite näkyvät OmaVerossa.`,
+            ]
+          : taxLeft < 0
+            ? ["Ennakonpidätykset ovat arvioitua veroa suuremmat.", "Verohallinto palauttaa erotuksen, kun verotus valmistuu."]
+            : ["Ennakonpidätykset kattavat arvioidun veron."],
+    },
+    !data.client.vatRegistered
+      ? { title: "Arvonlisävero", amount: "–", tone: "none", lead: "Asiakas ei ole arvonlisäverorekisterissä", lines: ["Arvonlisäveroa ei tilitetä."] }
+      : {
+          title: "Arvonlisävero",
+          amount: eur(Math.abs(vatPayable)),
+          tone: vatPayable > 0 ? "pay" : vatPayable < 0 ? "refund" : "none",
+          lead: vatPayable > 0 ? "Tilitettävä (myynnin vero miinus ostojen vero)" : vatPayable < 0 ? "Palautettava" : "Ei tilitettävää",
+          lines: [
+            `Verokausi kalenterivuosi ${data.year}.`,
+            vatPayable < 0
+              ? `Anna arvonlisäveroilmoitus OmaVerossa viimeistään ${date(annualVatDueDate(data.year))}. Verohallinto palauttaa veron.`
+              : `Ilmoita ja maksa viimeistään ${date(annualVatDueDate(data.year))}.`,
+            ...(vatPayable > 0
+              ? ["Maksunsaaja: Verohallinto.", vatRef ? `Viite: ${vatRef} (oma-aloitteiset verot).` : "Viite: oma-aloitteisten verojen viite OmaVerosta.", "Tilinumero näkyy OmaVerossa."]
+              : []),
+          ],
+        },
+  );
+  w.text(
+    "Maksutiedote on laskettu kirjanpidon tiedoista. Lopulliset verot vahvistetaan verotuksessa. Arvio ei ota huomioon asiakkaan muita pääomatuloja. Tarkista summat aina OmaVerosta ennen maksua.",
+    { size: 8, color: MUTED },
+  );
+
+  // 2. Tulot, menot ja verolaskelma
+  section(1);
   w.figures([
     { label: "Verotettava pääomatulo", value: eur(r.taxable) },
     { label: "Arvioitu vero", value: eur(r.tax.total), accent: true },
@@ -285,7 +388,7 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
   w.text("Vero on arvio. Se ei ota huomioon asiakkaan muita pääomatuloja eikä aiempien vuosien tappioita.", { size: 8, color: MUTED });
 
   // 2. Arvonlisävero
-  section(1);
+  section(2);
   if (!data.client.vatRegistered) w.text("Asiakas ei ole arvonlisäverorekisterissä.", { size: 9, color: MUTED, gap: 8 });
   w.figures([
     { label: "Myynnin vero", value: eur(data.vat.year.output) },
@@ -305,7 +408,7 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
   }
 
   // 3. Investoinnit ja poistot
-  section(2);
+  section(3);
   if (!data.depreciation.length) w.text("Ei investointeja tälle vuodelle.", { size: 9, color: MUTED });
   else {
     const dep5: Col[] = [{ width: 50 }, { width: 35 }, { width: 28, align: "right" }, { width: 28, align: "right" }, { width: 29, align: "right" }];
@@ -319,7 +422,7 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
   }
 
   // 4. Metsätilat ja metsävähennys
-  section(3);
+  section(4);
   if (!data.properties.length) w.text("Ei metsätiloja.", { size: 9, color: MUTED });
   else {
     const p4: Col[] = [{ width: 80 }, { width: 45, align: "right" }, { width: 45, align: "right" }];
@@ -337,7 +440,7 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
   }
 
   // 5. Kirjausluettelo
-  section(4);
+  section(5);
   const t6: Col[] = [{ width: 22 }, { width: 38 }, { width: 50 }, { width: 25, align: "right" }, { width: 12, align: "right" }, { width: 23, align: "right" }];
   w.head(["Päivä", "Luokka", "Selite", "Ilman alv", "Alv %", "Yhteensä"], t6, 7);
   for (const t of data.transactions) {

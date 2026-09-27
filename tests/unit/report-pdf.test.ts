@@ -15,7 +15,7 @@ function sample(status: "open" | "closed", transactions = 3): ReportData {
     closedAt: status === "closed" ? "2026-02-01T10:00:00Z" : null,
     generatedAt: "2026-02-01T10:00:00Z",
     office: { name: "Demometsä Tilitoimisto Oy", businessId: "1234567-1", email: "toimisto@example.test", phone: null, address: "Tie 1, 99990 Demola" },
-    client: { name: "Aino Esimerkki", businessId: null, address: "Metsätie 2, 99990 Demola", municipality: "Demola", vatRegistered: true },
+    client: { name: "Aino Esimerkki", businessId: null, address: "Metsätie 2, 99990 Demola", municipality: "Demola", vatRegistered: true, taxAccountReference: "1234567890" },
     categories: [{ label: "Pystykauppa", kind: "income", net: 42000, vat: 10710, gross: 52710 }],
     transactions: tx,
     vat: vatSummary([{ bookedOn: "2025-06-15", kind: "income", amountNet: 42000, vatRate: 25.5 }]),
@@ -32,13 +32,13 @@ describe("veroraportti PDF:nä", () => {
     const bytes = await renderTaxReport(sample("closed"));
     expect(Buffer.from(bytes.slice(0, 5)).toString()).toBe("%PDF-");
     const doc = await PDFDocument.load(bytes);
-    expect(doc.getPageCount()).toBe(7);
+    expect(doc.getPageCount()).toBe(8);
     expect(doc.getTitle()).toBe("Veroraportti 2025");
   });
 
   it("pitkä kirjausluettelo jatkuu seuraavalle sivulle", async () => {
     const doc = await PDFDocument.load(await renderTaxReport(sample("open", 120)));
-    expect(doc.getPageCount()).toBeGreaterThan(7);
+    expect(doc.getPageCount()).toBeGreaterThan(8);
   });
 
   it("metsätilan osan myynti ja tien siirtyvä arvo mahtuvat raporttiin", async () => {
@@ -51,7 +51,7 @@ describe("veroraportti PDF:nä", () => {
     ];
     s.depreciation = [{ ...s.depreciation[0], description: "Metsätie", transferred: 2125 }];
     const doc = await PDFDocument.load(await renderTaxReport(s));
-    expect(doc.getPageCount()).toBe(7);
+    expect(doc.getPageCount()).toBe(8);
   });
 
   it("merkit, joita vakiofontti ei tunne, eivät kaada raporttia", async () => {

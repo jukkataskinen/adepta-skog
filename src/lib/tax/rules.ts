@@ -203,3 +203,18 @@ export function deliveryWorkRates(year: number): { year: number; rates: Delivery
 
 /** Hankintatyön arvo on tekijöille verovapaata tähän puumäärään asti maatilaa ja vuotta kohden (TVL 63 § 3 mom.). */
 export const DELIVERY_WORK_TAX_FREE_M3 = 125;
+
+/**
+ * Metsätalouden arvonlisävero, kun verokausi on kalenterivuosi: ilmoitus ja
+ * maksu viimeistään seuraavan helmikuun viimeisenä päivänä. Viikonlopulta
+ * siirrytään seuraavaan arkipäivään (maaliskuun alussa ei ole pyhiä).
+ */
+export function annualVatDueDate(year: number): string {
+  const d = new Date(Date.UTC(year + 1, 2, 0));
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Lisäennakko: maksettu viimeistään verovuotta seuraavan tammikuun 31. päivänä, ei korkoa. Vähimmäismäärä 500 €. */
+export const ADDITIONAL_PREPAYMENT_MIN = 500;
+export const additionalPrepaymentDueDate = (year: number) => `${year + 1}-01-31`;

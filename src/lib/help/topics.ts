@@ -384,6 +384,9 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: "Raportin sisältö",
         bullets: [
           "Kansilehti ja sisällysluettelo.",
+          "Yhteenveto ja maksutiedote: tuleeko veroa maksettavaksi vai palautusta, ja paljonko arvonlisäveroa tilitetään ja milloin.",
+          "Jos veroa jää maksettavaksi, raportti neuvoo pyytämään lisäennakon ja maksamaan sen 31.1. mennessä, niin korkoa ei tule.",
+          "Asiakkaan verotilin viite näkyy maksutiedotteessa, jos se on tallennettu asiakkaan tietoihin.",
           "Tulot, menot ja verolaskelma.",
           "Arvonlisävero neljänneksittäin.",
           "Investoinnit ja poistot.",

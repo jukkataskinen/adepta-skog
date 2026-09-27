@@ -137,3 +137,13 @@ describe("arvonlisävero", () => {
     ]);
   });
 });
+
+describe("eräpäivät", () => {
+  it("kalenterivuoden alv: helmikuun viimeinen päivä, viikonlopulta seuraavaan arkipäivään", async () => {
+    const { annualVatDueDate, additionalPrepaymentDueDate } = await import("@/lib/tax/rules");
+    expect(annualVatDueDate(2023)).toBe("2024-02-29");
+    expect(annualVatDueDate(2025)).toBe("2026-03-02");
+    expect(annualVatDueDate(2026)).toBe("2027-03-01");
+    expect(additionalPrepaymentDueDate(2025)).toBe("2026-01-31");
+  });
+});

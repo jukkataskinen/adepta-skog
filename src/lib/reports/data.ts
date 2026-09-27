@@ -36,7 +36,7 @@ export interface ReportData {
   closedAt: string | null;
   generatedAt: string;
   office: { name: string; businessId: string | null; email: string | null; phone: string | null; address: string | null };
-  client: { name: string; businessId: string | null; address: string | null; municipality: string | null; vatRegistered: boolean };
+  client: { name: string; businessId: string | null; address: string | null; municipality: string | null; vatRegistered: boolean; taxAccountReference: string | null };
   categories: ReportCategoryRow[];
   transactions: ReportTransaction[];
   vat: { quarters: VatPeriod[]; year: VatPeriod };
@@ -57,8 +57,8 @@ export async function loadReportData(tx: Sql, orgId: string, clientId: string, y
     "select name, business_id, contact_email, contact_phone, postal_street, postal_code, postal_city from sk_organizations where id = $1",
     [orgId],
   );
-  const [c] = await tx.query<{ first_name: string; last_name: string; business_id: string | null; street: string | null; postal_code: string | null; city: string | null; municipality: string | null; vat_registered: boolean }>(
-    "select first_name, last_name, business_id, street, postal_code, city, municipality, vat_registered from sk_clients where id = $1 and organization_id = $2",
+  const [c] = await tx.query<{ first_name: string; last_name: string; business_id: string | null; street: string | null; postal_code: string | null; city: string | null; municipality: string | null; vat_registered: boolean; tax_account_reference: string | null }>(
+    "select first_name, last_name, business_id, street, postal_code, city, municipality, vat_registered, tax_account_reference from sk_clients where id = $1 and organization_id = $2",
     [clientId, orgId],
   );
   const [y] = await tx.query<{ status: "open" | "closed"; closed_at: string | null }>("select status, closed_at::text from sk_tax_years where client_id = $1 and year = $2", [
@@ -129,7 +129,7 @@ export async function loadReportData(tx: Sql, orgId: string, clientId: string, y
     },
     client: {
       name: `${c.first_name} ${c.last_name}`.trim(), businessId: c.business_id, address: joinAddress(c.street, c.postal_code, c.city),
-      municipality: c.municipality, vatRegistered: c.vat_registered,
+      municipality: c.municipality, vatRegistered: c.vat_registered, taxAccountReference: c.tax_account_reference,
     },
     categories: [...byCat.values()],
     transactions,
