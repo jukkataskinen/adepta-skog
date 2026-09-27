@@ -17,5 +17,6 @@ export const STAFF_NAV: NavItem[] = [
 /** Toimiston asetukset ja ohjeet. */
 export const STAFF_NAV_ORG: NavItem[] = [
   { href: "/asetukset", label: "Asetukset", icon: "gear", roles: ["owner"] },
+  { href: "/kehitystoiveet", label: "Kehitystoiveet", icon: "bolt" },
   { href: "/ohjeet", label: "Ohjeet", icon: "info" },
 ];

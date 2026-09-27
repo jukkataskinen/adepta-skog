@@ -59,6 +59,7 @@ describe("ohjelinkit", () => {
   it("ohje vie oikeaan aiheeseen", () => {
     expect(helpFor("/asetukset")).toEqual({ slug: "asetukset", title: "Asetukset", href: "/ohjeet/asetukset" });
     expect(helpFor("/tyopoyta")?.href).toBe("/ohjeet/tyopoyta");
+    expect(helpFor("/kehitystoiveet/uusi")?.slug).toBe("kehitystoiveet");
     expect(helpFor("/asiakkaat/00000000-0000-0000-0000-000000000000/metsatilat/uusi")?.slug).toBe("metsatilat");
     expect(helpFor("/asiakkaat/uusi")?.slug).toBe("asiakkaat");
     expect(helpFor("/asiakkaat/00000000-0000-0000-0000-000000000000/raportti")?.slug).toBe("veroraportti");

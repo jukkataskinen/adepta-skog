@@ -73,3 +73,9 @@
 **Tuonnista puuttuneet kentät (migraatio 0004).** Asiakkaan ALV-numero on oma kenttänsä, koska sen voi olla ilman Y-tunnusta. Metsämaan hehtaarit ovat vain tietoa. Kirjauksen ja investoinnin metsätila on vapaaehtoinen, ja tila tarkistetaan saman asiakkaan omaksi triggerillä. Uusintatuonti täydentää tyhjät kentät jo tuotuihin riveihin, mutta suljetun vuoden kirjaukseen tilaa ei lisätä (lukitus).
 
 **Tositteen tiedosto poistetaan transaktion jälkeen.** Rivi poistetaan ensin ja tiedosto vasta tallennuksen jälkeen, jotta epäonnistunut transaktio ei vie tiedostoa. Jos tiedoston poisto epäonnistuu, se kirjataan palvelimen lokiin ilman henkilötietoja eikä näy käyttäjälle virheenä.
+
+**Kehitystoiveet Mittarilukemasta (0005).** Taulu `sk_feature_requests`, sivut `/kehitystoiveet` ja linkki sivun yläkulmaan Ohje-linkin viereen. Toive kohdistetaan toimintoon, joka on sama kuin ohjesivuston aihe, kuten Mittarilukemassa. Migraation numero on 0005, koska 0004 on varattu toiselle työlle.
+
+**Kehitystoiveen tilaa muuttaa vain pääkäyttäjä.** Mittarilukemassa käsittelijöitä ovat pääkäyttäjä ja toimisto. Skogissa kirjanpitäjä on tavallinen käyttäjä, joten hän jättää ja näkee toiveet mutta ei merkitse toisen toivetta tehdyksi. Rajaus on kannassa (RLS), ei vain käyttöliittymässä.
+
+**Kehitystoiveista ei lähetetä ilmoituksia.** Mittarilukemassakaan ei ole sähköposti-ilmoituksia; pääkäyttäjä seuraa listaa. Ilmoitus lisätään sähköpostimoduulin kautta, jos tarvetta tulee.

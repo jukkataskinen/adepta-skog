@@ -54,6 +54,7 @@ src/lib/auth/               istunto, käyttäjä ja roolit, kopio Mittarilukemas
 src/lib/forms.ts            parseForm, FormError
 src/lib/audit.ts            muutosloki
 src/lib/help/               ohjeet ja ohjekartta
+src/lib/feature-requests.ts kehitystoiveet (toiminnot = ohjesivuston aiheet)
 src/lib/clients/            asiakkaat ja vastuukirjanpitäjä
 src/lib/properties/         metsätilat
 src/lib/ledger/             kirjaukset ja tositteet

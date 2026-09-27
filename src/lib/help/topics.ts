@@ -334,6 +334,53 @@ export const HELP_TOPICS: HelpTopic[] = [
     related: ["kayttajat"],
   },
   {
+    slug: "kehitystoiveet",
+    group: "Hallinta ja tietoturva",
+    icon: "bolt",
+    title: "Kehitystoiveet",
+    summary: "Kerro, mitä toivot ohjelmaan. Toiveet kootaan yhteen paikkaan toiminnoittain.",
+    highlights: ["Toive suoraan sivun yläkulmasta", "Tärkeys: olisi mukava, tärkeä tai estää työn", "Näet toiveen tilan ja vastauksen"],
+    appPath: "/kehitystoiveet",
+    appLabel: "Kehitystoiveet",
+    sections: [
+      {
+        title: "Toiveen jättäminen",
+        steps: [
+          "Klikkaa sivun oikeassa yläkulmassa Kehitystoive. Toiminto on silloin valmiiksi valittu.",
+          "Voit myös avata Kehitystoiveet valikosta ja valita Uusi kehitystoive.",
+          "Valitse toiminto, jota toive koskee.",
+          "Kirjoita lyhyt otsikko.",
+          "Kerro, mitä yrität tehdä ja mikä nyt on hankalaa.",
+          "Valitse, kuinka tärkeä asia on.",
+          "Lähetä.",
+        ],
+      },
+      {
+        title: "Toiveen tila",
+        bullets: [
+          "Uusi: toive on tullut perille.",
+          "Suunnitteilla: toive on otettu mukaan suunnitelmaan.",
+          "Työn alla: toivetta tehdään.",
+          "Tehty: toive on ohjelmassa.",
+          "Ei toteuteta: toive ei sovi ohjelmaan. Vastauksessa kerrotaan syy.",
+        ],
+      },
+      {
+        title: "Toiveiden käsittely",
+        steps: [
+          "Pääkäyttäjä avaa toiveen listalta.",
+          "Hän valitsee toiveelle tilan.",
+          "Hän voi kirjoittaa vastauksen toiveen jättäjälle.",
+          "Tallenna.",
+        ],
+      },
+    ],
+    tips: [
+      "Kaikki toimiston käyttäjät näkevät toimiston toiveet.",
+      "Älä kirjoita toiveeseen asiakkaiden henkilötietoja. Sivun osoite tallentuu toiveeseen, ja se riittää.",
+    ],
+  },
+  {
     slug: "kayttajat",
     group: "Hallinta ja tietoturva",
     icon: "shield",
