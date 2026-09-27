@@ -91,7 +91,7 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [x] Metsävähennys: pohja, käytetty, vuoden enimmäismäärä, vähimmäismäärä, jako tiloille (26.9.2026)
 - [~] Hankintatyön laskuri (taksat × m³, 125 m³ raja) (BLOCKERS 5). Luokka Hankintatyö on jo kirjanpidossa
 - [x] Verosuunnitelma-välilehti: laskuri, palvelin laskee uudelleen vahvistettaessa, vahvistus tallentaa poistot ja vähennyksen, pääkäyttäjä voi sulkea vuoden samalla (26.9.2026)
-- [~] Vertailu vanhaan sovellukseen (`vertaa:vero`): skripti ja testit valmiit (27.9.2026). Ajo tuotantokantoja vasten odottaa Jukkaa: `npm run vertaa:vero -- --vuosi 2025 --tuotanto`
+- [x] Vertailu vanhaan sovellukseen (`vertaa:vero`), ajettu 27.9.2026: oikea asiakas täsmää. Testiasiakkaiden ero johtui vanhassa sovelluksessa tuonnin jälkeen tehdyistä muutoksista, joten uusintatuonti synkronoi nyt avoimet vuodet (DECISIONS 27.9.2026)
 
 ### 6. Raportit ja arkisto
 - [x] Veroraportti PDF:nä: kansilehti, sisällysluettelo, tulot ja menot, verolaskelma, arvonlisävero, poistot, metsävähennys, kirjausluettelo, LUONNOS-vesileima avoimelle vuodelle (26.9.2026)

@@ -14,8 +14,11 @@ import { importLegacyData, type ImportResult, type LegacyArchiveRow } from "../s
  * - Vanha kanta luetaan osoitteesta LEGACY_DATABASE_URL vain lukutilassa.
  *   Vanhaan kantaan ei kirjoiteta (CLAUDE.md).
  * - Kohdeorganisaation on oltava olemassa (npm run kayttaja:lisaa -- --luo-org).
- * - Ajo on toistettava: rivit tunnistetaan vanhalla tunnisteella (legacy_id),
- *   eikä jo tuotuja rivejä kirjoiteta uudelleen.
+ * - Ajo on toistettava: rivit tunnistetaan vanhalla tunnisteella (legacy_id).
+ *   Avoimen vuoden kirjaukset, poistot ja metsävähennykset korvataan vanhan
+ *   kannan nykytilalla (lisätään, päivitetään ja poistetaan). Suljettuihin
+ *   vuosiin ja uudessa sovelluksessa tehtyihin kirjauksiin ei kosketa.
+ *   Aja ensin `--kuiva` ja tarkista määrät.
  * - `--kuiva` ajaa kaiken transaktiossa ja peruu sen lopuksi, eikä tallenna tiedostoja.
  * - Tulostaa vain määriä ja syitä, ei henkilötietoja.
  */

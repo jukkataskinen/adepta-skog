@@ -89,3 +89,5 @@
 **Kutsu: Auth0-tunnus ja sähköposti rajapintojen takana.** Kutsu luo tarvittaessa Auth0-tunnuksen (Management API) ja lähettää salasanan asetuslinkin, joka myös varmentaa osoitteen. Sähköposti on Mittarilukeman moduuli (Resend). Molempien oletus on testitila (`AUTH0_ADMIN_MODE=mock`, `EMAIL_MODE=mock`), eikä kumpaakaan ole ajettu oikeaa palvelua vasten.
 
 **Kutsun epäonnistuminen ei peru lisäystä.** Ulkoiset kutsut tehdään transaktion ulkopuolella. Jos viesti ei lähde, käyttäjä jää listaan ja kutsun voi lähettää uudelleen; `invited_at` kertoo viimeisimmän onnistuneen lähetyksen.
+
+**Uusintatuonti korvaa avoimen vuoden vanhan kannan nykytilalla.** Vertailu (27.9.2026) näytti, että vanha sovellus tallentaa vuoden poistamalla ja kirjoittamalla kirjaukset uudelleen uusilla tunnisteilla, jolloin uusintatuonti olisi tuplannut ne. Nyt avoimen vuoden vanhasta tuodut kirjaukset lisätään, päivitetään ja poistetaan vanhan kannan mukaan, ja poistot ja metsävähennykset päivitetään. Uudessa sovelluksessa tehdyt kirjaukset ja suljetut vuodet jäävät ennalleen, ja ohitetut muutokset lasketaan. Jukka hyväksyi poistavan synkronoinnin.

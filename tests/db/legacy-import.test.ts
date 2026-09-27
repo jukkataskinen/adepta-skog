@@ -151,6 +151,58 @@ describe("tiedonsiirto vanhasta kannasta", () => {
     ).rejects.toThrow(/toisen asiakkaan/);
   });
 
+  it("vanhan sovelluksen uudelleen tallentama avoin vuosi korvaa tuodut kirjaukset", async () => {
+    // Uudessa sovelluksessa lisätty kirjaus avoimelle vuodelle säilyy.
+    await db.asService((tx) =>
+      tx.query(
+        `insert into sk_transactions (organization_id, client_id, booked_on, kind, category, description, amount_net)
+         select organization_id, id, '2025-08-01', 'expense', 'other_expense', 'Uuden sovelluksen kirjaus', 10 from sk_clients where legacy_id = $1`,
+        [C1],
+      ),
+    );
+    // Vanha sovellus kirjoitti vuoden 2025 uudelleen: kirjaus 42 sai uuden tunnisteen ja summan.
+    // Suljetun vuoden 2024 kirjaus 41 on poistettu vanhasta, mutta sitä ei saa poistaa uudesta.
+    const rewritten: LegacyData = {
+      ...data,
+      transactions: [
+        { ...data.transactions[1], id: "00000000-0000-4000-8000-000000000044", summa_alv0: 900 },
+        data.transactions[2],
+      ],
+      depreciations: data.depreciations,
+    };
+    const r = await db.asService((tx) => importLegacyData(tx, { orgName: ORG }, rewritten));
+    expect(r.counts).toMatchObject({ kirjauksia: 1, "kirjauksia poistettu": 1, "suljetun vuoden muutos ohitettu": 1 });
+    const rows = await db.asService((tx) =>
+      tx.query<{ legacy_id: string | null; amount_net: string }>(
+        "select t.legacy_id, t.amount_net from sk_transactions t join sk_clients c on c.id = t.client_id where c.legacy_id = $1 order by t.booked_on",
+        [C1],
+      ),
+    );
+    expect(rows.map((x) => [x.legacy_id, Number(x.amount_net)])).toEqual([
+      ["00000000-0000-4000-8000-000000000041", 15000],
+      ["00000000-0000-4000-8000-000000000044", 900],
+      [null, 10],
+    ]);
+  });
+
+  it("muuttunut kirjaus päivittyy avoimella vuodella", async () => {
+    const changed: LegacyData = {
+      ...data,
+      transactions: [
+        data.transactions[0],
+        { ...data.transactions[1], id: "00000000-0000-4000-8000-000000000044", summa_alv0: 950, kuvaus: "Taimet ja lannoite" },
+        data.transactions[2],
+      ],
+    };
+    const r = await db.asService((tx) => importLegacyData(tx, { orgName: ORG }, changed));
+    expect(r.counts).toMatchObject({ "kirjauksia päivitetty": 1 });
+    expect(r.counts["kirjauksia poistettu"] ?? 0).toBe(0);
+    const [t] = await db.asService((tx) =>
+      tx.query<{ amount_net: string; description: string }>("select amount_net, description from sk_transactions where legacy_id = '00000000-0000-4000-8000-000000000044'"),
+    );
+    expect([Number(t.amount_net), t.description]).toEqual([950, "Taimet ja lannoite"]);
+  });
+
   it("tuodun suljetun vuoden kirjausta ei voi muuttaa", async () => {
     await expect(
       db.asService((tx) => tx.query("update sk_transactions set amount_net = 1 where legacy_id = '00000000-0000-4000-8000-000000000041'")),

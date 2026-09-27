@@ -23,9 +23,15 @@ import {
  * Vanhan kannan rivit uuteen kantaan yhdessä transaktiossa (palvelun rooli).
  * Kutsuja: scripts/import-legacy.mts. Testit: tests/db/legacy-import.test.ts.
  *
- * Ajo on toistettava: rivit tunnistetaan vanhalla tunnisteella (legacy_id),
- * eikä jo tuotuja rivejä kirjoiteta uudelleen. Myöhemmin lisätyt kentät
- * (migraatio 0004) täydennetään jo tuotuihin riveihin, jos ne ovat tyhjiä.
+ * Ajo on toistettava: rivit tunnistetaan vanhalla tunnisteella (legacy_id).
+ * Myöhemmin lisätyt kentät (migraatio 0004) täydennetään jo tuotuihin riveihin.
+ *
+ * Rinnakkaisajon aikana vanhaa sovellusta käytetään edelleen, ja se tallentaa
+ * koko vuoden kirjaukset poistamalla ja kirjoittamalla ne uudelleen uusilla
+ * tunnisteilla. Siksi avoimen vuoden kirjaukset, poistot ja metsävähennykset
+ * korvataan vanhan kannan nykytilalla: uudet lisätään, muuttuneet päivitetään
+ * ja vanhasta poistetut poistetaan. Uudessa sovelluksessa lisättyihin
+ * kirjauksiin (legacy_id tyhjä) ja suljettuihin vuosiin ei kosketa.
  * Tiedostoja ei tallenneta
  * täällä: ne palautetaan kutsujalle, joka tallentaa ne ennen transaktion loppua.
  */
@@ -59,7 +65,9 @@ export interface ImportResult {
 export async function importLegacyData(tx: Sql, input: { orgName: string; createOrg?: boolean }, data: LegacyData): Promise<ImportResult> {
   const skipped: Skipped[] = [];
   const counts: Record<string, number> = {};
-  const add = (k: string, n = 1) => (counts[k] = (counts[k] ?? 0) + n);
+  const add = (k: string, n = 1) => {
+    if (n) counts[k] = (counts[k] ?? 0) + n;
+  };
   let guessedCategories = 0;
   const files: ImportResult["files"] = [];
 
@@ -122,6 +130,10 @@ export async function importLegacyData(tx: Sql, input: { orgName: string; create
     yearsByClient.get(client)!.add(y);
   };
 
+  // Suljetun vuoden rivejä ei voi lisätä, muuttaa eikä poistaa (lukitustriggeri).
+  const yearClosed = async (client: string, year: number) =>
+    (await tx.query<{ closed: boolean }>("select sk_year_is_closed($1, $2) as closed", [client, year]))[0].closed;
+
   // Metsätilat ja metsävähennykset
   const propertyMap = new Map<string, { id: string; client: string }>();
   for (const p of data.properties) {
@@ -143,14 +155,28 @@ export async function importLegacyData(tx: Sql, input: { orgName: string; create
   for (const d of data.deductions) {
     const p = propertyMap.get(d.metsatila_id);
     if (!p) continue;
-    // Lukitustriggeri laukeaa ennen on conflict -tarkistusta, joten jo tuotu rivi ohitetaan ensin.
-    if ((await tx.query("select 1 from sk_forest_deductions where forest_property_id = $1 and tax_year = $2", [p.id, d.verovuosi])).length) continue;
+    touchYear(p.client, d.verovuosi);
+    // Lukitustriggeri laukeaa ennen on conflict -tarkistusta, joten suljettu vuosi tarkistetaan ensin.
+    const [ex] = await tx.query<{ id: string; amount: string; closed: boolean }>(
+      "select id, amount, sk_year_is_closed($3, $2) as closed from sk_forest_deductions where forest_property_id = $1 and tax_year = $2",
+      [p.id, d.verovuosi, p.client],
+    );
+    if (ex) {
+      if (!ex.closed && Number(ex.amount) !== Number(d.kaytettava_vahennys)) {
+        await tx.query("update sk_forest_deductions set amount = $2 where id = $1", [ex.id, d.kaytettava_vahennys]);
+        add("metsävähennyksiä päivitetty");
+      }
+      continue;
+    }
+    if (await yearClosed(p.client, d.verovuosi)) {
+      add("suljetun vuoden muutos ohitettu");
+      continue;
+    }
     const ins = await tx.query(
       "insert into sk_forest_deductions (organization_id, forest_property_id, tax_year, amount) values ($1,$2,$3,$4) on conflict do nothing returning id",
       [org.id, p.id, d.verovuosi, d.kaytettava_vahennys],
     );
     add("metsävähennyksiä", ins.length);
-    touchYear(p.client, d.verovuosi);
   }
 
   // Vanhan kannan tila vain, jos se kuuluu samalle asiakkaalle. Muuten tila jätetään tyhjäksi.
@@ -189,13 +215,28 @@ export async function importLegacyData(tx: Sql, input: { orgName: string; create
   for (const d of data.depreciations) {
     const a = assetMap.get(d.investointi_id);
     if (!a) continue;
-    if ((await tx.query("select 1 from sk_depreciations where asset_id = $1 and tax_year = $2", [a.id, d.verovuosi])).length) continue;
+    touchYear(a.client, d.verovuosi);
+    const [ex] = await tx.query<{ id: string; amount: string; book_value_end: string; closed: boolean }>(
+      "select id, amount, book_value_end, sk_year_is_closed($3, $2) as closed from sk_depreciations where asset_id = $1 and tax_year = $2",
+      [a.id, d.verovuosi, a.client],
+    );
+    const end = d.jaannosarvo_vuoden_lopussa ?? 0;
+    if (ex) {
+      if (!ex.closed && (Number(ex.amount) !== Number(d.poistomaara) || Number(ex.book_value_end) !== Number(end))) {
+        await tx.query("update sk_depreciations set amount = $2, book_value_end = $3 where id = $1", [ex.id, d.poistomaara, end]);
+        add("poistoja päivitetty");
+      }
+      continue;
+    }
+    if (await yearClosed(a.client, d.verovuosi)) {
+      add("suljetun vuoden muutos ohitettu");
+      continue;
+    }
     const ins = await tx.query(
       "insert into sk_depreciations (organization_id, asset_id, tax_year, amount, book_value_end) values ($1,$2,$3,$4,$5) on conflict do nothing returning id",
       [org.id, a.id, d.verovuosi, d.poistomaara, d.jaannosarvo_vuoden_lopussa ?? 0],
     );
     add("poistoja", ins.length);
-    touchYear(a.client, d.verovuosi);
   }
 
   // Kirjaukset
@@ -211,19 +252,31 @@ export async function importLegacyData(tx: Sql, input: { orgName: string; create
     const r = m.row;
     touchYear(client, Number(r.bookedOn.slice(0, 4)));
     const property = propertyFor(r.legacyPropertyId, client);
-    const [existing] = await tx.query<{ id: string; forest_property_id: string | null; closed: boolean }>(
-      "select id, forest_property_id, sk_year_is_closed(client_id, tax_year) as closed from sk_transactions where legacy_id = $1",
-      [r.legacyId],
+    const [existing] = await tx.query<{ id: string; forest_property_id: string | null; closed: boolean; same: boolean }>(
+      `select id, forest_property_id, sk_year_is_closed(client_id, tax_year) as closed,
+              (booked_on = $2::date and kind = $3 and category = $4 and description = $5 and amount_net = $6::numeric
+               and vat_rate = $7::numeric and withholding = $8::numeric and reference is not distinct from $9) as same
+         from sk_transactions where legacy_id = $1`,
+      [r.legacyId, r.bookedOn, r.kind, r.category, r.description, r.amountNet, r.vatRate, r.withholding, r.reference],
     );
     if (existing) {
-      // Tila täydennetään jo tuotuun kirjaukseen. Suljetun vuoden kirjausta ei voi muuttaa (lukitustriggeri).
-      if (property && !existing.forest_property_id) {
-        if (existing.closed) add("kirjauksen tila jäi suljetulle vuodelle");
-        else {
-          await tx.query("update sk_transactions set forest_property_id = $2 where id = $1", [existing.id, property]);
-          add("kirjauksen tila täydennetty");
-        }
+      const fillProperty = Boolean(property && !existing.forest_property_id);
+      if (existing.same && !fillProperty) continue;
+      // Suljetun vuoden kirjausta ei voi muuttaa, eikä kirjausta voi siirtää suljetulle vuodelle.
+      if (existing.closed || (await yearClosed(client, Number(r.bookedOn.slice(0, 4))))) {
+        add(existing.same ? "kirjauksen tila jäi suljetulle vuodelle" : "suljetun vuoden muutos ohitettu");
+        continue;
       }
+      await tx.query(
+        `update sk_transactions set booked_on = $2, kind = $3, category = $4, description = $5, amount_net = $6, vat_rate = $7, withholding = $8,
+                reference = $9, forest_property_id = coalesce(forest_property_id, $10) where id = $1`,
+        [existing.id, r.bookedOn, r.kind, r.category, r.description, r.amountNet, r.vatRate, r.withholding, r.reference, property],
+      );
+      add(existing.same ? "kirjauksen tila täydennetty" : "kirjauksia päivitetty");
+      continue;
+    }
+    if (await yearClosed(client, Number(r.bookedOn.slice(0, 4)))) {
+      add("suljetun vuoden muutos ohitettu");
       continue;
     }
     const ins = await tx.query(
@@ -233,6 +286,28 @@ export async function importLegacyData(tx: Sql, input: { orgName: string; create
       [org.id, client, r.bookedOn, r.kind, r.category, r.description, r.amountNet, r.vatRate, r.withholding, r.reference, r.legacyId, property],
     );
     add("kirjauksia", ins.length);
+  }
+
+  // Vanhasta kannasta poistetut kirjaukset pois avoimilta vuosilta. Vain vanhasta
+  // tuodut rivit (legacy_id), jotta uudessa sovelluksessa tehdyt kirjaukset säilyvät.
+  // Tositteet jäävät talteen ilman kirjausta (viiteavain nollautuu).
+  const legacyIds = data.transactions.map((t) => t.id);
+  const clientIds = [...new Set(clientMap.values())];
+  if (clientIds.length) {
+    const removed = await tx.query<{ closed: boolean }>(
+      `select sk_year_is_closed(client_id, tax_year) as closed from sk_transactions
+        where client_id = any($1) and legacy_id is not null and not (legacy_id = any($2::uuid[]))`,
+      [clientIds, legacyIds],
+    );
+    const del = await tx.query(
+      `delete from sk_transactions
+        where client_id = any($1) and legacy_id is not null and not (legacy_id = any($2::uuid[]))
+          and not sk_year_is_closed(client_id, tax_year)
+       returning id`,
+      [clientIds, legacyIds],
+    );
+    add("kirjauksia poistettu", del.length);
+    add("suljetun vuoden muutos ohitettu", removed.filter((x) => x.closed).length);
   }
 
   // Arkiston liitteet tositteiksi
