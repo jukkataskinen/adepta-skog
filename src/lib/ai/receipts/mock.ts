@@ -25,7 +25,8 @@ export function mockRecognizer(): ReceiptRecognizer {
       if (iso) date = `${iso[1]}-${iso[2]}-${iso[3]}`;
       else if (fi) date = `${fi[3]}-${fi[2].padStart(2, "0")}-${fi[1].padStart(2, "0")}`;
       const rest = name.replace(/\d{4}-\d{2}-\d{2}|\d{1,2}\.\d{1,2}\.\d{4}/g, " ");
-      const amountMatch = /(\d+(?:[.,]\d{1,2})?)/.exec(rest);
+      // Pitkä numerosarja on skannerin aikaleima tai tunniste eikä summa, joten summaksi kelpaa enintään kuusinumeroinen luku.
+      const amountMatch = /(?<!\d)(\d{1,6}(?:[.,]\d{1,2})?)(?!\d)/.exec(rest);
       const amount = amountMatch ? Number(amountMatch[1].replace(",", ".")) : 100;
       const reasoning = "Testitila: ehdotus on johdettu tiedostonimestä, tositetta ei luettu.";
       if (/kokooma|vuosi-ilmoitus|vuosi_ilmoitus/.test(name)) return validateRecognition(compilationExample(name, reasoning));

@@ -228,3 +228,11 @@ describe("ehdotus taulukon riveiksi", () => {
     expect(suggestionDateWarning(a, 2026, a.bookedOn)).toMatch(/muulta vuodelta/);
   });
 });
+
+describe("testitila ja skannerin tiedostonimi", () => {
+  it("aikaleimanimestä syntyy silti yleinen ehdotus", async () => {
+    const { mockRecognizer } = await import("@/lib/ai/receipts/mock");
+    const r = await mockRecognizer().recognize({ fileName: "20260223085259.pdf", contentType: "application/pdf", bytes: Buffer.from([1]) });
+    expect(r.ok).toBe(true);
+  });
+});
