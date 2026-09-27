@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireRole, requireStaff } from "@/lib/auth/current-user";
 import { emptyToNull, fail, isUniqueViolation, parseForm } from "@/lib/forms";
 import { audit } from "@/lib/audit";
+import type { Sql } from "@/lib/db/types";
 import { isValidBusinessId, normalizeBusinessId, normalizePropertyCode } from "@/lib/validation/finnish";
 import { archiveReport } from "@/lib/reports/archive";
 
@@ -158,9 +159,6 @@ const propertySchema = z.object({
   acquiredOn: z.preprocess(emptyToNull, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tarkista hankintapäivä.").nullable()),
   forestLandSharePct: optionalNumber(0, 100),
   forestLandHa: optionalNumber(0, 1e6),
-  disposedOn: z.preprocess(emptyToNull, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tarkista luovutuspäivä.").nullable()),
-  salePrice: optionalNumber(0),
-  noDeductionAddition: z.preprocess((v) => v === "on", z.boolean()),
   deductionUsedBefore: optionalNumber(0),
 });
 
@@ -204,20 +202,143 @@ export async function updatePropertyAction(formData: FormData) {
   const back = `/asiakkaat/${clientId}/metsatilat/${propertyId}`;
   const input = parseForm(propertySchema, formData, back);
   await ctx.run(async (tx) => {
-    // Myynnin tiedot kulkevat yhdessä: päivä ilman hintaa tai hinta ilman päivää ei kelpaa.
-    if ((input.disposedOn === null) !== (input.salePrice === null)) fail(back, "Anna sekä luovutuspäivä että kauppahinta, tai jätä molemmat tyhjiksi.");
-    if (input.disposedOn && input.acquiredOn && input.disposedOn < input.acquiredOn) fail(back, "Luovutuspäivä on ennen hankintapäivää.");
+    // Hankintapäivä ei voi siirtyä luovutuksen jälkeen.
+    if (input.acquiredOn) {
+      const [early] = await tx.query("select 1 from sk_forest_property_disposals where forest_property_id = $1 and disposed_on < $2 limit 1", [propertyId, input.acquiredOn]);
+      if (early) fail(back, "Tilalla on luovutus ennen hankintapäivää.");
+    }
     await tx.query(
       `update sk_forest_properties set name = $3, property_code = $4, area_ha = $5, acquisition_price = $6, acquired_on = $7,
-              forest_land_share_pct = $8, deduction_used_before = $9, forest_land_ha = $10,
-              disposed_on = $11, sale_price = $12, no_deduction_addition = $13
+              forest_land_share_pct = $8, deduction_used_before = $9, forest_land_ha = $10
         where id = $1 and client_id = $2`,
-      [propertyId, clientId, ...propertyValues(input, back), input.disposedOn, input.salePrice, input.disposedOn ? input.noDeductionAddition : false],
+      [propertyId, clientId, ...propertyValues(input, back)],
     );
     await audit(tx, { organizationId: ctx.org.organizationId, userId: ctx.user.id, action: "property.update", entity: "sk_forest_properties", entityId: propertyId });
   });
   revalidatePath(`/asiakkaat/${clientId}`);
   redirect(`/asiakkaat/${clientId}#metsatilat`);
+}
+
+// ---------------------------------------------------------------------------
+// Metsätilan luovutukset (koko tila tai määräala / määräosa)
+// ---------------------------------------------------------------------------
+const disposalSchema = z.object({
+  disposalId: z.preprocess(emptyToNull, uuid.nullable()),
+  disposedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tarkista luovutuspäivä."),
+  salePrice: optionalNumber(0).refine((v) => v !== null, "Anna kauppahinta."),
+  sharePct: optionalNumber(0.01, 100).refine((v) => v !== null, "Anna myyty osuus prosentteina, enintään 100."),
+  sellingCosts: optionalNumber(0),
+  noDeductionAddition: z.preprocess((v) => v === "on", z.boolean()),
+  note: optionalText(1000),
+});
+
+/**
+ * Luovutuksen voi lisätä, muuttaa ja poistaa vain avatulla ja avoimella
+ * verovuodella, kuten kirjauksen (DECISIONS 27.9.2026). Kanta varmistaa saman
+ * lukituksen, osuuksien enimmäismäärän ja päivän hankinnan jälkeen.
+ */
+async function requireOpenYear(tx: Sql, clientId: string, year: number, back: string) {
+  const [y] = await tx.query<{ status: string }>("select status from sk_tax_years where client_id = $1 and year = $2", [clientId, year]);
+  if (!y) fail(back, `Verovuotta ${year} ei ole avattu. Avaa vuosi asiakkaan sivulla.`);
+  if (y.status === "closed") fail(back, `Verovuosi ${year} on suljettu. Pääkäyttäjä voi avata vuoden.`);
+}
+
+function disposalError(err: unknown): string | null {
+  const msg = err instanceof Error ? err.message : "";
+  if (/yli 100 prosenttia/.test(msg)) return "Tilasta on myyty yhteensä yli 100 %. Tarkista osuudet.";
+  if (/ennen tilan hankintaa/.test(msg)) return "Luovutuspäivä on ennen tilan hankintapäivää.";
+  return friendly(err);
+}
+
+export async function saveDisposalAction(formData: FormData) {
+  const ctx = await requireStaff();
+  const clientId = uuid.parse(formData.get("clientId"));
+  const propertyId = uuid.parse(formData.get("propertyId"));
+  const back = `/asiakkaat/${clientId}/metsatilat/${propertyId}`;
+  const input = parseForm(disposalSchema, formData, back);
+  const year = Number(input.disposedOn.slice(0, 4));
+  const share = input.sharePct!;
+  try {
+    await ctx.run(async (tx) => {
+      const [p] = await tx.query<{ acquired_on: string | null }>("select acquired_on::text from sk_forest_properties where id = $1 and client_id = $2", [
+        propertyId,
+        clientId,
+      ]);
+      if (!p) fail(back, "Metsätilaa ei löytynyt.");
+      if (p.acquired_on && input.disposedOn < p.acquired_on) fail(back, "Luovutuspäivä on ennen tilan hankintapäivää.");
+      await requireOpenYear(tx, clientId, year, back);
+      const [{ other }] = await tx.query<{ other: string }>(
+        "select coalesce(sum(share_pct), 0) as other from sk_forest_property_disposals where forest_property_id = $1 and id is distinct from $2",
+        [propertyId, input.disposalId],
+      );
+      const sold = Number(other);
+      if (sold + share > 100) {
+        fail(back, `Tilasta on jo myyty ${sold.toLocaleString("fi-FI")} %. Tämän luovutuksen osuus voi olla enintään ${(100 - sold).toLocaleString("fi-FI")} %.`);
+      }
+      const values = [input.disposedOn, input.salePrice, share, input.sellingCosts ?? 0, input.noDeductionAddition, input.note];
+      let id = input.disposalId;
+      if (id) {
+        const [prev] = await tx.query<{ year: number }>("select tax_year as year from sk_forest_property_disposals where id = $1 and forest_property_id = $2", [
+          id,
+          propertyId,
+        ]);
+        if (!prev) fail(back, "Luovutusta ei löytynyt.");
+        if (Number(prev.year) !== year) await requireOpenYear(tx, clientId, Number(prev.year), back);
+        await tx.query(
+          `update sk_forest_property_disposals set disposed_on = $2, sale_price = $3, share_pct = $4, selling_costs = $5, no_deduction_addition = $6, note = $7
+            where id = $1`,
+          [id, ...values],
+        );
+      } else {
+        const [row] = await tx.query<{ id: string }>(
+          `insert into sk_forest_property_disposals (organization_id, client_id, forest_property_id, disposed_on, sale_price, share_pct, selling_costs,
+                                                    no_deduction_addition, note)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`,
+          [ctx.org.organizationId, clientId, propertyId, ...values],
+        );
+        id = row.id;
+      }
+      await audit(tx, {
+        organizationId: ctx.org.organizationId, userId: ctx.user.id, action: input.disposalId ? "property_disposal.update" : "property_disposal.create",
+        entity: "sk_forest_property_disposals", entityId: id, details: { year, sharePct: share },
+      });
+    });
+  } catch (err) {
+    const f = disposalError(err);
+    if (f) fail(back, f);
+    throw err;
+  }
+  revalidatePath(`/asiakkaat/${clientId}`, "layout");
+  redirect(`${back}#luovutukset`);
+}
+
+export async function deleteDisposalAction(formData: FormData) {
+  const ctx = await requireStaff();
+  const clientId = uuid.parse(formData.get("clientId"));
+  const propertyId = uuid.parse(formData.get("propertyId"));
+  const disposalId = uuid.parse(formData.get("disposalId"));
+  const back = `/asiakkaat/${clientId}/metsatilat/${propertyId}`;
+  try {
+    await ctx.run(async (tx) => {
+      const [prev] = await tx.query<{ year: number }>(
+        "select tax_year as year from sk_forest_property_disposals where id = $1 and forest_property_id = $2 and client_id = $3",
+        [disposalId, propertyId, clientId],
+      );
+      if (!prev) fail(back, "Luovutusta ei löytynyt.");
+      await requireOpenYear(tx, clientId, Number(prev.year), back);
+      await tx.query("delete from sk_forest_property_disposals where id = $1", [disposalId]);
+      await audit(tx, {
+        organizationId: ctx.org.organizationId, userId: ctx.user.id, action: "property_disposal.delete", entity: "sk_forest_property_disposals",
+        entityId: disposalId, details: { year: Number(prev.year) },
+      });
+    });
+  } catch (err) {
+    const f = disposalError(err);
+    if (f) fail(back, f);
+    throw err;
+  }
+  revalidatePath(`/asiakkaat/${clientId}`, "layout");
+  redirect(`${back}#luovutukset`);
 }
 
 export async function deletePropertyAction(formData: FormData) {

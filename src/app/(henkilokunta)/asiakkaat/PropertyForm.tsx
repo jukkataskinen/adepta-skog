@@ -10,9 +10,6 @@ export interface PropertyValues {
   forest_land_share_pct: string | null;
   forest_land_ha: string | null;
   deduction_used_before: string;
-  disposed_on: string | null;
-  sale_price: string | null;
-  no_deduction_addition: boolean;
 }
 
 // Lomakkeella luvut näytetään suomalaisittain pilkulla.
@@ -63,24 +60,6 @@ export function PropertyForm({
           <Input id="deductionUsedBefore" name="deductionUsedBefore" inputMode="decimal" defaultValue={fi(property?.deduction_used_before ?? "0")} />
         </Field>
       </div>
-      {property ? (
-        <details className="rounded-xl border border-line bg-cloud/40 px-4 py-3 text-sm" open={Boolean(property.disposed_on)}>
-          <summary className="cursor-pointer font-semibold">Tilan myynti tai luovutus</summary>
-          <div className="mt-3 grid gap-4 sm:grid-cols-2">
-            <Field label="Luovutuspäivä" htmlFor="disposedOn" hint="Lopullisen kauppakirjan päivä.">
-              <Input id="disposedOn" name="disposedOn" type="date" defaultValue={property.disposed_on ?? ""} />
-            </Field>
-            <Field label="Kauppahinta (€)" htmlFor="salePrice">
-              <Input id="salePrice" name="salePrice" inputMode="decimal" defaultValue={fi(property.sale_price)} />
-            </Field>
-          </div>
-          <label className="mt-3 flex items-center gap-2">
-            <input type="checkbox" name="noDeductionAddition" defaultChecked={property.no_deduction_addition} className="size-4" />
-            Lahja tai verovapaa luovutus, esimerkiksi sukupolvenvaihdos: metsävähennystä ei lisätä luovutusvoittoon
-          </label>
-          <p className="mt-2 text-ink/65">Käytetty metsävähennys lisätään luovutusvoittoon. Laskelma näkyy myyntivuoden verosuunnitelmassa.</p>
-        </details>
-      ) : null}
       <div>
         <Button>{submitLabel}</Button>
       </div>

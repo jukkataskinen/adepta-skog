@@ -48,15 +48,20 @@ describe("metsätilan myynti", () => {
     // Kotimetsä (120 000 €, metsää 80 %, vähennys 3 000 € vuonna 2025) myydään 2026.
     await db.asService(async (tx) => {
       await tx.query("insert into sk_tax_years (organization_id, client_id, year) values ($1, $2, 2026)", [b.id, b.client]);
-      await tx.query("update sk_forest_properties set disposed_on = '2026-06-01', sale_price = 150000 where id = $1", [b.property]);
+      await tx.query(
+        `insert into sk_forest_property_disposals (organization_id, client_id, forest_property_id, disposed_on, sale_price, share_pct)
+         values ($1, $2, $3, '2026-06-01', 150000, 100)`,
+        [b.id, b.client, b.property],
+      );
     });
   });
 
   it("käytetty metsävähennys lisätään luovutusvoittoon, ja voitto on verolaskelmassa", async () => {
     const plan = await db.asUser(b.staff.sub, (tx) => loadPlanData(tx, b.client, 2026));
-    expect(plan.forestSales).toEqual([
-      { id: b.property, name: "Kotimetsä", salePrice: 150000, cost: 120000, deemedCost: false, addition: 3000, gain: 33000 },
-    ]);
+    expect(plan.forestSales).toHaveLength(1);
+    expect(plan.forestSales[0]).toMatchObject({ propertyId: b.property, name: "Kotimetsä", salePrice: 150000, cost: 120000, usesDeemedCost: false, addition: 3000, gain: 33000 });
+    // Myyntivuonna myyty tila ei enää tuo pohjaa eikä ota vähennystä.
+    expect(plan.properties).toEqual([]);
     const r = await db.asUser(b.staff.sub, (tx) => loadReportData(tx, b.id, b.client, 2026));
     expect(r?.result.saleResult).toBe(33000);
   });

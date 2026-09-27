@@ -118,6 +118,21 @@ describe("tiedonsiirto vanhasta kannasta", () => {
     expect(n.n).toBe(3);
   });
 
+  it("tuonti ei tuo eikä poista metsätilan luovutuksia", async () => {
+    // Vanhassa sovelluksessa luovutuksia ei ole: ne kirjataan uudessa, ja uusintatuonnin pitää jättää ne ennalleen.
+    await db.asService(async (tx) => {
+      const [p] = await tx.query<{ id: string; client_id: string }>("select id, client_id from sk_forest_properties where legacy_id = $1", [P1]);
+      await tx.query(
+        `insert into sk_forest_property_disposals (organization_id, client_id, forest_property_id, disposed_on, sale_price, share_pct)
+         values ($1, $2, $3, '2025-08-01', 30000, 20)`,
+        [orgId, p.client_id, p.id],
+      );
+    });
+    await db.asService((tx) => importLegacyData(tx, { orgName: ORG }, data));
+    const [n] = await db.asService((tx) => tx.query<{ n: number }>("select count(*)::int as n from sk_forest_property_disposals where organization_id = $1", [orgId]));
+    expect(n.n).toBe(1);
+  });
+
   it("myöhemmin lisätyt kentät täydentyvät jo tuotuihin riveihin", async () => {
     const enriched: LegacyData = {
       ...data,

@@ -56,7 +56,7 @@ export async function confirmPlanAction(formData: FormData) {
       if (a.year.sold) continue;
       const amount = Math.round(chosen[a.id] * 100) / 100;
       await tx.query("insert into sk_depreciations (organization_id, asset_id, tax_year, amount, book_value_end) values ($1,$2,$3,$4,$5)", [
-        ctx.org.organizationId, a.id, year, amount, Math.max(0, Math.round((a.year.bookValueStart - amount) * 100) / 100),
+        ctx.org.organizationId, a.id, year, amount, Math.max(0, Math.round((a.year.bookValueBase - amount) * 100) / 100),
       ]);
     }
     await tx.query(

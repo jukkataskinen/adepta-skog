@@ -78,9 +78,8 @@ export interface PropertyRow {
   forest_land_share_pct: string | null;
   forest_land_ha: string | null;
   deduction_used_before: string;
-  disposed_on: string | null;
-  sale_price: string | null;
-  no_deduction_addition: boolean;
+  /** Myyty osuus tilan hankintamenosta, prosentteina (0–100). */
+  sold_share_pct: number;
   deduction: ForestDeductionBase;
 }
 
@@ -91,15 +90,17 @@ const currentYear = () => Number(new Intl.DateTimeFormat("en", { timeZone: "Euro
 export async function listProperties(tx: Sql, clientId: string): Promise<PropertyRow[]> {
   const rows = await tx.query<Omit<PropertyRow, "deduction"> & { recorded: string[] | null }>(
     `select p.id, p.name, p.property_code, p.area_ha, p.acquisition_price, p.acquired_on::text, p.forest_land_share_pct, p.forest_land_ha, p.deduction_used_before,
-            p.disposed_on::text, p.sale_price, p.no_deduction_addition,
+            (select coalesce(sum(x.share_pct), 0)::float8 from sk_forest_property_disposals x where x.forest_property_id = p.id) as sold_share_pct,
             (select array_agg(d.amount::text) from sk_forest_deductions d where d.forest_property_id = p.id) as recorded
        from sk_forest_properties p where p.client_id = $1 order by p.name`,
     [clientId],
   );
   return rows.map(({ recorded, ...p }) => ({
     ...p,
+    sold_share_pct: Number(p.sold_share_pct),
+    // Myyty osuus ei tuo pohjaa: pohja lasketaan jäljellä olevasta hankintamenosta.
     deduction: forestDeductionBase({
-      acquisitionPrice: n(p.acquisition_price),
+      acquisitionPrice: p.acquisition_price === null ? null : (Number(p.acquisition_price) * (100 - Number(p.sold_share_pct))) / 100,
       forestLandSharePct: n(p.forest_land_share_pct),
       usedBefore: Number(p.deduction_used_before),
       recorded: (recorded ?? []).map(Number),
@@ -108,13 +109,36 @@ export async function listProperties(tx: Sql, clientId: string): Promise<Propert
 }
 
 export async function getProperty(tx: Sql, clientId: string, id: string) {
-  const [row] = await tx.query<Omit<PropertyRow, "deduction">>(
-    `select id, name, property_code, area_ha, acquisition_price, acquired_on::text, forest_land_share_pct, forest_land_ha, deduction_used_before,
-            disposed_on::text, sale_price, no_deduction_addition
+  const [row] = await tx.query<Omit<PropertyRow, "deduction" | "sold_share_pct">>(
+    `select id, name, property_code, area_ha, acquisition_price, acquired_on::text, forest_land_share_pct, forest_land_ha, deduction_used_before
        from sk_forest_properties where id = $1 and client_id = $2`,
     [id, clientId],
   );
   return row ?? null;
+}
+
+export interface DisposalRow {
+  id: string;
+  disposed_on: string;
+  tax_year: number;
+  sale_price: string;
+  share_pct: string;
+  selling_costs: string;
+  no_deduction_addition: boolean;
+  note: string | null;
+  /** Luovutusvuoden tila: null, jos vuotta ei ole avattu. */
+  year_status: "open" | "closed" | null;
+}
+
+export async function listDisposals(tx: Sql, clientId: string, propertyId: string): Promise<DisposalRow[]> {
+  return tx.query<DisposalRow>(
+    `select d.id, d.disposed_on::text, d.tax_year, d.sale_price, d.share_pct, d.selling_costs, d.no_deduction_addition, d.note, y.status as year_status
+       from sk_forest_property_disposals d
+       left join sk_tax_years y on y.client_id = d.client_id and y.year = d.tax_year
+      where d.client_id = $1 and d.forest_property_id = $2
+      order by d.disposed_on, d.created_at`,
+    [clientId, propertyId],
+  );
 }
 
 export interface TaxYearRow {

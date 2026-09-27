@@ -15,6 +15,10 @@ import { SMALL_ASSET_LIMIT } from "./rules";
  *   tasapoistoille lasketaan sama vuosiosuus kuin ennen, mutta vapaaehtoisena.
  * - Myyntivuonna poistoa ei tehdä. Myyntihinta miinus poistamaton arvo on
  *   luovutusvoitto tai -tappio, joka ei ole metsätalouden tuloa.
+ * - Metsätie tai oja siirtyy metsätilan luovutuksessa: myydyn osuuden
+ *   poistamaton arvo vuoden alussa lisätään metsän hankintamenoon
+ *   (transferred), ja vuoden poisto lasketaan jäljelle jäävästä arvosta. Kun
+ *   koko tila on myyty, investointia ei enää poisteta.
  */
 
 export interface AssetInput {
@@ -26,6 +30,8 @@ export interface AssetInput {
   openingBookValue: number | null;
   disposedOn: string | null;
   salePrice: number | null;
+  /** Metsätilan luovutukset: vuosi ja osa vuoden alun arvosta, joka siirtyy (1 = kaikki). */
+  transferFractions?: { year: number; fraction: number }[];
 }
 
 export interface RecordedDepreciation {
@@ -48,24 +54,48 @@ export interface AssetYear {
   saleLoss: number;
   /** Enintään 600 euron jäännös, jonka saa poistaa kerralla. */
   smallBalance: boolean;
+  /** Metsätilan luovutuksessa metsän hankintamenoon siirtyvä poistamaton arvo. */
+  transferred: number;
+  /** Arvo, josta vuoden poisto lasketaan: vuoden alun arvo miinus siirretty. */
+  bookValueBase: number;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const yearOf = (d: string) => Number(d.slice(0, 4));
+
+/** Poistamaton arvo vuoden alussa ilman luovutuksia (kirjatut loppuarvot tai poistot). */
+function valueAtStart(asset: AssetInput, recorded: RecordedDepreciation[], year: number): number {
+  const previous = recorded.filter((r) => r.taxYear < year).sort((a, b) => b.taxYear - a.taxYear);
+  const start = asset.openingBookValue ?? asset.acquisitionCost;
+  return round2(previous.length && previous[0].taxYear === year - 1 ? previous[0].bookValueEnd : Math.max(0, start - previous.reduce((s, r) => s + r.amount, 0)));
+}
 
 export function assetYear(asset: AssetInput, recorded: RecordedDepreciation[], year: number): AssetYear {
   const acquiredYear = yearOf(asset.acquiredOn);
   const soldYear = asset.disposedOn ? yearOf(asset.disposedOn) : null;
   const inactive: AssetYear = {
     active: false, bookValueStart: 0, min: 0, max: 0, mandatory: false, sold: false, salePrice: 0, saleGain: 0, saleLoss: 0, smallBalance: false,
+    transferred: 0, bookValueBase: 0,
   };
   if (year < acquiredYear || (soldYear !== null && year > soldYear)) return inactive;
 
-  const previous = recorded.filter((r) => r.taxYear < year).sort((a, b) => b.taxYear - a.taxYear);
-  const start = asset.openingBookValue ?? asset.acquisitionCost;
-  const bookValueStart = round2(
-    previous.length && previous[0].taxYear === year - 1 ? previous[0].bookValueEnd : Math.max(0, start - previous.reduce((s, r) => s + r.amount, 0)),
-  );
+  // Luovutusten jälkeen arvo lasketaan ketjuna ensimmäisestä luovutusvuodesta:
+  // siirretty osuus pois ja kirjattu poisto pois vuosittain. Kirjattuun
+  // loppuarvoon ei luoteta, koska luovutus on voitu kirjata vahvistuksen jälkeen.
+  const fraction = (y: number) => (asset.transferFractions ?? []).filter((t) => t.year === y).reduce((s, t) => s + t.fraction, 0);
+  const transfers = (asset.transferFractions ?? []).filter((t) => t.year >= acquiredYear && t.year < year && t.fraction > 0);
+  let bookValueStart: number;
+  if (!transfers.length) bookValueStart = valueAtStart(asset, recorded, year);
+  else {
+    const first = Math.min(...transfers.map((t) => t.year));
+    let v = valueAtStart(asset, recorded, first);
+    for (let y = first; y < year; y++) {
+      const f = Math.min(1, fraction(y));
+      if (f >= 1) return inactive;
+      v = Math.max(0, v * (1 - f) - (recorded.find((r) => r.taxYear === y)?.amount ?? 0));
+    }
+    bookValueStart = round2(v);
+  }
 
   if (soldYear === year) {
     const price = asset.salePrice ?? 0;
@@ -75,10 +105,16 @@ export function assetYear(asset: AssetInput, recorded: RecordedDepreciation[], y
     };
   }
 
-  const smallBalance = bookValueStart > 0 && bookValueStart <= SMALL_ASSET_LIMIT;
+  const f = Math.min(1, fraction(year));
+  // Koko tila myyty: arvo siirtyy hankintamenoon, eikä poistoa enää tehdä.
+  if (f >= 1) return { ...inactive, bookValueStart, transferred: bookValueStart };
+  const transferred = round2(bookValueStart * f);
+  const base = round2(bookValueStart - transferred);
+
+  const smallBalance = base > 0 && base <= SMALL_ASSET_LIMIT;
   let max: number;
-  if (smallBalance) max = bookValueStart;
-  else if (asset.method === "declining_balance") max = round2((bookValueStart * (asset.decliningRatePct ?? 0)) / 100);
-  else max = round2(Math.min(bookValueStart, asset.usefulLifeYears ? asset.acquisitionCost / asset.usefulLifeYears : bookValueStart));
-  return { ...inactive, active: true, bookValueStart, max, smallBalance };
+  if (smallBalance) max = base;
+  else if (asset.method === "declining_balance") max = round2((base * (asset.decliningRatePct ?? 0)) / 100);
+  else max = round2(Math.min(base, asset.usefulLifeYears ? asset.acquisitionCost / asset.usefulLifeYears : base));
+  return { ...inactive, active: true, bookValueStart, max, smallBalance, transferred, bookValueBase: base };
 }

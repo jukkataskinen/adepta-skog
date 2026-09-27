@@ -42,7 +42,7 @@ export interface ReportData {
   plan: PlanData;
   result: PlanResult;
   depreciation: {
-    description: string; method: string; bookValueStart: number; amount: number; bookValueEnd: number; sold: boolean; salePrice: number; saleGain: number; saleLoss: number;
+    description: string; method: string; bookValueStart: number; amount: number; bookValueEnd: number; transferred: number; sold: boolean; salePrice: number; saleGain: number; saleLoss: number;
   }[];
   properties: { name: string; remainingBefore: number | null; deduction: number }[];
   confirmed: boolean;
@@ -98,7 +98,8 @@ export async function loadReportData(tx: Sql, orgId: string, clientId: string, y
       method: a.method === "declining_balance" ? `Menojäännös ${a.decliningRatePct ?? ""} %`.replace("  ", " ") : "Tasapoisto (vanha)",
       bookValueStart: a.year.bookValueStart,
       amount,
-      bookValueEnd: a.year.sold ? 0 : Math.max(0, Math.round((a.year.bookValueStart - amount) * 100) / 100),
+      bookValueEnd: a.year.sold ? 0 : Math.max(0, Math.round((a.year.bookValueBase - amount) * 100) / 100),
+      transferred: a.year.transferred,
       sold: a.year.sold,
       salePrice: a.year.salePrice,
       saleGain: a.year.saleGain,
