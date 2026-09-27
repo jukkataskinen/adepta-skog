@@ -219,10 +219,10 @@ export async function deleteDocumentAction(formData: FormData) {
   const transactionId = uuid.parse(formData.get("transactionId"));
   const documentId = uuid.parse(formData.get("documentId"));
   const back = `/asiakkaat/${clientId}/kirjanpito/${transactionId}`;
-  await ctx.run(async (tx) => {
+  const storagePath = await ctx.run(async (tx) => {
     // Suljetun vuoden tosite säilytetään: kirjanpitoaineistoa ei poisteta jälkikäteen.
-    const [d] = await tx.query<{ closed: boolean }>(
-      `select exists (select 1 from sk_tax_years y where y.client_id = d.client_id and y.year = d.tax_year and y.status = 'closed') as closed
+    const [d] = await tx.query<{ closed: boolean; storage_path: string }>(
+      `select exists (select 1 from sk_tax_years y where y.client_id = d.client_id and y.year = d.tax_year and y.status = 'closed') as closed, d.storage_path
          from sk_documents d where d.id = $1 and d.client_id = $2`,
       [documentId, clientId],
     );
@@ -230,7 +230,16 @@ export async function deleteDocumentAction(formData: FormData) {
     if (d.closed) fail(back, "Suljetun vuoden tositetta ei voi poistaa.");
     await tx.query("delete from sk_documents where id = $1", [documentId]);
     await audit(tx, { organizationId: ctx.org.organizationId, userId: ctx.user.id, action: "document.delete", entity: "sk_documents", entityId: documentId });
+    return d.storage_path;
   });
+  // Tiedosto poistetaan vasta, kun rivin poisto on tallentunut, jotta epäonnistunut
+  // transaktio ei vie tiedostoa. Jos tiedoston poisto epäonnistuu, rivi on jo poissa
+  // eikä tiedostoa näe kukaan; se jää ämpäriin orvoksi, mikä on pienempi haitta kuin virhe käyttäjälle.
+  try {
+    await getStorage().remove(storagePath);
+  } catch (err) {
+    console.error("Tositteen tiedoston poisto epäonnistui", { documentId, error: err instanceof Error ? err.message : String(err) });
+  }
   revalidatePath(back);
   redirect(back);
 }

@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 /**
@@ -13,6 +13,8 @@ import path from "node:path";
 export interface Storage {
   put(storagePath: string, body: Buffer, contentType: string): Promise<void>;
   get(storagePath: string): Promise<Buffer>;
+  /** Poistaa tiedoston. Puuttuva tiedosto ei ole virhe, jotta poiston voi yrittää uudelleen. */
+  remove(storagePath: string): Promise<void>;
 }
 
 const BUCKET = "documents";
@@ -41,6 +43,9 @@ function localStorage(root: string): Storage {
     async get(p) {
       return readFile(full(p));
     },
+    async remove(p) {
+      await rm(full(p), { force: true });
+    },
   };
 }
 
@@ -61,6 +66,10 @@ function supabaseStorage(url: string, key: string): Storage {
       const res = await fetch(endpoint(p), { headers });
       if (!res.ok) throw new Error(`Tiedoston haku epäonnistui (${res.status})`);
       return Buffer.from(await res.arrayBuffer());
+    },
+    async remove(p) {
+      const res = await fetch(endpoint(p), { method: "DELETE", headers });
+      if (!res.ok && res.status !== 404) throw new Error(`Tiedoston poisto epäonnistui (${res.status})`);
     },
   };
 }

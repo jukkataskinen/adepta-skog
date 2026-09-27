@@ -164,6 +164,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Valitse tiedosto kohdasta Lisää tosite. PDF tai kuva, enintään 4 Mt.",
           "Valitse Tallenna tosite.",
           "Tosite aukeaa, kun klikkaat sen nimeä.",
+          "Väärän tositteen voit poistaa, jos vuosi on auki. Silloin myös tiedosto poistuu.",
         ],
       },
       {

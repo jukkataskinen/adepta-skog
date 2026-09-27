@@ -28,6 +28,14 @@ describe("tiedostot", () => {
     expect((await s.get("org/a/2025/x.pdf")).toString()).toBe("sisältö");
   });
 
+  it("poisto poistaa tiedoston, ja puuttuvan poisto ei ole virhe", async () => {
+    const s = getStorage({ STORAGE_MODE: "local" });
+    await s.put("org/a/2025/poistettava.pdf", Buffer.from("x"), "application/pdf");
+    await s.remove("org/a/2025/poistettava.pdf");
+    await expect(s.get("org/a/2025/poistettava.pdf")).rejects.toThrow();
+    await expect(s.remove("org/a/2025/poistettava.pdf")).resolves.toBeUndefined();
+  });
+
   it("polku ei voi karata tallennuskansiosta", async () => {
     const s = getStorage({ STORAGE_MODE: "local" });
     await expect(s.put("../ulos.txt", Buffer.from("x"), "text/plain")).rejects.toThrow(/Virheellinen/);
