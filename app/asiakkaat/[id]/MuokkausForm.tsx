@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { kuluvaVuosi, vuosiValinnat } from '@/lib/vuosi'
 
 type Asiakas = {
   id: string
@@ -48,7 +49,7 @@ export default function MuokkausForm({ asiakas, isPaakayttaja = false, kirjanpit
   const [postinumero, setPostinumero] = useState(asiakas.postinumero ?? '')
   const [postitoimipaikka, setPostitoimipaikka] = useState(asiakas.postitoimipaikka ?? '')
   const [verotiliviite, setVerotiliviite] = useState(asiakas.verotiliviite ?? '')
-  const [avoinVuosi, setAvoinVuosi] = useState(asiakas.avoin_vuosi ?? 2025)
+  const [avoinVuosi, setAvoinVuosi] = useState(asiakas.avoin_vuosi ?? kuluvaVuosi())
   const [vastuukirjanpitajaId, setVastuukirjanpitajaId] = useState(asiakas.vastuukirjanpitaja_id ?? '')
 
   async function handleSubmit(e: React.FormEvent) {
@@ -109,7 +110,7 @@ export default function MuokkausForm({ asiakas, isPaakayttaja = false, kirjanpit
               <div>
                 <label style={labelStyle}>Avoin verovuosi</label>
                 <select value={avoinVuosi} onChange={e => setAvoinVuosi(Number(e.target.value))} style={{ ...inputStyle, cursor: 'pointer' }}>
-                  {[2023, 2024, 2025, 2026, 2027].map(v => <option key={v} value={v}>{v}</option>)}
+                  {vuosiValinnat(asiakas.avoin_vuosi ?? kuluvaVuosi()).map(v => <option key={v} value={v}>{v}</option>)}
                 </select>
               </div>
               {isPaakayttaja && (

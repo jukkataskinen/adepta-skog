@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { kuluvaVuosi, vuosiValinnat } from '@/lib/vuosi'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '0.5rem 0.75rem', backgroundColor: '#1c2b1e',
@@ -16,13 +17,13 @@ const labelStyle: React.CSSProperties = {
 export default function VuosiModal({ asiakas }: { asiakas: { id: string; avoin_vuosi: number } }) {
   const router = useRouter()
   const [auki, setAuki] = useState(false)
-  const [vuosi, setVuosi] = useState(asiakas.avoin_vuosi ?? 2025)
+  const [vuosi, setVuosi] = useState(asiakas.avoin_vuosi ?? kuluvaVuosi())
   const [tallennetaan, setTallennetaan] = useState(false)
   const [virhe, setVirhe] = useState<string | null>(null)
   const [varoitus, setVaroitus] = useState(false)
 
-  const nykyinen = asiakas.avoin_vuosi ?? 2025
-  const vuodet = [2023, 2024, 2025, 2026, 2027]
+  const nykyinen = asiakas.avoin_vuosi ?? kuluvaVuosi()
+  const vuodet = vuosiValinnat(nykyinen)
 
   async function handleSubmit() {
     if (vuosi < nykyinen && !varoitus) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth0 } from '@/lib/auth0'
 import { supabaseAdmin as supabase } from '@/lib/supabase'
+import { kelvollinenVuosi } from '@/lib/vuosi'
 
 export async function PATCH(request: NextRequest) {
   const session = await auth0.getSession(request)
@@ -12,8 +13,9 @@ export async function PATCH(request: NextRequest) {
   if (!kayttaja) return NextResponse.json({ error: 'Käyttäjää ei löydy' }, { status: 404 })
 
   const body = await request.json()
-  const vuosi = parseInt(body.vuosi)
-  if (!vuosi || vuosi < 2020 || vuosi > 2030) {
+  // Sama tarkistus kuin muualla, ettei kiinteä yläraja 2030 estä tulevia vuosia
+  const vuosi = kelvollinenVuosi(body.vuosi)
+  if (!vuosi) {
     return NextResponse.json({ error: 'Virheellinen vuosi' }, { status: 400 })
   }
 

@@ -478,11 +478,6 @@ tr.ar td{height:36px;border-bottom:1px solid var(--bd)}
     <div class="v-warn" id="vuosi-varoitus" style="display:none"></div>
     <label class="v-lbl">Avoin verovuosi</label>
     <select class="v-sel" id="vuosi-valinta" onchange="paivitaVuosiHint()">
-      <option value="2023">2023</option>
-      <option value="2024">2024</option>
-      <option value="2025">2025</option>
-      <option value="2026">2026</option>
-      <option value="2027">2027</option>
     </select>
     <div class="v-hint" id="vuosi-hint" style="display:none"></div>
     <div class="v-btn-row">
@@ -557,7 +552,7 @@ function selAs(id) {
   url.searchParams.set('id', id);
   history.replaceState(null, '', url.toString());
   // Set kirjanpito year state
-  AVOIN_VUOSI = curAs.avoin_vuosi || 2025;
+  AVOIN_VUOSI = curAs.avoin_vuosi || window._SKOG.avoinVuosi;
   KB_LUKITTU = false;
   kbLoaded = false;
   updateHeader();
@@ -573,7 +568,7 @@ function updateHeader() {
   document.getElementById('ak-header').style.display = curAs ? 'block' : 'none';
   if (curAs) {
     document.getElementById('ak-nimi').textContent = curAs.nimi;
-    document.getElementById('ak-vuosi').textContent = 'Avoin vuosi: ' + (curAs.avoin_vuosi || window._SKOG.avoinVuosi || 2025);
+    document.getElementById('ak-vuosi').textContent = 'Avoin vuosi: ' + (curAs.avoin_vuosi || window._SKOG.avoinVuosi);
   }
 }
 
@@ -652,7 +647,7 @@ async function loadYhteenveto() {
   html += '</div></div>';
 
   // Verovuosi card
-  const avVuosi = ak?.avoin_vuosi || 2025;
+  const avVuosi = ak?.avoin_vuosi || window._SKOG.avoinVuosi;
   html += '<div class="card">';
   html += '<div class="card-hdr">Verovuosi</div>';
   html += '<div class="card-body" style="display:flex;align-items:center;gap:2rem">';
@@ -701,14 +696,14 @@ async function loadYhteenveto() {
 
 function lataaVerosuunnitelma() {
   if (!curAs) return;
-  const vuosi = curAs.avoin_vuosi || 2025;
+  const vuosi = curAs.avoin_vuosi || window._SKOG.avoinVuosi;
   document.getElementById('vs-tab-title').textContent = 'Verosuunnitelma · ' + vuosi;
   document.getElementById('frame-verosuunnitelma').src = '/verosuunnitelma?embed=1&asiakas_id=' + curAs.id + '&vuosi=' + vuosi;
 }
 
 function lataaVeroraportti() {
   if (!curAs) return;
-  const vuosi = curAs.avoin_vuosi || 2025;
+  const vuosi = curAs.avoin_vuosi || window._SKOG.avoinVuosi;
   document.getElementById('vr-tab-title').textContent = 'Veroraportti · ' + vuosi;
   document.getElementById('frame-veroraportti').src = '/veroraportti?embed=1&asiakas_id=' + curAs.id + '&vuosi=' + vuosi;
 }
@@ -748,8 +743,14 @@ async function lataaLiiteTiedosto(arkistoId) {
 
 // Vuosi modal
 function avaaVuosiModal() {
-  const nykyinen = curAs?.avoin_vuosi || 2025;
+  const nykyinen = curAs?.avoin_vuosi || window._SKOG.avoinVuosi;
   const sel = document.getElementById('vuosi-valinta');
+  // Vuodet lasketaan avoimesta ja kuluvasta vuodesta, ettei lista vanhene vuosittain
+  const alku = Math.min(nykyinen, window._SKOG.avoinVuosi) - 2;
+  const loppu = Math.max(nykyinen, window._SKOG.avoinVuosi) + 1;
+  const vuodet = [];
+  for (let v = alku; v <= loppu; v++) vuodet.push(v);
+  sel.innerHTML = vuodet.map(v => '<option value="' + v + '">' + v + '</option>').join('');
   sel.value = nykyinen;
   document.getElementById('vuosi-varoitus').style.display = 'none';
   document.getElementById('vuosi-hint').style.display = 'none';
@@ -762,7 +763,7 @@ function suljeMuokkaaVuosi() {
 }
 
 function paivitaVuosiHint() {
-  const nykyinen = curAs?.avoin_vuosi || 2025;
+  const nykyinen = curAs?.avoin_vuosi || window._SKOG.avoinVuosi;
   const vuosi = parseInt(document.getElementById('vuosi-valinta').value);
   const warn = document.getElementById('vuosi-varoitus');
   const hint = document.getElementById('vuosi-hint');
@@ -782,7 +783,7 @@ function paivitaVuosiHint() {
 
 async function vaihdaVuosi() {
   const vuosi = parseInt(document.getElementById('vuosi-valinta').value);
-  const nykyinen = curAs.avoin_vuosi || 2025;
+  const nykyinen = curAs.avoin_vuosi || window._SKOG.avoinVuosi;
   if (vuosi < nykyinen) {
     if (!confirm('Olet avaamassa jo suljettua vuotta ' + vuosi + ', jonka tiedot on mahdollisesti ilmoitettu verottajalle. Oletko varma?')) return;
   }
@@ -812,7 +813,8 @@ function toast(msg) {
 
 // ── Kirjanpito globals ──────────────────────────────────────────
 let KB_LUKITTU = false;
-let AVOIN_VUOSI = window._SKOG.avoinVuosi || 2025;
+// Palvelin antaa kuluvan vuoden, jos asiakkaalla ei ole avointa vuotta
+let AVOIN_VUOSI = window._SKOG.avoinVuosi;
 let rows = [], nid = 1, undo = [], dirty = false;
 let epPendingIdx = null;
 let htPendingIdx = null;
@@ -1101,7 +1103,7 @@ function htSulje() {
 
 // ── Vuosivalinta ──────────────────────────────────────────────
 function paivitaKbVuosiSel() {
-  const avoin = curAs.avoin_vuosi || 2025;
+  const avoin = curAs.avoin_vuosi || window._SKOG.avoinVuosi;
   const vuodet = [];
   for (let v = avoin - 2; v <= avoin + 1; v++) { if (v >= 2020) vuodet.push(v); }
   const sel = document.getElementById('kb-vuosi-sel');
@@ -1114,7 +1116,7 @@ function paivitaKbVuosiSel() {
 
 function vaihdaKbVuosi(v) {
   AVOIN_VUOSI = parseInt(v);
-  const avoin = curAs.avoin_vuosi || 2025;
+  const avoin = curAs.avoin_vuosi || window._SKOG.avoinVuosi;
   KB_LUKITTU = AVOIN_VUOSI < avoin;
   paivitaLukittuTila();
   lataaRivit(curAs.id);
@@ -1652,9 +1654,7 @@ async function avaaKirjanpitajaModal() {
   const sel = document.getElementById('kb-modal-sel');
   sel.innerHTML = '<option value="">Ladataan...</option>';
   const res = await fetch('/api/kayttajat');
-  console.log('kayttajat response:', res.status);
   const data = await res.json();
-  console.log('kayttajat data:', data);
   if (res.ok) {
     const kirjanpitajat = data;
     sel.innerHTML = '<option value="">— Ei vastuukirjanpitajaa —</option>' +

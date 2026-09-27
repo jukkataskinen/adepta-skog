@@ -4,6 +4,7 @@ import { supabaseAdmin as supabase } from '@/lib/supabase'
 import fs from 'fs'
 import path from 'path'
 
+// Tiedot haetaan sivulta /api/kayttajat-reitin kautta, joten selain ei saa kanta-avainta
 export async function GET(request: NextRequest) {
   const session = await auth0.getSession(request)
   if (!session) {
@@ -15,8 +16,7 @@ export async function GET(request: NextRequest) {
   const orgId = kayttaja?.organisaatio_id ?? ''
 
   const { data: org } = await supabase!
-    .from('organisaatiot').select('avoin_vuosi, nimi').eq('id', orgId).single()
-  const avoinVuosi = org?.avoin_vuosi ?? 2025
+    .from('organisaatiot').select('nimi').eq('id', orgId).single()
   const orgNimi = org?.nimi ?? ''
 
   const htmlPath = path.join(process.cwd(), 'app', 'kayttajat', 'kayttajat.html')
@@ -24,12 +24,8 @@ export async function GET(request: NextRequest) {
 
   const configScript = `<script>
 window._SKOG = ${JSON.stringify({
-    orgId,
     orgNimi,
-    avoinVuosi,
     email: session.user.email ?? '',
-    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-    supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
   })};
 </script>`
 

@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Adepta SKOG — Veroraportti</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --fd:#1c2b1e;--fg:#5DCAA5;--fg2:#1D9E75;--fg3:#0F6E56;
@@ -316,8 +315,8 @@ body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:13p
 </div>
 
 <script>
-const _sb = supabase.createClient(window._SKOG.supabaseUrl, window._SKOG.supabaseKey);
-const AVOIN_VUOSI = window._SKOG.avoinVuosi;
+// Vuosi tulee URL:sta tai API-reitiltä (asiakkaan avoin vuosi tai kuluva vuosi)
+let AVOIN_VUOSI = window._SKOG.vuosi;
 
 const fmt = n => (Math.round(n * 100) / 100).toLocaleString('fi-FI', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 const fmtPvm = s => s ? new Date(s).toLocaleDateString('fi-FI') : '—';
@@ -355,35 +354,20 @@ async function selAs(id) {
 }
 
 async function lataaData(asiakas_id) {
-  const vuosi = AVOIN_VUOSI;
-
-  const [
-    { data: tapahtumat },
-    { data: tilat },
-    { data: investoinnit },
-    { data: asiakasData },
-  ] = await Promise.all([
-    _sb.from('tapahtumat')
-      .select('tyyppi, kuvaus, paivamaara, summa_alv0, alv_prosentti, ennakko, kategoria')
-      .eq('asiakas_id', asiakas_id).eq('verovuosi', vuosi).order('paivamaara'),
-    _sb.from('metsatilat')
-      .select('id, nimi, hankintahinta, hankintapvm, metsämaan_osuus_prosentti')
-      .eq('asiakas_id', asiakas_id),
-    _sb.from('investoinnit')
-      .select('id, kuvaus, hankintahinta, poistoaika_vuotta, poistotapa, jaannosarvo, aktiivinen')
-      .eq('asiakas_id', asiakas_id).eq('aktiivinen', true),
-    _sb.from('asiakkaat')
-      .select('etunimi, sukunimi, osoite, postinumero, postitoimipaikka, y_tunnus, verotiliviite, avoin_vuosi')
-      .eq('id', asiakas_id).single(),
-  ]);
-
-  const tilatIds = (tilat || []).map(t => t.id);
-  const { data: vahennyksetData } = tilatIds.length > 0
-    ? await _sb.from('metsavahennykset')
-        .select('metsatila_id, verovuosi, kaytettava_vahennys')
-        .in('metsatila_id', tilatIds)
-        .order('verovuosi', { ascending: true })
-    : { data: [] };
+  // Kaikki kantahaut API-reitin kautta: selaimen anon-avaimella RLS esti ne
+  document.getElementById('loading').textContent = 'Ladataan tietoja…';
+  const q = new URLSearchParams({ asiakas_id });
+  if (window._SKOG.vuosi) q.set('vuosi', window._SKOG.vuosi);
+  const res = await fetch('/api/veroraportti?' + q.toString());
+  if (!res.ok) {
+    document.getElementById('loading').textContent = 'Raportin tietoja ei saatu haettua. Päivitä sivu ja yritä uudelleen.';
+    return;
+  }
+  const {
+    vuosi, asiakas: asiakasData, tapahtumat, tilat, investoinnit,
+    vahennykset: vahennyksetData, poistot: totPoistot,
+  } = await res.json();
+  AVOIN_VUOSI = vuosi;
   const totVahennykset = vahennyksetData || [];
 
   const rows = tapahtumat || [];
@@ -599,10 +583,6 @@ async function lataaData(asiakas_id) {
   if (invR.length === 0) {
     document.getElementById('r-investoinnit').innerHTML = '<p style="color:var(--inu);font-size:12px">Ei aktiivisia investointeja.</p>';
   } else {
-    const { data: totPoistot } = await _sb.from('poistot')
-      .select('investointi_id, verovuosi, poistomaara, jaannosarvo_vuoden_lopussa')
-      .in('investointi_id', invR.map(i => i.id))
-      .order('verovuosi', { ascending: true });
 
     let html4 = '';
     invR.forEach(inv => {
@@ -708,7 +688,6 @@ async function lataaData(asiakas_id) {
   document.getElementById('print-btn').style.display = 'block';
 
   const lukittu = ak.avoin_vuosi !== AVOIN_VUOSI;
-  console.log('avoin_vuosi:', ak.avoin_vuosi, 'AVOIN_VUOSI:', AVOIN_VUOSI, 'lukittu:', lukittu);
   document.getElementById('draft-wm').style.display = lukittu ? 'none' : 'block';
 }
 

@@ -6,7 +6,6 @@
 <title>Adepta SKOG — Käyttäjähallinta</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 :root{
   --fd:#1c2b1e;--fm:#2d4a31;--fl:#3d6b43;
@@ -157,10 +156,8 @@ body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:14p
   <!-- Navigaatio -->
   <nav class="nav">
     <div class="nav-section">Valikko</div>
-    <a class="nav-item" href="/asiakkaat"><div class="nav-dot"></div>Asiakkaat</a>
-    <a class="nav-item" href="/kirjanpito"><div class="nav-dot"></div>Kirjanpito</a>
-    <a class="nav-item" href="/verosuunnitelma"><div class="nav-dot"></div>Verosuunnitelma</a>
-    <a class="nav-item" href="/veroraportti"><div class="nav-dot"></div>Veroraportti</a>
+    <a class="nav-item" href="/"><div class="nav-dot"></div>Etusivu</a>
+    <a class="nav-item" href="/asiakas"><div class="nav-dot"></div>Kirjanpidot</a>
     <div class="nav-section" style="margin-top:8px">Hallinta</div>
     <a class="nav-item act" href="/kayttajat"><div class="nav-dot"></div>Käyttäjät</a>
     <div class="nav-foot">
@@ -303,8 +300,6 @@ body{font-family:var(--ffb);background:var(--ppw);color:var(--ink);font-size:14p
 </div>
 
 <script>
-const _sb = supabase.createClient(window._SKOG.supabaseUrl, window._SKOG.supabaseKey);
-
 let KAYTTAJAT = [];
 
 // ── Apufunktiot ───────────────────────────────────────────────
@@ -322,30 +317,20 @@ const initials = nimi => {
 const avatarBg   = id  => { const c=['#2d4a31','#185FA5','#0F6E56','#633806','#3d4039']; let h=0; for(let i=0;i<id.length;i++) h=(h+id.charCodeAt(i))%c.length; return c[h]; };
 
 // ── Data ─────────────────────────────────────────────────────
+// Haku API-reitin kautta: selaimen anon-avaimella RLS palautti tyhjän listan
 async function lataaKayttajat() {
-  const [{ data }, { data: asiakkaat }] = await Promise.all([
-    _sb.from('kayttajat')
-      .select('id, etunimi, sukunimi, sahkoposti, rooli, viimeksi_kirjautunut, aktiivinen')
-      .eq('organisaatio_id', window._SKOG.orgId)
-      .order('sukunimi'),
-    _sb.from('asiakkaat')
-      .select('vastuukirjanpitaja_id')
-      .eq('organisaatio_id', window._SKOG.orgId)
-      .is('poistettu_at', null),
-  ]);
-  const asiakasMaara = {};
-  (asiakkaat || []).forEach(a => {
-    if (a.vastuukirjanpitaja_id) asiakasMaara[a.vastuukirjanpitaja_id] = (asiakasMaara[a.vastuukirjanpitaja_id] || 0) + 1;
-  });
-  KAYTTAJAT = (data || []).map(k => ({
+  const res = await fetch('/api/kayttajat?kaikki=1');
+  if (!res.ok) { toast('Käyttäjien haku epäonnistui'); return; }
+  const { oma_id, kayttajat } = await res.json();
+  KAYTTAJAT = (kayttajat || []).map(k => ({
     id: k.id,
     email: k.sahkoposti,
     nimi: (k.etunimi || '') + ' ' + (k.sukunimi || ''),
     rooli: k.rooli,
     tila: k.aktiivinen ? 'active' : 'inactive',
     login: k.viimeksi_kirjautunut ? new Date(k.viimeksi_kirjautunut).toLocaleString('fi-FI') : '—',
-    oma: k.sahkoposti === window._SKOG.email,
-    asiakkaat: asiakasMaara[k.id] || 0,
+    oma: k.id === oma_id,
+    asiakkaat: k.asiakkaita || 0,
   }));
   renderUsers(KAYTTAJAT);
   updateStats();
@@ -451,8 +436,8 @@ document.querySelectorAll('.overlay').forEach(el => {
 async function tallennaMuokkaus() {
   const id = document.getElementById('m-id').value;
   const rooli = document.getElementById('m-rooli').value;
-  const { error } = await _sb.from('kayttajat').update({ rooli }).eq('id', id).eq('organisaatio_id', window._SKOG.orgId);
-  if (error) { toast('Virhe: ' + error.message); return; }
+  const res = await fetch('/api/kayttajat/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ rooli }) });
+  if (!res.ok) { const d = await res.json().catch(() => ({})); toast(d.error || 'Tallennus epäonnistui'); return; }
   suljeMuokkaaModal();
   await lataaKayttajat();
   toast('Rooli päivitetty');
@@ -464,8 +449,8 @@ async function deaktivoi(id) {
   const aktivointi = u.tila === 'inactive';
   const teksti = aktivointi ? `Aktivoidaanko käyttäjä ${u.nimi}?` : `Deaktivoidaanko käyttäjä ${u.nimi}?\nKäyttäjä menettää pääsyn välittömästi.`;
   if (!confirm(teksti)) return;
-  const { error } = await _sb.from('kayttajat').update({ aktiivinen: aktivointi }).eq('id', id).eq('organisaatio_id', window._SKOG.orgId);
-  if (error) { toast('Virhe: ' + error.message); return; }
+  const res = await fetch('/api/kayttajat/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ aktiivinen: aktivointi }) });
+  if (!res.ok) { const d = await res.json().catch(() => ({})); toast(d.error || 'Tallennus epäonnistui'); return; }
   await lataaKayttajat();
   toast(u.nimi + (aktivointi ? ' aktivoitu' : ' deaktivoitu'));
 }

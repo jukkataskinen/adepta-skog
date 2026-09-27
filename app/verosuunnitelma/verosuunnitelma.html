@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Adepta SKOG — Verosuunnitelma</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;1,9..144,300&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --fd:#1c2b1e;--fg:#5DCAA5;--fg2:#1D9E75;--fg3:#0F6E56;
@@ -272,8 +271,8 @@ input[type=range]:disabled{opacity:.4;cursor:not-allowed}
 </div>
 
 <script>
-const _sb = supabase.createClient(window._SKOG.supabaseUrl, window._SKOG.supabaseKey);
-const AVOIN_VUOSI = window._SKOG.avoinVuosi;
+// Vuosi tulee URL:sta tai API-reitiltä (asiakkaan avoin vuosi tai kuluva vuosi)
+let AVOIN_VUOSI = window._SKOG.vuosi;
 
 const fmt = n => (Math.round(n*100)/100).toLocaleString('fi-FI',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
 const pct = n => (Math.round(n*10)/10).toLocaleString('fi-FI')+'%';
@@ -310,28 +309,27 @@ async function selAs(id) {
   document.getElementById('content').style.display = 'block';
   document.getElementById('laskuri').style.display = 'none';
   document.getElementById('loading-msg').style.display = 'block';
-  document.getElementById('hero-yr').textContent = 'Verovuosi ' + AVOIN_VUOSI;
-
   await lataaData(id);
+  document.getElementById('hero-yr').textContent = 'Verovuosi ' + AVOIN_VUOSI;
 }
 
 async function lataaData(asiakas_id) {
-  const vuosi = AVOIN_VUOSI;
-
-  // Tapahtumat
-  const { data: tapahtumat } = await _sb.from('tapahtumat')
-    .select('tyyppi, summa_alv0')
-    .eq('asiakas_id', asiakas_id)
-    .eq('verovuosi', vuosi);
+  // Kantahaut API-reitin kautta: selaimen anon-avaimella RLS esti ne
+  const q = new URLSearchParams({ asiakas_id });
+  if (window._SKOG.vuosi) q.set('vuosi', window._SKOG.vuosi);
+  const res = await fetch('/api/verosuunnitelma?' + q.toString());
+  if (!res.ok) {
+    document.getElementById('loading-msg').textContent = 'Tietoja ei saatu haettua. Päivitä sivu ja yritä uudelleen.';
+    return;
+  }
+  const { vuosi, tapahtumat, tilat, investoinnit: inv } = await res.json();
+  AVOIN_VUOSI = vuosi;
 
   TULOT = tapahtumat?.filter(t => t.tyyppi === 'tulo').reduce((s, t) => s + Number(t.summa_alv0), 0) ?? 0;
   MENOT = tapahtumat?.filter(t => t.tyyppi === 'meno').reduce((s, t) => s + Number(t.summa_alv0), 0) ?? 0;
   TULOS0 = TULOT - MENOT;
 
   // Metsätilat
-  const { data: tilat } = await _sb.from('metsatilat')
-    .select('nimi, hankintahinta, metsämaan_osuus_prosentti, vahennyspohjaa_kaytetty')
-    .eq('asiakas_id', asiakas_id);
   TILAT = (tilat || []).map(t => ({
     nimi: t.nimi,
     hinta: Number(t.hankintahinta || 0),
@@ -340,16 +338,13 @@ async function lataaData(asiakas_id) {
   }));
 
   // Investoinnit
-  const { data: inv } = await _sb.from('investoinnit')
-    .select('kuvaus, hankintahinta, poistoaika_vuotta, poistotapa, jaannosarvo')
-    .eq('asiakas_id', asiakas_id)
-    .eq('aktiivinen', true);
   INV = (inv || []).map(i => {
     const pohja = Number(i.hankintahinta) - Number(i.jaannosarvo || 0);
     const vuosipoisto = i.poistotapa === 'tasa'
       ? pohja / Number(i.poistoaika_vuotta)
       : pohja * 0.25;
     return {
+      id: i.id,
       nimi: i.kuvaus,
       tapa: i.poistotapa,
       max: Math.round(vuosipoisto),
@@ -528,50 +523,25 @@ async function tallennaVerosuunnitelma() {
   const mv = parseInt(document.getElementById('mv-s').value) || 0;
   const ht = parseInt(document.getElementById('ht-s').value) || 0;
 
-  // Tallenna metsävähennys jos > 0
-  if (mv > 0) {
-    const { data: tilat } = await _sb.from('metsatilat')
-      .select('id, vahennyspohjaa_kaytetty').eq('asiakas_id', aktiivinenId);
-    if (tilat && tilat.length > 0) {
-      await _sb.from('metsavahennykset').upsert({
-        asiakas_id: aktiivinenId,
-        metsatila_id: tilat[0].id,
-        verovuosi: vuosi,
-        kaytettava_vahennys: mv,
-      }, { onConflict: 'metsatila_id,verovuosi' });
+  // Liukusäädin ps-i vastaa latauksessa saatua investointia INV[i]. Tunniste lähetetään mukana,
+  // jotta palvelin tallentaa poiston oikealle investoinnille eikä järjestykseen luoteta.
+  const poistot = INV.map((i, idx) => {
+    const slider = document.getElementById('ps-' + idx);
+    return { investointi_id: i.id, poistomaara: slider ? (parseFloat(slider.value) || 0) : 0 };
+  }).filter(p => p.poistomaara > 0);
 
-      await _sb.from('metsatilat').update({
-        vahennyspohjaa_kaytetty: (Number(tilat[0].vahennyspohjaa_kaytetty || 0)) + mv,
-      }).eq('id', tilat[0].id);
-    }
+  const res = await fetch('/api/verosuunnitelma', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ asiakas_id: aktiivinenId, vuosi, metsavahennys: mv, poistot }),
+  });
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    alert(d.error || 'Tallennus epäonnistui. Yritä uudelleen.');
+    return;
   }
 
-  // Tallenna poistot investoinneittain
-  const { data: inv } = await _sb.from('investoinnit')
-    .select('id, kuvaus, hankintahinta, jaannosarvo, poistoaika_vuotta, poistotapa')
-    .eq('asiakas_id', aktiivinenId).eq('aktiivinen', true);
-
-  if (inv && inv.length > 0) {
-    for (let i = 0; i < inv.length; i++) {
-      const slider = document.getElementById('ps-' + i);
-      if (!slider) continue;
-      const poistomaara = parseFloat(slider.value) || 0;
-      if (poistomaara === 0) continue;
-
-      const jaannosNyt = inv[i].poistotapa === 'menojannos'
-        ? Number(inv[i].hankintahinta) * 0.75
-        : Number(inv[i].hankintahinta) - poistomaara;
-
-      await _sb.from('poistot').upsert({
-        investointi_id: inv[i].id,
-        verovuosi: vuosi,
-        poistomaara: poistomaara,
-        jaannosarvo_vuoden_lopussa: Math.max(0, jaannosNyt),
-      }, { onConflict: 'investointi_id,verovuosi' });
-    }
-  }
-
-  alert('Verosuunnitelma tallennettu! Vuosi voidaan nyt sulkea.');
+  alert('Verosuunnitelma tallennettu. Vuosi voidaan nyt sulkea.');
 }
 
 // Alustus

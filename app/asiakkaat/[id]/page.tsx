@@ -7,6 +7,7 @@ import MuokkausForm from './MuokkausForm'
 import MetsatilaForm from './MetsatilaForm'
 import InvestointiForm from './InvestointiForm'
 import VuosiModal from './VuosiModal'
+import { kuluvaVuosi } from '@/lib/vuosi'
 
 type Params = { params: { id: string } }
 
@@ -57,11 +58,8 @@ export default async function AsiakasPage({ params }: Params) {
         <a href="/" style={{ fontFamily: "'Fraunces', serif", fontSize: '1.2rem', fontWeight: 600, color: '#1D9E75', textDecoration: 'none', padding: '0 1.25rem', marginBottom: '2rem', display: 'block' }}>Adepta SKOG</a>
         {[
           { label: 'Asiakkaat', href: '/asiakkaat' },
-          { label: 'Kirjanpito', href: '/kirjanpito' },
-          { label: 'ALV-raportti', href: '/kirjanpito/alv' },
-          { label: 'Verosuunnitelma', href: '/vero-optimointi' },
+          { label: 'Kirjanpidot', href: '/asiakas' },
           { label: 'Käyttäjät', href: '/kayttajat' },
-          { label: 'Asetukset', href: '/asetukset' },
         ].map((link) => (
           <a key={link.href} href={link.href} style={{ padding: '0.6rem 1.25rem', fontSize: '0.9rem', color: link.href === '/asiakkaat' ? '#1D9E75' : '#9ab89e', textDecoration: 'none', fontWeight: link.href === '/asiakkaat' ? 500 : 400, borderLeft: link.href === '/asiakkaat' ? '2px solid #1D9E75' : '2px solid transparent' }}>{link.label}</a>
         ))}
@@ -98,12 +96,12 @@ export default async function AsiakasPage({ params }: Params) {
             <div style={{ border: '1px solid #2e4a32', borderRadius: '0.75rem', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '2rem' }}>
               <div>
                 <p style={{ fontSize: '0.75rem', color: '#7a9e7e', margin: '0 0 0.25rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Avoin verovuosi</p>
-                <p style={{ fontSize: '2rem', fontFamily: "'Fraunces', serif", fontWeight: 300, color: '#1D9E75', margin: 0 }}>{asiakas.avoin_vuosi ?? 2025}</p>
+                <p style={{ fontSize: '2rem', fontFamily: "'Fraunces', serif", fontWeight: 300, color: '#1D9E75', margin: 0 }}>{asiakas.avoin_vuosi ?? kuluvaVuosi()}</p>
               </div>
               <div style={{ fontSize: '0.85rem', color: '#7a9e7e', flex: 1 }}>
                 Sulje vuosi vaihtamalla avoin verovuosi seuraavalle vuodelle.
               </div>
-              <VuosiModal asiakas={{ id: asiakas.id, avoin_vuosi: asiakas.avoin_vuosi ?? 2025 }} />
+              <VuosiModal asiakas={{ id: asiakas.id, avoin_vuosi: asiakas.avoin_vuosi ?? kuluvaVuosi() }} />
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>

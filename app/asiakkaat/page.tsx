@@ -14,13 +14,11 @@ type Asiakas = {
   kotikunta: string | null
 }
 
+// Kirjanpito, ALV ja verosuunnitelma ovat asiakassivun (/asiakas) välilehtiä, eikä omia sivuja enää ole
 const navLinks = [
   { label: 'Asiakkaat', href: '/asiakkaat' },
-  { label: 'Kirjanpito', href: '/kirjanpito' },
-  { label: 'ALV-raportti', href: '/kirjanpito/alv' },
-  { label: 'Verosuunnitelma', href: '/vero-optimointi' },
+  { label: 'Kirjanpidot', href: '/asiakas' },
   { label: 'Käyttäjät', href: '/kayttajat' },
-  { label: 'Asetukset', href: '/asetukset' },
 ]
 
 export default async function AsiakkaatPage() {

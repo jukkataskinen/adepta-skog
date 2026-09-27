@@ -3,6 +3,7 @@ import { auth0 } from '@/lib/auth0'
 import { supabaseAdmin as supabase } from '@/lib/supabase'
 import fs from 'fs'
 import path from 'path'
+import { kuluvaVuosi } from '@/lib/vuosi'
 
 export async function GET(request: NextRequest) {
   const session = await auth0.getSession(request)
@@ -14,7 +15,8 @@ export async function GET(request: NextRequest) {
     .from('kayttajat').select('organisaatio_id').eq('auth_sub', session.user.sub).single()
   const orgId = kayttaja?.organisaatio_id ?? ''
 
-  const avoinVuosi = 2025
+  // Oletus vain asiakkaalle, jolla ei ole avointa vuotta. Muuten sivu käyttää asiakkaan omaa vuotta.
+  const avoinVuosi = kuluvaVuosi()
 
   const { data: asiakkaat } = await supabase!
     .from('asiakkaat')

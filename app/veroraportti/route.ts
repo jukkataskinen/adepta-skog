@@ -3,6 +3,7 @@ import { auth0 } from '@/lib/auth0'
 import { supabaseAdmin as supabase } from '@/lib/supabase'
 import fs from 'fs'
 import path from 'path'
+import { kelvollinenVuosi } from '@/lib/vuosi'
 
 export async function GET(request: NextRequest) {
   const session = await auth0.getSession(request)
@@ -15,8 +16,12 @@ export async function GET(request: NextRequest) {
   const orgId = kayttaja?.organisaatio_id ?? ''
 
   const url = new URL(request.url)
-  const vuosiParam = url.searchParams.get('vuosi')
-  const avoinVuosi = vuosiParam ? parseInt(vuosiParam) : 2025
+  // Ilman asiakasta sivulla ei ole mitään näytettävää: asiakassivun välilehti korvaa erillisen sivun
+  if (!url.searchParams.get('asiakas_id')) {
+    return NextResponse.redirect(new URL('/asiakas', request.url))
+  }
+  // Vuosi vain, jos se on annettu. Muuten API-reitti käyttää asiakkaan avointa vuotta tai kuluvaa vuotta.
+  const vuosi = kelvollinenVuosi(url.searchParams.get('vuosi'))
 
   const { data: asiakkaat } = await supabase!
     .from('asiakkaat')
@@ -29,11 +34,8 @@ export async function GET(request: NextRequest) {
 
   const configScript = `<script>
 window._SKOG = ${JSON.stringify({
-    orgId,
-    avoinVuosi,
+    vuosi,
     asiakkaat: (asiakkaat ?? []).map(a => ({ id: a.id, nimi: `${a.sukunimi} ${a.etunimi}` })),
-    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-    supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
   })};
 </script>`
 
