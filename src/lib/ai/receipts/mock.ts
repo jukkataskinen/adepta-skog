@@ -1,5 +1,6 @@
 import "server-only";
 import type { ReceiptFile, ReceiptRecognizer } from "./index";
+import { isWholeFile, mapChunkPages, validateChunkRecognition, type ChunkRange } from "./chunks";
 import { validateRecognition, type RecognitionResult } from "./schema";
 
 /**
@@ -11,45 +12,69 @@ import { validateRecognition, type RecognitionResult } from "./schema";
  *     vuosi-ilmoitus (sivut 1–2) ja taimilasku (sivut 3–4) tilisiirtolomakkeineen
  * Nimessä oleva päivä (p.k.vvvv tai vvvv-kk-pp) ja summa otetaan mukaan, muuten
  * päivä jää tyhjäksi ja summa on 100 €.
+ *
+ * Osissa luettava pitkä PDF (yli palan kokoinen): rivit tehdään palan sivuista,
+ * ks. chunkExample. Nimi "osavirhe" saa sivun 17 sisältävän palan epäonnistumaan
+ * kahdesti peräkkäin, jotta uusinta ja "Sivuja … ei voitu lukea" näkyvät selaimessa.
  */
+/** Epäonnistumiset palaa kohden (vain testitila, palvelinprosessin muistissa). */
+const failures = new Map<string, number>();
+
 export function mockRecognizer(): ReceiptRecognizer {
   return {
     mode: "mock",
     model: "mock",
-    async recognize(file: ReceiptFile): Promise<RecognitionResult> {
+    async recognize(file: ReceiptFile, _signal?: AbortSignal, chunk?: ChunkRange): Promise<RecognitionResult> {
       const name = file.fileName.replace(/\.[a-z0-9]+$/i, "").toLowerCase();
       if (name.includes("rikki")) return { ok: false };
-      let date: string | null = null;
-      const iso = /(\d{4})-(\d{2})-(\d{2})/.exec(name);
-      const fi = /(\d{1,2})\.(\d{1,2})\.(\d{4})/.exec(name);
-      if (iso) date = `${iso[1]}-${iso[2]}-${iso[3]}`;
-      else if (fi) date = `${fi[3]}-${fi[2].padStart(2, "0")}-${fi[1].padStart(2, "0")}`;
-      const rest = name.replace(/\d{4}-\d{2}-\d{2}|\d{1,2}\.\d{1,2}\.\d{4}/g, " ");
-      // Pitkä numerosarja on skannerin aikaleima tai tunniste eikä summa, joten summaksi kelpaa enintään kuusinumeroinen luku.
-      const amountMatch = /(?<!\d)(\d{1,6}(?:[.,]\d{1,2})?)(?!\d)/.exec(rest);
-      const amount = amountMatch ? Number(amountMatch[1].replace(",", ".")) : 100;
-      const reasoning = "Testitila: ehdotus on johdettu tiedostonimestä, tositetta ei luettu.";
-      if (/kokooma|vuosi-ilmoitus|vuosi_ilmoitus/.test(name)) return validateRecognition(compilationExample(name, reasoning));
-      const timber = /puukauppa|tilitys|pystykauppa/.test(name);
-      const doc = (type: string, source: string) => ({ document_index: 1, source_document: source, document_type: type, pages: [1], contract_number: null, invoice_number: null, document_total: null });
-      const raw = timber
-        ? {
-            lines: [
-              {
-                ...doc("timber_settlement", "Puukaupan tilitys, Puunostaja"), date, description: "Puunostaja, pystykauppa", amount_gross: amount || 12400, vat_rate: 25.5, category: "standing_sale",
-                withholding: Math.round((amount || 12400) / 1.255 * 0.3 * 100) / 100, confidence: 0.5, reasoning,
-              },
-              { ...doc("timber_settlement", "Puukaupan tilitys, Puunostaja"), date, description: "Puunostaja, mittauskulut", amount_gross: 124, vat_rate: 25.5, category: "other_expense", withholding: 0, confidence: 0.4, reasoning },
-            ],
-          }
-        : {
-            lines: [
-              { ...doc("receipt", "Kuitti"), date, description: rest.replace(/[\d_,.-]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) || "Tosite", amount_gross: amount, vat_rate: 25.5, category: "other_expense", withholding: 0, confidence: 0.5, reasoning },
-            ],
-          };
-      return validateRecognition(raw);
+      if (chunk && !isWholeFile(chunk)) {
+        // Pieni viive, jotta eteneminen ja keskeytys näkyvät selaimessa (ei testeissä).
+        if (!process.env.VITEST) await new Promise((r) => setTimeout(r, 2_000));
+        if (name.includes("osavirhe") && chunk.first <= 17 && chunk.last >= 17) {
+          const key = `${name}:${chunk.first}`;
+          const n = (failures.get(key) ?? 0) + 1;
+          failures.set(key, n);
+          if (n <= 2) return { ok: false };
+        }
+        return validateChunkRecognition(chunkExample(name, chunk), chunk);
+      }
+      const whole = byName(name);
+      return whole.ok && chunk ? { ok: true, lines: mapChunkPages(whole.lines, chunk) } : whole;
     },
   };
+}
+
+/** Koko tiedoston ehdotus nimestä (tiedostoa ei lueta). */
+function byName(name: string): RecognitionResult {
+  let date: string | null = null;
+  const iso = /(\d{4})-(\d{2})-(\d{2})/.exec(name);
+  const fi = /(\d{1,2})\.(\d{1,2})\.(\d{4})/.exec(name);
+  if (iso) date = `${iso[1]}-${iso[2]}-${iso[3]}`;
+  else if (fi) date = `${fi[3]}-${fi[2].padStart(2, "0")}-${fi[1].padStart(2, "0")}`;
+  const rest = name.replace(/\d{4}-\d{2}-\d{2}|\d{1,2}\.\d{1,2}\.\d{4}/g, " ");
+  // Pitkä numerosarja on skannerin aikaleima tai tunniste eikä summa, joten summaksi kelpaa enintään kuusinumeroinen luku.
+  const amountMatch = /(?<!\d)(\d{1,6}(?:[.,]\d{1,2})?)(?!\d)/.exec(rest);
+  const amount = amountMatch ? Number(amountMatch[1].replace(",", ".")) : 100;
+  const reasoning = "Testitila: ehdotus on johdettu tiedostonimestä, tositetta ei luettu.";
+  if (/kokooma|vuosi-ilmoitus|vuosi_ilmoitus/.test(name)) return validateRecognition(compilationExample(name, reasoning));
+  const timber = /puukauppa|tilitys|pystykauppa/.test(name);
+  const doc = (type: string, source: string) => ({ document_index: 1, source_document: source, document_type: type, pages: [1], contract_number: null, invoice_number: null, document_total: null });
+  const raw = timber
+    ? {
+        lines: [
+          {
+            ...doc("timber_settlement", "Puukaupan tilitys, Puunostaja"), date, description: "Puunostaja, pystykauppa", amount_gross: amount || 12400, vat_rate: 25.5, category: "standing_sale",
+            withholding: Math.round((amount || 12400) / 1.255 * 0.3 * 100) / 100, confidence: 0.5, reasoning,
+          },
+          { ...doc("timber_settlement", "Puukaupan tilitys, Puunostaja"), date, description: "Puunostaja, mittauskulut", amount_gross: 124, vat_rate: 25.5, category: "other_expense", withholding: 0, confidence: 0.4, reasoning },
+        ],
+      }
+    : {
+        lines: [
+          { ...doc("receipt", "Kuitti"), date, description: rest.replace(/[\d_,.-]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60) || "Tosite", amount_gross: amount, vat_rate: 25.5, category: "other_expense", withholding: 0, confidence: 0.5, reasoning },
+        ],
+      };
+  return validateRecognition(raw);
 }
 
 /**
@@ -71,4 +96,50 @@ function compilationExample(name: string, reasoning: string) {
       { ...invoice, pages: [4], date: `${year}-05-14`, description: "Tilisiirto, maksettava yhteensä", amount_gross: 1882.5, vat_rate: 25.5, category: "other_expense", withholding: 0, confidence: 0.3, reasoning },
     ],
   };
+}
+
+/**
+ * Palan esimerkkirivit: lasku joka neljänneltä sivulta ja palojen rajasivulta.
+ * Rajasivu (palan viimeinen, joka on myös seuraavan palan ensimmäinen) tuottaa
+ * tahallaan saman rivin molempiin paloihin, jotta yhdistämisen poisto näkyy:
+ * lopullisessa ehdotuksessa rivi on vain kerran.
+ */
+function chunkExample(name: string, chunk: ChunkRange) {
+  const year = /(20\d{2})/.exec(name)?.[1] ?? "2025";
+  const reasoning = "Testitila: rivi on tehty palan sivunumeroista, tositetta ei luettu.";
+  const lines = [];
+  let doc = 0;
+  for (let p = chunk.first; p <= chunk.last; p++) {
+    const boundary = (p === chunk.first && p > 1) || (p === chunk.last && p < chunk.total);
+    if (p % 4 !== 0 && !boundary) continue;
+    doc++;
+    const invoice = String(1000 + p);
+    const month = String(((p - 1) % 12) + 1).padStart(2, "0");
+    const amount = 100 + p * 10;
+    lines.push({
+      document_index: doc,
+      source_document: `Lasku ${invoice}, Esimerkin Metsäpalvelu`,
+      document_type: "invoice",
+      pages: [p],
+      contract_number: null,
+      invoice_number: invoice,
+      document_total: amount,
+      date: `${year}-${month}-15`,
+      description: `Esimerkin Metsäpalvelu, sivun ${p} lasku`,
+      amount_gross: amount,
+      vat_rate: 25.5,
+      category: "other_expense",
+      withholding: 0,
+      confidence: boundary ? 0.4 : 0.6,
+      reasoning,
+    });
+  }
+  // Pala ilman laskusivua (esimerkiksi pelkkä raja) saa silti yhden rivin ensimmäiseltä sivulta.
+  if (!lines.length) {
+    lines.push({
+      document_index: 1, source_document: "Kuitti", document_type: "receipt", pages: [chunk.first], contract_number: null, invoice_number: null,
+      document_total: null, date: null, description: "Kuitti", amount_gross: 50, vat_rate: 25.5, category: "other_expense", withholding: 0, confidence: 0.3, reasoning,
+    });
+  }
+  return { lines };
 }

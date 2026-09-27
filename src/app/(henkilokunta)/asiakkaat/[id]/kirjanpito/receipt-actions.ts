@@ -8,8 +8,11 @@ import { fail } from "@/lib/forms";
 import { audit } from "@/lib/audit";
 import { getStorage } from "@/lib/storage";
 import { confirmYearReceipts, planYearReceipts, ReceiptError, type PlannedUpload } from "@/lib/documents/year-receipts";
-import { dismissSuggestion, recognizableDocument, storeSuggestion, SuggestionError } from "@/lib/documents/receipt-suggestions";
-import { receiptRecognizer, recognizeReceipt } from "@/lib/ai/receipts";
+import { dismissSuggestion, recognizableDocument, SuggestionError } from "@/lib/documents/receipt-suggestions";
+import { cancelRecognitionJob, findRecognitionJob, finishRecognitionJob, jobChunk, startRecognitionJob, storeChunkResult, type JobChunk } from "@/lib/documents/recognition-jobs";
+import { receiptRecognizer, recognizeChunk, RECOGNIZE_MAX_BYTES, type RecognizeOutcome } from "@/lib/ai/receipts";
+import { estimateText, failedPagesText, planChunks } from "@/lib/ai/receipts/chunks";
+import { countPdfPages } from "@/lib/ai/receipts/pdf";
 
 const uuid = z.string().uuid();
 const yearSchema = z.number().int().min(2000).max(2100);
@@ -96,13 +99,31 @@ export async function deleteYearReceiptAction(formData: FormData) {
 
 const NOT_RECOGNIZED = "Tositetta ei voitu tunnistaa. Voit kirjata sen käsin taulukkoon.";
 
+function recognitionError(err: unknown, fallback = NOT_RECOGNIZED): string {
+  if (err instanceof SuggestionError) return err.message;
+  if (err instanceof Error && /row-level security/.test(err.message)) return "Sinulla ei ole oikeutta tähän asiakkaaseen.";
+  if (err instanceof Error && /suljettu/.test(err.message)) return "Verovuosi on suljettu, joten tositteita ei tunnisteta.";
+  console.error("Tositteen tunnistus epäonnistui", { error: err instanceof Error ? err.name : "tuntematon" });
+  return fallback;
+}
+
+export interface StartedRecognition {
+  jobId: string;
+  pageCount: number;
+  chunks: JobChunk[];
+  resumed: boolean;
+  /** "40 sivua, 6 osaa, noin 2–3 min" (jatkettaessa jäljellä olevista osista) */
+  estimate: string;
+}
+
 /**
- * Tositteen tunnistus: tekoäly tekee kirjausehdotuksen, joka näkyy taulukossa
- * ehdotusriveinä. Tiedosto haetaan ja lähetetään tunnistukseen vasta oikeuksien
- * ja avoimen vuoden tarkistuksen jälkeen, eikä tietokantatransaktio ole auki
- * tunnistuksen aikana. Epäonnistuminen ei muuta mitään.
+ * Tunnistus osissa, vaihe 1: palasuunnitelma. Palvelin hakee tiedoston,
+ * laskee sivut ja tekee palat (8 sivua, 1 sivun limitys) ja tallentaa kesken
+ * olevan tunnistuksen, jota voi jatkaa keskeytyksen jälkeen. Kesken jäänyt
+ * tunnistus jatkuu, ellei restart ole annettu. Tiedosto haetaan vasta
+ * oikeuksien ja avoimen vuoden tarkistuksen jälkeen.
  */
-export async function recognizeReceiptAction(input: { clientId: string; year: number; documentId: string }): Promise<Result<{ lines: number }>> {
+export async function startRecognitionAction(input: { clientId: string; year: number; documentId: string; restart?: boolean }): Promise<Result<StartedRecognition>> {
   const ctx = await requireStaff();
   const actor = { organizationId: ctx.org.organizationId, userId: ctx.user.id };
   try {
@@ -110,28 +131,107 @@ export async function recognizeReceiptAction(input: { clientId: string; year: nu
     const year = yearSchema.parse(input.year);
     const documentId = uuid.parse(input.documentId);
     const doc = await ctx.run((tx) => recognizableDocument(tx, { clientId, year, documentId }));
-    let bytes: Buffer;
-    try {
-      bytes = await getStorage().get(doc.storage_path);
-    } catch {
-      console.error("Tositteen tiedostoa ei saatu tunnistukseen", { documentId });
-      return { ok: false, error: NOT_RECOGNIZED };
+    if (!input.restart) {
+      const existing = await ctx.run((tx) => findRecognitionJob(tx, clientId, documentId));
+      if (existing) {
+        const left = existing.chunks.filter((c) => c.status !== "done").length;
+        return { ok: true, value: { jobId: existing.id, pageCount: existing.pageCount, chunks: existing.chunks, resumed: true, estimate: estimateText(existing.pageCount, left) } };
+      }
     }
+    let pageCount = 1;
+    if (doc.content_type === "application/pdf") {
+      let bytes: Buffer;
+      try {
+        bytes = await getStorage().get(doc.storage_path);
+      } catch {
+        console.error("Tositteen tiedostoa ei saatu tunnistukseen", { documentId });
+        return { ok: false, error: NOT_RECOGNIZED };
+      }
+      // Jäsentymätön PDF luetaan kokonaan yhtenä palana kuten ennen (sivumäärä 0 = ei tiedossa).
+      pageCount = (await countPdfPages(bytes)) ?? 0;
+      if (!pageCount && bytes.length > RECOGNIZE_MAX_BYTES["application/pdf"]) {
+        return { ok: false, error: "Tiedostoa ei voitu jakaa osiin, ja se on liian suuri luettavaksi kerralla (enintään 20 Mt)." };
+      }
+    }
+    const chunks = planChunks(pageCount);
     const recognizer = receiptRecognizer();
-    const result = await recognizeReceipt(recognizer, { bytes, contentType: doc.content_type, fileName: doc.file_name });
-    if (!result.ok) {
-      const tooLarge = "reason" in result && result.reason === "too_large";
-      return { ok: false, error: tooLarge ? "Tiedosto on liian suuri tunnistettavaksi: kuva enintään 5 Mt, PDF enintään 20 Mt." : NOT_RECOGNIZED };
-    }
-    await ctx.run((tx) => storeSuggestion(tx, { actor, clientId, year, documentId, lines: result.lines, model: recognizer.model }));
+    const { job, resumed } = await ctx.run((tx) =>
+      startRecognitionJob(tx, { actor, clientId, year, documentId, pageCount, chunks, model: recognizer.model, restart: input.restart }),
+    );
     revalidatePath(`/asiakkaat/${clientId}/kirjanpito`);
-    return { ok: true, value: { lines: result.lines.length } };
+    return { ok: true, value: { jobId: job.id, pageCount: job.pageCount, chunks: job.chunks, resumed, estimate: estimateText(job.pageCount, job.chunks.length) } };
   } catch (err) {
-    if (err instanceof SuggestionError) return { ok: false, error: err.message };
-    if (err instanceof Error && /row-level security/.test(err.message)) return { ok: false, error: "Sinulla ei ole oikeutta tähän asiakkaaseen." };
-    if (err instanceof Error && /suljettu/.test(err.message)) return { ok: false, error: "Verovuosi on suljettu, joten tositteita ei tunnisteta." };
-    console.error("Tositteen tunnistus epäonnistui", { error: err instanceof Error ? err.name : "tuntematon" });
-    return { ok: false, error: NOT_RECOGNIZED };
+    return { ok: false, error: recognitionError(err) };
+  }
+}
+
+/**
+ * Vaihe 2: yksi pala omana kutsunaan, jotta kutsu pysyy selvästi funktion
+ * aikarajan alla (CHUNK_TIMEOUT_MS). Tiedosto haetaan, palan sivut erotetaan ja
+ * tulos tallennetaan kesken olevaan tunnistukseen. Tietokantatransaktio ei ole
+ * auki tunnistuksen aikana. Selain yrittää epäonnistunutta palaa kerran uudelleen.
+ */
+export async function recognizeChunkAction(input: { clientId: string; year: number; jobId: string; index: number }): Promise<Result<JobChunk>> {
+  const ctx = await requireStaff();
+  try {
+    const clientId = uuid.parse(input.clientId);
+    const year = yearSchema.parse(input.year);
+    const jobId = uuid.parse(input.jobId);
+    const index = z.number().int().min(0).max(400).parse(input.index);
+    const { chunk, status, attempts, doc } = await ctx.run(async (tx) => {
+      const c = await jobChunk(tx, { clientId, jobId, index });
+      return { ...c, doc: await recognizableDocument(tx, { clientId, year, documentId: c.documentId }) };
+    });
+    if (status === "done") return { ok: true, value: { first: chunk.first, last: chunk.last, status, attempts } };
+    let result: RecognizeOutcome;
+    try {
+      const bytes = await getStorage().get(doc.storage_path);
+      result = await recognizeChunk(receiptRecognizer(), { bytes, contentType: doc.content_type, fileName: doc.file_name }, chunk);
+    } catch {
+      console.error("Tositteen tiedostoa ei saatu tunnistukseen", { documentId: doc.id });
+      result = { ok: false };
+    }
+    const saved = await ctx.run((tx) => storeChunkResult(tx, { clientId, jobId, index, result: result.ok ? { ok: true, lines: result.lines } : { ok: false } }));
+    return { ok: true, value: saved };
+  } catch (err) {
+    return { ok: false, error: recognitionError(err) };
+  }
+}
+
+export type FinishedRecognition = { status: "done"; lines: number } | { status: "incomplete"; chunks: JobChunk[]; message: string | null };
+
+/**
+ * Vaihe 3: palat yhdeksi ehdotukseksi. Jos pala epäonnistui, palautetaan
+ * "Sivuja … ei voitu lukea", ja käyttäjä voi yrittää uudelleen tai tehdä
+ * ehdotuksen luetuista sivuista (allowPartial).
+ */
+export async function finishRecognitionAction(input: { clientId: string; jobId: string; allowPartial?: boolean }): Promise<Result<FinishedRecognition>> {
+  const ctx = await requireStaff();
+  const actor = { organizationId: ctx.org.organizationId, userId: ctx.user.id };
+  try {
+    const clientId = uuid.parse(input.clientId);
+    const jobId = uuid.parse(input.jobId);
+    const out = await ctx.run((tx) => finishRecognitionJob(tx, { actor, clientId, jobId, allowPartial: input.allowPartial === true }));
+    revalidatePath(`/asiakkaat/${clientId}/kirjanpito`);
+    if (out.status === "empty") return { ok: false, error: NOT_RECOGNIZED };
+    if (out.status === "incomplete") return { ok: true, value: { status: "incomplete", chunks: out.chunks, message: failedPagesText(out.chunks) } };
+    return { ok: true, value: { status: "done", lines: out.lines } };
+  } catch (err) {
+    return { ok: false, error: recognitionError(err) };
+  }
+}
+
+/** Kesken olevan tunnistuksen peruutus (esimerkiksi aika-arvion jälkeen). Tosite jää ennalleen. */
+export async function cancelRecognitionAction(input: { clientId: string; jobId: string }): Promise<Result<boolean>> {
+  const ctx = await requireStaff();
+  try {
+    const clientId = uuid.parse(input.clientId);
+    const jobId = uuid.parse(input.jobId);
+    const done = await ctx.run((tx) => cancelRecognitionJob(tx, { clientId, jobId }));
+    revalidatePath(`/asiakkaat/${clientId}/kirjanpito`);
+    return { ok: true, value: done };
+  } catch (err) {
+    return { ok: false, error: recognitionError(err, "Tunnistusta ei voitu perua. Yritä uudelleen.") };
   }
 }
 

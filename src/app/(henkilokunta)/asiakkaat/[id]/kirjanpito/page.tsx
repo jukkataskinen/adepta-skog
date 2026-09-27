@@ -23,7 +23,8 @@ import { YearReceipts } from "./YearReceipts";
 import { documentHref, parsePagesColumn, sourceDocumentLabel } from "@/lib/ai/receipts/schema";
 
 export const metadata = { title: "Kirjanpito" };
-// Tositteen tunnistus (server action tältä sivulta) voi kestää kymmeniä sekunteja.
+// Tositteen tunnistus osissa: yksi pala (server action tältä sivulta) kestää enintään
+// noin 100 s (CHUNK_TIMEOUT_MS, src/lib/ai/receipts/config.ts).
 export const maxDuration = 120;
 
 const KIND_LABEL = { income: "Tulo", expense: "Meno", investment: "Investointi" } as const;

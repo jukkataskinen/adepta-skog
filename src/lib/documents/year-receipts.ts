@@ -101,15 +101,26 @@ export interface YearReceipt {
   pending_suggestion: boolean;
   /** Kirjaukset, jotka viittaavat tähän tiedostoon (kokoomatiedosto, 0011). */
   booked_count: number;
+  /** Kesken oleva tunnistus osissa (0012): palojen tila ilman tuloksia, tai null. */
+  recognition: { jobId: string; pageCount: number; chunks: { first: number; last: number; status: "waiting" | "done" | "failed" }[] } | null;
 }
 
 export async function listYearReceipts(tx: Sql, clientId: string, year: number): Promise<YearReceipt[]> {
-  return tx.query<YearReceipt>(
+  const rows = await tx.query<Omit<YearReceipt, "recognition"> & { job_id: string | null; job_pages: number | null; job_chunks: unknown }>(
     `select d.id, d.file_name, d.content_type, d.size_bytes, d.created_at::text,
             exists (select 1 from sk_receipt_suggestions s where s.document_id = d.id and s.status = 'pending') as pending_suggestion,
-            (select count(*)::int from sk_transactions t where t.source_document_id = d.id) as booked_count
+            (select count(*)::int from sk_transactions t where t.source_document_id = d.id) as booked_count,
+            j.id as job_id, j.page_count as job_pages,
+            -- Vain palojen tila selaimelle, ei palojen rivejä.
+            (select jsonb_agg(jsonb_build_object('first', c -> 'first', 'last', c -> 'last', 'status', c -> 'status'))
+               from jsonb_array_elements(j.chunks) c) as job_chunks
        from sk_documents d
+       left join sk_receipt_suggestions j on j.document_id = d.id and j.status = 'processing'
       where d.client_id = $1 and d.tax_year = $2 and d.kind = 'receipt' and d.transaction_id is null order by d.created_at`,
     [clientId, year],
   );
+  return rows.map(({ job_id, job_pages, job_chunks, ...r }) => {
+    const chunks = typeof job_chunks === "string" ? JSON.parse(job_chunks) : job_chunks;
+    return { ...r, recognition: job_id && Array.isArray(chunks) ? { jobId: job_id, pageCount: job_pages ?? 0, chunks } : null };
+  });
 }

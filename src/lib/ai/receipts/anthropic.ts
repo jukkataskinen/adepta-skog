@@ -3,6 +3,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { CATEGORIES } from "@/lib/tax/rules";
 import type { ReceiptFile, ReceiptRecognizer } from "./index";
+import { isWholeFile, pageRangeText, validateChunkRecognition, type ChunkRange } from "./chunks";
+import { CHUNK_MAX_TOKENS, CHUNK_TIMEOUT_MS } from "./config";
 import { recognitionOutputSchema, validateRecognition, type RecognitionResult } from "./schema";
 
 /**
@@ -17,8 +19,6 @@ import { recognitionOutputSchema, validateRecognition, type RecognitionResult } 
 
 export const DEFAULT_RECEIPT_MODEL = "claude-opus-5-5";
 
-/** Yhden tunnistuksen aikaraja. Palvelinfunktion enimmäisaika on sivulla 120 s (kirjanpito/page.tsx). */
-export const RECOGNITION_TIMEOUT_MS = 90_000;
 
 const categoryList = CATEGORIES.map((c) => `- ${c.code}: ${c.label} (${c.group}; ${c.kind === "income" ? "tulo" : c.kind === "expense" ? "meno" : "investointi"})`).join("\n");
 
@@ -45,16 +45,31 @@ Rules:
 Categories:
 ${categoryList}`;
 
+/**
+ * Palan kertova teksti. Ohje (system) pysyy samana kaikissa kutsuissa, ja palan
+ * tiedot tulevat käyttäjän viestiin. Koko tiedostolle teksti on sama kuin ennen.
+ */
+export function chunkInstruction(chunk?: ChunkRange): string {
+  const base = "Tunnista tämän tiedoston kaikki asiakirjat ja niiden kirjausehdotukset.";
+  if (!chunk || isWholeFile(chunk)) return base;
+  return [
+    `Tämä tiedosto on osa pidempää skannausta: sivut ${pageRangeText(chunk.first, chunk.last)} kokonaisuudesta ${chunk.total}.`,
+    `Liitteen ensimmäinen sivu on koko skannauksen sivu ${chunk.first}. Anna pages-kenttään sivut koko skannauksen numeroinnilla (${chunk.first}–${chunk.last}).`,
+    "Asiakirja voi alkaa ennen liitteen ensimmäistä sivua tai jatkua viimeisen jälkeen. Tunnista siitä se, mikä näkyy. Numeroi asiakirjat (document_index) tämän liitteen sisällä alkaen yhdestä.",
+    base,
+  ].join(" ");
+}
+
 /** SDK:n viestirajapinta; testit antavat oman toteutuksen, jotta oikeaa palvelua ei kutsuta. */
 export type MessagesClient = Pick<Anthropic, "messages">;
 
 export function anthropicRecognizer(opts: { apiKey: string; model?: string; client?: MessagesClient }): ReceiptRecognizer {
   const model = opts.model || DEFAULT_RECEIPT_MODEL;
-  const client: MessagesClient = opts.client ?? new Anthropic({ apiKey: opts.apiKey, timeout: RECOGNITION_TIMEOUT_MS, maxRetries: 1 });
+  const client: MessagesClient = opts.client ?? new Anthropic({ apiKey: opts.apiKey, timeout: CHUNK_TIMEOUT_MS, maxRetries: 0 });
   return {
     mode: "anthropic",
     model,
-    async recognize(file: ReceiptFile, signal?: AbortSignal): Promise<RecognitionResult> {
+    async recognize(file: ReceiptFile, signal?: AbortSignal, chunk?: ChunkRange): Promise<RecognitionResult> {
       const data = file.bytes.toString("base64");
       const source: Anthropic.ContentBlockParam =
         file.contentType === "application/pdf"
@@ -64,12 +79,13 @@ export function anthropicRecognizer(opts: { apiKey: string; model?: string; clie
         const response = await client.messages.parse(
           {
             model,
-            max_tokens: 16000,
+            // Palan mitoitus: config.ts (CHUNK_MAX_TOKENS ja CHUNK_TIMEOUT_MS).
+            max_tokens: CHUNK_MAX_TOKENS,
             // Ajattelu on tällä mallilla aina päällä; keskitaso riittää tositteen lukemiseen.
             thinking: { type: "adaptive" },
             output_config: { effort: "medium", format: zodOutputFormat(recognitionOutputSchema) },
             system: RECEIPT_SYSTEM_PROMPT,
-            messages: [{ role: "user", content: [source, { type: "text", text: "Tunnista tämän tiedoston kaikki asiakirjat ja niiden kirjausehdotukset." }] }],
+            messages: [{ role: "user", content: [source, { type: "text", text: chunkInstruction(chunk) }] }],
           },
           { signal },
         );
@@ -77,7 +93,7 @@ export function anthropicRecognizer(opts: { apiKey: string; model?: string; clie
           console.warn("Tositteen tunnistus keskeytyi", { stopReason: response.stop_reason });
           return { ok: false };
         }
-        return validateRecognition(response.parsed_output);
+        return chunk ? validateChunkRecognition(response.parsed_output, chunk) : validateRecognition(response.parsed_output);
       } catch (err) {
         // Vain virheen laji ja tila lokiin: viesti voi sisältää tositteen sisältöä.
         if (err instanceof Anthropic.APIError) console.error("Tositteen tunnistus epäonnistui", { status: err.status ?? null, type: err.name });
