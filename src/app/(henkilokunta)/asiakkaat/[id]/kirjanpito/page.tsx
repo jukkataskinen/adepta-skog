@@ -11,7 +11,9 @@ import { formatDate, formatEur } from "@/lib/format";
 import { ClientTabs } from "../../ClientTabs";
 import { YearNav } from "../../YearNav";
 import { TransactionForm } from "./TransactionForm";
-import { saveTransactionAction } from "./actions";
+import { saveTransactionAction, saveTransactionBatchAction } from "./actions";
+import { BatchEntry } from "./BatchEntry";
+import { toFinnishDate } from "@/lib/ledger/transaction-input";
 
 export const metadata = { title: "Kirjanpito" };
 
@@ -22,7 +24,7 @@ export default async function LedgerPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ vuosi?: string; virhe?: string; lisatty?: string }>;
+  searchParams: Promise<{ vuosi?: string; virhe?: string; lisatty?: string; syotto?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -50,6 +52,9 @@ export default async function LedgerPage({
   const sum = summarize(rows.map((r) => ({ kind: r.kind, amountNet: Number(r.amount_net), vatRate: Number(r.vat_rate), withholding: Number(r.withholding) })));
   const today = new Date().toISOString().slice(0, 10);
   const defaultDate = year && today.startsWith(String(year)) ? today : `${year}-01-01`;
+  // Taulukkosyöttö on oma tilansa samalla sivulla, jotta kirjaukset näkyvät yläpuolella tallennuksen jälkeen.
+  const tableMode = sp.syotto === "taulukko";
+  const modeHref = (table: boolean) => `/asiakkaat/${id}/kirjanpito?vuosi=${year}${table ? "&syotto=taulukko" : ""}#uusi`;
 
   return (
     <>
@@ -147,12 +152,29 @@ export default async function LedgerPage({
             </Table>
           )}
 
-          {!closed ? (
-            <section className="mt-8">
-              <SectionTitle>Uusi kirjaus</SectionTitle>
-              <Panel>
-                <TransactionForm action={saveTransactionAction} clientId={id} assets={data.assets} properties={data.properties} defaultDate={defaultDate} submitLabel="Lisää kirjaus" compact />
-              </Panel>
+          {!closed && year !== null ? (
+            <section className="mt-8" id="uusi">
+              <SectionTitle
+                actions={
+                  <nav className="flex gap-1 text-sm" aria-label="Syöttötapa">
+                    <Link href={modeHref(false)} className={`rounded-full px-3 py-1.5 font-semibold ${tableMode ? "text-ink/60 hover:text-ink" : "bg-ink text-paper"}`} aria-current={tableMode ? undefined : "page"}>
+                      Lomake
+                    </Link>
+                    <Link href={modeHref(true)} className={`rounded-full px-3 py-1.5 font-semibold ${tableMode ? "bg-ink text-paper" : "text-ink/60 hover:text-ink"}`} aria-current={tableMode ? "page" : undefined}>
+                      Taulukkosyöttö
+                    </Link>
+                  </nav>
+                }
+              >
+                {tableMode ? "Taulukkosyöttö" : "Uusi kirjaus"}
+              </SectionTitle>
+              {tableMode ? (
+                <BatchEntry action={saveTransactionBatchAction} clientId={id} year={year} defaultDate={toFinnishDate(defaultDate)} properties={data.properties} />
+              ) : (
+                <Panel>
+                  <TransactionForm action={saveTransactionAction} clientId={id} assets={data.assets} properties={data.properties} defaultDate={defaultDate} submitLabel="Lisää kirjaus" compact />
+                </Panel>
+              )}
             </section>
           ) : null}
         </>

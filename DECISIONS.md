@@ -105,3 +105,11 @@
 **Metsävähennyspohja on verovelvolliskohtainen.** Verosuunnitelman käyttämätön pohja on omistettujen metsien pohja miinus käytetty vähennys, jota ei ole lisätty luovutusvoittoon. Tilakohtainen jäännös on vain tallennusta varten; jos yhteinen pohja on suurempi kuin tilojen jäännökset, ylimenevä osa kirjataan viimeiselle tilalle.
 
 **Rajaukset.** Määräalan tai määräosan myynti, myyntikulut ja poistamattomien tie- ja ojamenojen lisääminen hankintamenoon eivät vielä ole laskelmassa. Ne mainitaan ohjeessa ja laskurin huomautuksessa.
+
+**Taulukkosyöttö: kirjauksen säännöt yhdessä skeemassa.** Kirjauksen perustietojen tarkistus on `src/lib/ledger/transaction-input.ts`:ssä (`transactionFieldsSchema`), ja lomake laajentaa sitä investoinnin kentillä. Taulukko käyttää samaa skeemaa riveittäin, joten sääntöjä ei ole kahdessa paikassa. Skeema hyväksyy nyt myös suomalaisen päivän (p.k.vvvv) ja tarkistaa, että päivä on kalenterissa.
+
+**Taulukkosyöttö palauttaa tilan, ei `?virhe=`-ohjausta.** Rivikohtaiset virheet ja syötetyt arvot eivät mahdu URL-osoitteeseen, eikä henkilötietoa saa sinne. Server action palauttaa tilan, ja asiakaskomponentti pitää rivit tallessa. Kaikki tai ei mitään yhdessä transaktiossa: yksikin virheellinen rivi estää tallennuksen.
+
+**Taulukossa vain valitun verovuoden kirjauksia, ei investointeja.** Päivän on oltava taulukon vuonna, jotta Excelistä liitetty väärän vuoden rivi ei mene huomaamatta toiselle vuodelle; vuoden voi jättää pois (5.3.). Investoinnin hankinta ja myynti tarvitsevat hyödykkeen lajin tai myytävän investoinnin, joten ne ohjataan lomakkeelle.
+
+**Taulukkosyötön loki kirjauksittain.** Jokaisesta kirjauksesta tulee oma `transaction.create`-merkintä (lisätietona `source: table`), kuten lomakkeelta. Näin yksittäisen kirjauksen historia löytyy samalla tavalla riippumatta syöttötavasta.

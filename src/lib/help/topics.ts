@@ -161,7 +161,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     icon: "list",
     title: "Kirjanpito",
     summary: "Metsätalouden tulot, menot ja investoinnit verovuosittain, tositteet mukana.",
-    highlights: ["Kirjaukset vuosittain", "Arvonlisävero lasketaan valmiiksi", "Tosite jokaiseen kirjaukseen"],
+    highlights: ["Kirjaukset vuosittain", "Monta riviä kerralla taulukossa tai Excelistä", "Arvonlisävero lasketaan valmiiksi", "Tosite jokaiseen kirjaukseen"],
     sections: [
       {
         title: "Uusi kirjaus",
@@ -173,6 +173,44 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Jos puukaupasta on pidätetty ennakkoa, kirjoita se kenttään Ennakonpidätys.",
           "Jos kirjaus koskee yhtä metsätilaa, voit valita tilan. Tämä ei ole pakollista.",
           "Valitse Lisää kirjaus.",
+        ],
+      },
+      {
+        title: "Taulukkosyöttö",
+        text: "Kun kirjauksia on monta, taulukossa ne syntyvät nopeammin kuin lomakkeella. Voit myös liittää rivit Excelistä.",
+        steps: [
+          "Avaa asiakas, valitse välilehti Kirjanpito ja verovuosi.",
+          "Valitse sivun alaosasta Taulukkosyöttö.",
+          "Kirjoita rivin tiedot: päivä, luokka, selite ja summa ilman arvonlisäveroa. Päivän voit kirjoittaa lyhyesti, esimerkiksi 5.3., niin vuosi tulee valitusta verovuodesta.",
+          "Jätä Alv % tyhjäksi, niin ohjelma käyttää luokan tavallista verokantaa. Harmaa luku kentässä näyttää sen.",
+          "Paina Enter, niin pääset seuraavaan kenttään. Rivin lopussa Enter tekee uuden rivin. Uusi rivi saa saman päivän kuin edellinen.",
+          "Väärän rivin saat pois rivin lopun rastista.",
+          "Valitse Tallenna. Ctrl + Enter tallentaa myös.",
+        ],
+      },
+      {
+        title: "Rivit Excelistä",
+        steps: [
+          "Järjestä Excelin sarakkeet samaan järjestykseen kuin taulukossa: päivä, luokka, selite, summa ilman alv, alv %, ennakonpidätys, viite ja metsätila.",
+          "Valitse rivit Excelissä ja kopioi ne.",
+          "Napsauta taulukon ensimmäistä päiväkenttää ja liitä (Ctrl + V).",
+          "Tarkista rivit ja valitse Tallenna.",
+        ],
+        bullets: [
+          "Päivä voi olla muodossa 5.3.2025 tai 2025-03-05. Summissa saa olla pilkku ja välilyönti, esimerkiksi 1 234,50.",
+          "Luokaksi kirjoitetaan luokan nimi, esimerkiksi Pystykauppa. Metsätilaksi tilan nimi.",
+          "Jos otsikkorivi tulee mukaan, ohjelma jättää sen pois.",
+          "Jos liität keskelle taulukkoa, rivit alkavat siitä kentästä, jossa olet.",
+        ],
+      },
+      {
+        title: "Kun taulukossa on virhe",
+        bullets: [
+          "Ohjelma tarkistaa jokaisen rivin samoin kuin lomakkeella. Jos yhdessäkin rivissä on virhe, mitään ei tallenneta.",
+          "Virheellinen kenttä näkyy punaisena, ja ohje on rivin alla. Korjaa rivi ja tallenna uudelleen. Muut rivit pysyvät taulukossa.",
+          "Päivän on oltava valitulla verovuodella.",
+          "Investoinnin hankinta ja myynti kirjataan lomakkeella, koska niihin tarvitaan lisätiedot.",
+          "Suljetulle vuodelle ei voi kirjata.",
         ],
       },
       {
