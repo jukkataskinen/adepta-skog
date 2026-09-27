@@ -43,3 +43,19 @@ export async function riviOmassaOrganisaatiossa(ok: Ok, taulu: 'arkisto' | 'inve
   const { data } = await ok.supabase.from(taulu).select('asiakas_id').eq('id', id).maybeSingle()
   return asiakasOmassaOrganisaatiossa(ok, data?.asiakas_id)
 }
+
+// Palvelinkomponenteille: sama käyttäjähaku ilman NextRequestia. Palauttaa null, jos istuntoa,
+// avainta tai käyttäjää ei ole, jolloin sivu ohjaa kirjautumiseen. Anon-avaimella RLS esti haun.
+export async function haeKayttaja(): Promise<Ok | null> {
+  const session = await auth0.getSession()
+  if (!session || !supabaseAdmin) return null
+
+  const { data: kayttaja } = await supabaseAdmin
+    .from('kayttajat')
+    .select('id, organisaatio_id, rooli')
+    .eq('auth_sub', session.user.sub)
+    .single()
+  if (!kayttaja?.organisaatio_id) return null
+
+  return { kayttaja, supabase: supabaseAdmin }
+}

@@ -1,61 +1,24 @@
 export const dynamic = 'force-dynamic'
 
 import { auth0 } from '@/lib/auth0'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase'
 import LogoutButton from './components/LogoutButton'
 
 export default async function Home() {
   const session = await auth0.getSession()
   const user = session?.user
 
-  if (user && supabase) {
-    // 1. Tarkista onko käyttäjä jo olemassa — hae organisaatio_id sieltä
-    const { data: olemassaOlevaKayttaja } = await supabase
+  // Vain olemassa olevan käyttäjän kirjautumisaika päivitetään. Käyttäjä syntyy kutsusta (/api/kutsu),
+  // joten tuntematon kirjautuja ei saa omaa organisaatiota eikä liity toiseen sähköpostin perusteella.
+  // Anon-avaimella RLS esti tämän kokonaan, joten aiempi organisaation luonti ei toiminut tuotannossa.
+  if (user && supabaseAdmin) {
+    const { error } = await supabaseAdmin
       .from('kayttajat')
-      .select('organisaatio_id')
+      .update({ viimeksi_kirjautunut: new Date().toISOString() })
       .eq('auth_sub', user.sub)
-      .single()
-
-    let organisaatioId = olemassaOlevaKayttaja?.organisaatio_id ?? null
-
-    if (!organisaatioId) {
-      // 2. Tarkista onko saman emailin organisaatio jo olemassa
-      const { data: olemassaOlevaOrg } = await supabase
-        .from('organisaatiot')
-        .select('id')
-        .eq('nimi', user.email)
-        .single()
-
-      if (olemassaOlevaOrg?.id) {
-        organisaatioId = olemassaOlevaOrg.id
-      } else {
-        // 3. Luo uusi organisaatio vasta jos ei löydy
-        const { data: uusiOrg, error: orgError } = await supabase
-          .from('organisaatiot')
-          .insert({ nimi: user.email })
-          .select('id')
-          .single()
-
-        if (orgError) {
-          console.error('[Supabase organisaatio insert error]', orgError)
-        } else {
-          organisaatioId = uusiOrg.id
-        }
-      }
-    }
-
-    // 4. Upsert käyttäjä aina organisaatio_id:llä
-    const { error } = await supabase.from('kayttajat').upsert(
-      {
-        auth_sub: user.sub,
-        sahkoposti: user.email,
-        viimeksi_kirjautunut: new Date().toISOString(),
-        organisaatio_id: organisaatioId,
-      },
-      { onConflict: 'auth_sub' }
-    )
     if (error) {
-      console.error('[Supabase upsert error]', error)
+      // Vain virhekoodi lokiin, ei käyttäjän tietoja
+      console.error('[kayttajat kirjautumisaika]', error.code)
     }
   }
 

@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { auth0 } from '@/lib/auth0'
-import { supabase } from '@/lib/supabase'
+import { haeKayttaja } from '@/lib/access'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import AsiakasForm from './AsiakasForm'
@@ -26,21 +26,19 @@ export default async function AsiakkaatPage() {
   const user = session?.user
   if (!user) redirect('/auth/login')
 
-  const { data: kayttaja } = await supabase!
-    .from('kayttajat')
-    .select('organisaatio_id')
-    .eq('auth_sub', user.sub)
-    .single()
+  // Service role -avain ja organisaatiorajaus tässä, kuten API-reiteissä. Rajaus on sama kuin
+  // /api/asiakkaat-reitillä: poistetut pois, kirjanpitäjä näkee vain omat asiakkaansa.
+  const ok = await haeKayttaja()
+  if (!ok) redirect('/auth/login')
+  const { kayttaja, supabase } = ok
 
-  const organisaatioId = kayttaja?.organisaatio_id ?? null
-
-  const { data: asiakkaat } = organisaatioId
-    ? await supabase!
-        .from('asiakkaat')
-        .select('id, etunimi, sukunimi, y_tunnus, kotikunta')
-        .eq('organisaatio_id', organisaatioId)
-        .order('sukunimi')
-    : { data: [] }
+  let kysely = supabase
+    .from('asiakkaat')
+    .select('id, etunimi, sukunimi, y_tunnus, kotikunta')
+    .eq('organisaatio_id', kayttaja.organisaatio_id)
+    .is('poistettu_at', null)
+  if (kayttaja.rooli !== 'paakayttaja') kysely = kysely.eq('vastuukirjanpitaja_id', kayttaja.id)
+  const { data: asiakkaat } = await kysely.order('sukunimi')
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#1c2b1e', color: '#f0f4f1' }}>
@@ -108,7 +106,7 @@ export default async function AsiakkaatPage() {
                 Asiakkaat
               </h1>
             </div>
-            {organisaatioId && <AsiakasForm organisaatioId={organisaatioId} />}
+            <AsiakasForm organisaatioId={kayttaja.organisaatio_id} />
           </div>
 
           {!asiakkaat || asiakkaat.length === 0 ? (

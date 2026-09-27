@@ -10,6 +10,10 @@
 
 **Verosuunnitelmaa ei tallenneta suljetulle vuodelle.** Reitti hylkää tallennuksen, jos vuosi ei ole asiakkaan avoin vuosi, koska suljetun vuoden luvut on voitu jo ilmoittaa verottajalle.
 
+**Asiakassivut palvelimella service role -avaimella.** `/asiakkaat` ja `/asiakkaat/[id]` käyttivät palvelimella anon-avainta, joten RLS esti ne. Ne käyttävät nyt `haeKayttaja()`-apua ja rajaavat organisaatioon kuten API-reitit. Lista rajataan samoin kuin `/api/asiakkaat`: poistetut pois, kirjanpitäjä näkee vain omat asiakkaansa.
+
+**Etusivu ei luo organisaatioita.** Etusivu päivittää vain olemassa olevan käyttäjän kirjautumisajan. Uusi käyttäjä syntyy kutsusta. Service role -avaimella vanha koodi olisi alkanut luoda organisaation jokaiselle tuntemattomalle kirjautujalle ja liittää sähköpostin perusteella olemassa olevaan organisaatioon. Anon-avaimella se ei toiminut tuotannossa, joten käytös ei muutu.
+
 ## 2026-09-26
 
 **Uudelleenrakennus eRapun ja Mittarilukeman pohjalle.** Vanha sovellus käyttää service role -avainta, joten organisaatiorajaus on jokaisen reitin varassa, ja se oli unohtunut tapahtumista, arkistosta ja investoinneista. Osa sivuista käyttää kantaa suoraan selaimesta anon-avaimella. Yhteisellä pohjalla rajaus tulee kannan RLS:stä, ja kaikissa projekteissa on samat toiminnot ja käytännöt.

@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import { auth0 } from '@/lib/auth0'
-import { supabase } from '@/lib/supabase'
+import { haeKayttaja } from '@/lib/access'
 import { redirect, notFound } from 'next/navigation'
 import MuokkausForm from './MuokkausForm'
 import MetsatilaForm from './MetsatilaForm'
@@ -15,15 +15,10 @@ export default async function AsiakasPage({ params }: Params) {
   const session = await auth0.getSession()
   if (!session?.user) redirect('/auth/login')
 
-  if (!supabase) return <p>Supabase ei konfiguroitu</p>
-
-  const { data: kayttaja } = await supabase
-    .from('kayttajat')
-    .select('organisaatio_id, rooli')
-    .eq('auth_sub', session.user.sub)
-    .single()
-
-  if (!kayttaja) redirect('/auth/login')
+  // Service role -avain ja organisaatiorajaus tässä, kuten API-reiteissä: anon-avaimella RLS esti haut
+  const ok = await haeKayttaja()
+  if (!ok) redirect('/auth/login')
+  const { kayttaja, supabase } = ok
 
   const { data: asiakas } = await supabase
     .from('asiakkaat')

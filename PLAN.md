@@ -37,8 +37,8 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [x] Selvitä, ovatko taulut auki anon-avaimelle: eivät ole (BLOCKERS 1, 26.9.2026)
 - [x] Erilliset sivut eivät saaneet tietoja, koska ne käyttivät kantaa selaimesta. Veroraportti, verosuunnitelma ja käyttäjät hakevat ja tallentavat nyt API-reittien kautta (`/api/veroraportti`, `/api/verosuunnitelma`, `/api/kayttajat`). Kirjanpito- ja ALV-sivut ohjaavat asiakassivulle (27.9.2026)
 - [x] Kovakoodattu verovuosi 2025 pois kuudesta reitistä ja asiakassivulta: asiakkaan avoin vuosi tai kuluva vuosi (`lib/vuosi.ts`) (27.9.2026)
-- [ ] Asiakaslista `/asiakkaat` ja asiakkaan sivu `/asiakkaat/[id]` sekä etusivun käyttäjän tallennus käyttävät anon-avainta palvelimella, joten RLS estää nekin. Asiakassivun murupolku vie `/asiakkaat`-sivulle.
-- [ ] Verosuunnitelman tallennus kasvattaa metsätilan `vahennyspohjaa_kaytetty`-kenttää joka tallennuksella, joten saman vuoden uudelleentallennus laskee käytön kahteen kertaan. Vanha toiminta säilytettiin.
+- [x] Asiakaslista `/asiakkaat`, asiakkaan sivu `/asiakkaat/[id]` ja etusivun kirjautumisajan tallennus service role -avaimella ja organisaatiorajauksella (`haeKayttaja` `lib/access.ts`:ssä). Etusivu ei enää luo organisaatiota tuntemattomalle kirjautujalle (27.9.2026)
+- [ ] Verosuunnitelman tallennus kasvattaa metsätilan `vahennyspohjaa_kaytetty`-kenttää joka tallennuksella, joten saman vuoden uudelleentallennus laskee käytön kahteen kertaan. Vanha toiminta säilytetään tarkoituksella, koska uuden sovelluksen tuonti olettaa sen.
 - [ ] Varmista Auth0:ssa, että itserekisteröinti on suljettu (BLOCKERS 2).
 
 ### 1. Perusta (`v2`)
