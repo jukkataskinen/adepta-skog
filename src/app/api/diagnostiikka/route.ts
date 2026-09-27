@@ -29,10 +29,11 @@ export async function GET() {
     database: host(databaseUrl()),
     databaseFrom: process.env.DATABASE_URL ? "DATABASE_URL" : process.env.POSTGRES_URL ? "POSTGRES_URL" : null,
     storageMode: process.env.STORAGE_MODE ?? null,
+    aiMode: process.env.AI_MODE ?? null,
     supabase: host(process.env.SUPABASE_URL),
     appBaseUrl: process.env.APP_BASE_URL ?? null,
     set: Object.fromEntries(
-      ["SESSION_SECRET", "FIELD_ENCRYPTION_KEY", "SUPABASE_SERVICE_ROLE_KEY", "AUTH0_DOMAIN", "AUTH0_CLIENT_ID", "AUTH0_CLIENT_SECRET", "AUTH0_SECRET"].map((n) => [n, set(n)]),
+      ["SESSION_SECRET", "FIELD_ENCRYPTION_KEY", "SUPABASE_SERVICE_ROLE_KEY", "AUTH0_DOMAIN", "AUTH0_CLIENT_ID", "AUTH0_CLIENT_SECRET", "AUTH0_SECRET", "ANTHROPIC_API_KEY"].map((n) => [n, set(n)]),
     ),
   });
 }
