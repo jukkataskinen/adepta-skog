@@ -3,7 +3,7 @@ import { Button, Notice, PageHeader, Panel, SectionTitle } from "@/components/ui
 import { FormError } from "@/components/FormError";
 import { requireStaff } from "@/lib/auth/current-user";
 import { getClient } from "@/lib/clients/queries";
-import { getTransaction, listAssets, listTransactionDocuments, listYears } from "@/lib/ledger/queries";
+import { getTransaction, listAssets, listPropertyOptions, listTransactionDocuments, listYears } from "@/lib/ledger/queries";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { TransactionForm } from "../TransactionForm";
 import { deleteDocumentAction, deleteTransactionAction, saveTransactionAction, uploadReceiptAction } from "../actions";
@@ -32,6 +32,7 @@ export default async function TransactionPage({
       transaction,
       documents: await listTransactionDocuments(tx, kirjausId),
       assets: await listAssets(tx, id),
+      properties: await listPropertyOptions(tx, id),
       years: await listYears(tx, id),
     };
   });
@@ -53,10 +54,10 @@ export default async function TransactionPage({
       <Panel className="max-w-4xl">
         {closed ? (
           <fieldset disabled className="opacity-70">
-            <TransactionForm action={saveTransactionAction} clientId={id} transaction={{ ...t, document_count: 0 }} assets={data.assets} defaultDate={t.booked_on} submitLabel="Tallenna" />
+            <TransactionForm action={saveTransactionAction} clientId={id} transaction={{ ...t, document_count: 0 }} assets={data.assets} properties={data.properties} defaultDate={t.booked_on} submitLabel="Tallenna" />
           </fieldset>
         ) : (
-          <TransactionForm action={saveTransactionAction} clientId={id} transaction={{ ...t, document_count: 0 }} assets={data.assets} defaultDate={t.booked_on} submitLabel="Tallenna" />
+          <TransactionForm action={saveTransactionAction} clientId={id} transaction={{ ...t, document_count: 0 }} assets={data.assets} properties={data.properties} defaultDate={t.booked_on} submitLabel="Tallenna" />
         )}
       </Panel>
 

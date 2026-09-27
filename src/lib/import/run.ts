@@ -24,7 +24,9 @@ import {
  * Kutsuja: scripts/import-legacy.mts. Testit: tests/db/legacy-import.test.ts.
  *
  * Ajo on toistettava: rivit tunnistetaan vanhalla tunnisteella (legacy_id),
- * eikä jo tuotuja rivejä kirjoiteta uudelleen. Tiedostoja ei tallenneta
+ * eikä jo tuotuja rivejä kirjoiteta uudelleen. Myöhemmin lisätyt kentät
+ * (migraatio 0004) täydennetään jo tuotuihin riveihin, jos ne ovat tyhjiä.
+ * Tiedostoja ei tallenneta
  * täällä: ne palautetaan kutsujalle, joka tallentaa ne ennen transaktion loppua.
  */
 
@@ -103,12 +105,12 @@ export async function importLegacyData(tx: Sql, input: { orgName: string; create
     const responsible = m.legacyResponsibleId ? (userMap.get(m.legacyResponsibleId) ?? null) : null;
     const [row] = await tx.query<{ id: string; inserted: boolean }>(
       `insert into sk_clients (organization_id, first_name, last_name, business_id, municipality, email, phone, street, postal_code, city,
-                               tax_account_reference, vat_registered, responsible_user_id, archived_at, legacy_id)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
-       on conflict (legacy_id) do update set legacy_id = excluded.legacy_id
+                               tax_account_reference, vat_registered, responsible_user_id, archived_at, legacy_id, vat_number)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+       on conflict (legacy_id) do update set vat_number = coalesce(sk_clients.vat_number, excluded.vat_number)
        returning id, (xmax = 0) as inserted`,
       [org.id, m.firstName, m.lastName, m.businessId, m.municipality, m.email, m.phone, m.street, m.postalCode, m.city,
-        m.taxAccountReference, m.vatRegistered, responsible, m.archivedAt, m.legacyId],
+        m.taxAccountReference, m.vatRegistered, responsible, m.archivedAt, m.legacyId, m.vatNumber],
     );
     if (row.inserted) add("asiakkaita");
     clientMap.set(c.id, row.id);
@@ -128,11 +130,12 @@ export async function importLegacyData(tx: Sql, input: { orgName: string; create
     if (!client) continue;
     const [row] = await tx.query<{ id: string; inserted: boolean }>(
       `insert into sk_forest_properties (organization_id, client_id, name, property_code, area_ha, acquisition_price, acquired_on,
-                                         forest_land_share_pct, deduction_used_before, legacy_id)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       on conflict (legacy_id) do update set legacy_id = excluded.legacy_id
+                                         forest_land_share_pct, deduction_used_before, legacy_id, forest_land_ha)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       on conflict (legacy_id) do update set forest_land_ha = coalesce(sk_forest_properties.forest_land_ha, excluded.forest_land_ha)
        returning id, (xmax = 0) as inserted`,
-      [org.id, client, m.name, m.propertyCode, m.areaHa, m.acquisitionPrice, m.acquiredOn, m.forestLandSharePct, m.deductionUsedBefore, m.legacyId],
+      [org.id, client, m.name, m.propertyCode, m.areaHa, m.acquisitionPrice, m.acquiredOn, m.forestLandSharePct, m.deductionUsedBefore, m.legacyId,
+        m.forestLandHa],
     );
     if (row.inserted) add("metsätiloja");
     propertyMap.set(p.id, { id: row.id, client });
@@ -150,6 +153,12 @@ export async function importLegacyData(tx: Sql, input: { orgName: string; create
     touchYear(p.client, d.verovuosi);
   }
 
+  // Vanhan kannan tila vain, jos se kuuluu samalle asiakkaalle. Muuten tila jätetään tyhjäksi.
+  const propertyFor = (legacyPropertyId: string | null, client: string) => {
+    const p = legacyPropertyId ? propertyMap.get(legacyPropertyId) : undefined;
+    return p && p.client === client ? p.id : null;
+  };
+
   // Investoinnit ja poistot. Myydyltä kohteelta puuttuu vanhassa kannassa
   // myyntipäivä, joten se asetetaan viimeisen poistovuoden loppuun (DECISIONS 26.9.2026).
   const assetMap = new Map<string, { id: string; client: string }>();
@@ -164,14 +173,15 @@ export async function importLegacyData(tx: Sql, input: { orgName: string; create
     const years = data.depreciations.filter((d) => d.investointi_id === a.id).map((d) => d.verovuosi);
     const disposedOn = m.disposed ? `${Math.max(Number(m.acquiredOn.slice(0, 4)), ...years)}-12-31` : null;
     if (m.disposed) add("myydyn kohteen päivä pääteltiin");
+    const property = propertyFor(m.legacyPropertyId, client);
     const [row] = await tx.query<{ id: string; inserted: boolean }>(
       `insert into sk_assets (organization_id, client_id, description, acquired_on, acquisition_cost, method, useful_life_years,
-                              declining_rate_pct, opening_book_value, disposed_on, legacy_id)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-       on conflict (legacy_id) do update set legacy_id = excluded.legacy_id
+                              declining_rate_pct, opening_book_value, disposed_on, legacy_id, forest_property_id)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+       on conflict (legacy_id) do update set forest_property_id = coalesce(sk_assets.forest_property_id, excluded.forest_property_id)
        returning id, (xmax = 0) as inserted`,
       [org.id, client, m.description, m.acquiredOn, m.acquisitionCost, m.method, m.usefulLifeYears, m.decliningRatePct, m.openingBookValue,
-        disposedOn, m.legacyId],
+        disposedOn, m.legacyId, property],
     );
     if (row.inserted) add("investointeja");
     assetMap.set(a.id, { id: row.id, client });
@@ -200,11 +210,27 @@ export async function importLegacyData(tx: Sql, input: { orgName: string; create
     if (m.categoryGuessed) guessedCategories++;
     const r = m.row;
     touchYear(client, Number(r.bookedOn.slice(0, 4)));
-    if ((await tx.query("select 1 from sk_transactions where legacy_id = $1", [r.legacyId])).length) continue;
+    const property = propertyFor(r.legacyPropertyId, client);
+    const [existing] = await tx.query<{ id: string; forest_property_id: string | null; closed: boolean }>(
+      "select id, forest_property_id, sk_year_is_closed(client_id, tax_year) as closed from sk_transactions where legacy_id = $1",
+      [r.legacyId],
+    );
+    if (existing) {
+      // Tila täydennetään jo tuotuun kirjaukseen. Suljetun vuoden kirjausta ei voi muuttaa (lukitustriggeri).
+      if (property && !existing.forest_property_id) {
+        if (existing.closed) add("kirjauksen tila jäi suljetulle vuodelle");
+        else {
+          await tx.query("update sk_transactions set forest_property_id = $2 where id = $1", [existing.id, property]);
+          add("kirjauksen tila täydennetty");
+        }
+      }
+      continue;
+    }
     const ins = await tx.query(
-      `insert into sk_transactions (organization_id, client_id, booked_on, kind, category, description, amount_net, vat_rate, withholding, reference, legacy_id)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) on conflict (legacy_id) do nothing returning id`,
-      [org.id, client, r.bookedOn, r.kind, r.category, r.description, r.amountNet, r.vatRate, r.withholding, r.reference, r.legacyId],
+      `insert into sk_transactions (organization_id, client_id, booked_on, kind, category, description, amount_net, vat_rate, withholding, reference, legacy_id,
+                                    forest_property_id)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) on conflict (legacy_id) do nothing returning id`,
+      [org.id, client, r.bookedOn, r.kind, r.category, r.description, r.amountNet, r.vatRate, r.withholding, r.reference, r.legacyId, property],
     );
     add("kirjauksia", ins.length);
   }

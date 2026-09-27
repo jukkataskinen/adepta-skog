@@ -60,6 +60,7 @@ src/lib/ledger/             kirjaukset ja tositteet
 src/lib/tax/                verolaskenta: alv, poistot, metsävähennys, verosuunnitelma, säännöt
 src/lib/reports/            veroraportti PDF:nä, arkistointi
 src/lib/years/              verovuoden avaus, sulkeminen ja lukitus
+src/lib/compare/            vertailu vanhaan sovellukseen (legacy-tax)
 src/lib/import/             tiedonsiirto vanhasta kannasta: muunnokset (legacy.ts) ja kirjoitus (run.ts)
 src/lib/storage/            tositteet ja raportit: paikallinen kansio tai Supabase Storage
 supabase/migrations/        0001–

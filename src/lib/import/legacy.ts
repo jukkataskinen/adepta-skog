@@ -34,6 +34,7 @@ export interface LegacyClient {
   postitoimipaikka: string | null;
   verotiliviite: string | null;
   alv_rekisterissa: boolean | null;
+  alv_numero?: string | null;
   avoin_vuosi: number | null;
   vastuukirjanpitaja_id: string | null;
   poistettu_at: string | null;
@@ -48,6 +49,7 @@ export interface LegacyProperty {
   hankintahinta: string | number | null;
   hankintapvm: string | null;
   metsämaan_osuus_prosentti: string | number | null;
+  metsämaa_ha?: string | number | null;
   vahennyspohjaa_kaytetty: string | number | null;
 }
 
@@ -67,6 +69,7 @@ export interface LegacyAsset {
   poistoaika_vuotta: number | null;
   poistotapa: string | null;
   aktiivinen: boolean | null;
+  metsatila_id?: string | null;
 }
 
 export interface LegacyDepreciation {
@@ -88,6 +91,7 @@ export interface LegacyTransaction {
   ennakko: string | number | null;
   viite: string | null;
   verovuosi: number | null;
+  metsatila_id?: string | null;
 }
 
 /** Syy, miksi rivi jätettiin pois. Vain tunniste ja syy, ei henkilötietoja. */
@@ -148,6 +152,7 @@ export interface ClientRow {
   city: string | null;
   taxAccountReference: string | null;
   vatRegistered: boolean;
+  vatNumber: string | null;
   legacyResponsibleId: string | null;
   archivedAt: string | null;
   openYear: number | null;
@@ -172,6 +177,7 @@ export function mapClient(c: LegacyClient): ClientRow | Skipped {
     city: text(c.postitoimipaikka),
     taxAccountReference: text(c.verotiliviite),
     vatRegistered: c.alv_rekisterissa === true,
+    vatNumber: text(c.alv_numero),
     legacyResponsibleId: c.vastuukirjanpitaja_id,
     archivedAt: c.poistettu_at,
     openYear: c.avoin_vuosi,
@@ -187,6 +193,7 @@ export interface PropertyRow {
   acquisitionPrice: number | null;
   acquiredOn: string | null;
   forestLandSharePct: number | null;
+  forestLandHa: number | null;
   deductionUsedBefore: number;
 }
 
@@ -207,6 +214,7 @@ export function mapProperty(p: LegacyProperty, deductions: LegacyDeduction[]): P
     acquisitionPrice: num(p.hankintahinta),
     acquiredOn: date(p.hankintapvm),
     forestLandSharePct: num(p.metsämaan_osuus_prosentti),
+    forestLandHa: num(p.metsämaa_ha),
     deductionUsedBefore: Math.max(0, Math.round((used - recorded) * 100) / 100),
   };
 }
@@ -223,6 +231,7 @@ export interface AssetRow {
   openingBookValue: number | null;
   /** Vanha sovellus merkitsi myydyn kohteen epäaktiiviseksi ilman päivää. */
   disposed: boolean;
+  legacyPropertyId: string | null;
 }
 
 export function mapAsset(a: LegacyAsset): AssetRow | Skipped {
@@ -244,6 +253,7 @@ export function mapAsset(a: LegacyAsset): AssetRow | Skipped {
     decliningRatePct: declining ? 25 : null,
     openingBookValue: num(a.jaannosarvo),
     disposed: a.aktiivinen === false,
+    legacyPropertyId: a.metsatila_id ?? null,
   };
 }
 
@@ -260,6 +270,7 @@ export interface TransactionRow {
   vatRate: number;
   withholding: number;
   reference: string | null;
+  legacyPropertyId: string | null;
 }
 
 /**
@@ -291,6 +302,7 @@ export function mapTransaction(t: LegacyTransaction): { row: TransactionRow; cat
       vatRate: num(t.alv_prosentti) ?? 0,
       withholding: num(t.ennakko) ?? 0,
       reference: text(t.viite),
+      legacyPropertyId: t.metsatila_id ?? null,
     },
     categoryGuessed: !found,
   };

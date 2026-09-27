@@ -4,7 +4,7 @@ import { EmptyState, Notice, PageHeader, Panel, SectionTitle, Stat, Table, Td, T
 import { FormError } from "@/components/FormError";
 import { requireStaff } from "@/lib/auth/current-user";
 import { getClient } from "@/lib/clients/queries";
-import { defaultYear, listAssets, listTransactions, listYears } from "@/lib/ledger/queries";
+import { defaultYear, listAssets, listPropertyOptions, listTransactions, listYears } from "@/lib/ledger/queries";
 import { grossAmount, summarize, vatAmount } from "@/lib/ledger/summary";
 import { category } from "@/lib/tax/rules";
 import { formatDate, formatEur } from "@/lib/format";
@@ -40,6 +40,7 @@ export default async function LedgerPage({
       year,
       rows: year ? await listTransactions(tx, id, year) : [],
       assets: await listAssets(tx, id),
+      properties: await listPropertyOptions(tx, id),
     };
   });
   if (!data) notFound();
@@ -150,7 +151,7 @@ export default async function LedgerPage({
             <section className="mt-8">
               <SectionTitle>Uusi kirjaus</SectionTitle>
               <Panel>
-                <TransactionForm action={saveTransactionAction} clientId={id} assets={data.assets} defaultDate={defaultDate} submitLabel="Lisää kirjaus" compact />
+                <TransactionForm action={saveTransactionAction} clientId={id} assets={data.assets} properties={data.properties} defaultDate={defaultDate} submitLabel="Lisää kirjaus" compact />
               </Panel>
             </section>
           ) : null}

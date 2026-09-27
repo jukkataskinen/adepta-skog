@@ -1,6 +1,6 @@
 import { Button, Field, Input, Select } from "@/components/ui";
 import { CATEGORIES, CATEGORY_GROUPS } from "@/lib/tax/rules";
-import type { AssetOption, TransactionRow } from "@/lib/ledger/queries";
+import type { AssetOption, PropertyOption, TransactionRow } from "@/lib/ledger/queries";
 
 const fi = (v: string | null | undefined) => (v === null || v === undefined ? "" : String(Number(v)).replace(".", ","));
 
@@ -13,6 +13,7 @@ export function TransactionForm({
   clientId,
   transaction,
   assets,
+  properties,
   defaultDate,
   submitLabel,
   compact,
@@ -21,6 +22,7 @@ export function TransactionForm({
   clientId: string;
   transaction?: TransactionRow;
   assets: AssetOption[];
+  properties: PropertyOption[];
   defaultDate: string;
   submitLabel: string;
   compact?: boolean;
@@ -57,7 +59,7 @@ export function TransactionForm({
           <Input id="amountNet" name="amountNet" inputMode="decimal" required defaultValue={fi(transaction?.amount_net)} className="text-right" />
         </Field>
       </div>
-      <div className="grid gap-4 sm:grid-cols-[8rem_9rem_minmax(0,1fr)]">
+      <div className={`grid gap-4 ${properties.length ? "sm:grid-cols-[8rem_9rem_minmax(0,1fr)_minmax(0,1fr)]" : "sm:grid-cols-[8rem_9rem_minmax(0,1fr)]"}`}>
         <Field label="Alv %" htmlFor="vatRate" hint={compact ? undefined : "Tyhjä = luokan oletus."}>
           <Input id="vatRate" name="vatRate" inputMode="decimal" defaultValue={fi(transaction?.vat_rate)} placeholder="oletus" className="text-right" />
         </Field>
@@ -67,6 +69,18 @@ export function TransactionForm({
         <Field label="Viite tai tositenumero" htmlFor="reference">
           <Input id="reference" name="reference" defaultValue={transaction?.reference ?? ""} autoComplete="off" />
         </Field>
+        {properties.length ? (
+          <Field label="Metsätila" htmlFor="forestPropertyId">
+            <Select id="forestPropertyId" name="forestPropertyId" defaultValue={transaction?.forest_property_id ?? ""}>
+              <option value="">Ei valittu</option>
+              {properties.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : null}
       </div>
       <details className="rounded-xl border border-line bg-cloud/40 px-4 py-3 text-sm" open={Boolean(transaction?.asset_id)}>
         <summary className="cursor-pointer font-semibold">Investointi (hankinta tai myynti)</summary>

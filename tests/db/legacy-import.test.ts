@@ -118,6 +118,39 @@ describe("tiedonsiirto vanhasta kannasta", () => {
     expect(n.n).toBe(3);
   });
 
+  it("myöhemmin lisätyt kentät täydentyvät jo tuotuihin riveihin", async () => {
+    const enriched: LegacyData = {
+      ...data,
+      clients: data.clients.map((c) => (c.id === C1 ? { ...c, alv_numero: "FI12345678" } : c)),
+      properties: data.properties.map((p) => ({ ...p, "metsämaa_ha": 38.2 })),
+      assets: data.assets.map((a) => ({ ...a, metsatila_id: P1 })),
+      transactions: data.transactions.map((t) => (t.asiakas_id === C1 ? { ...t, metsatila_id: P1 } : t)),
+    };
+    const r = await db.asService((tx) => importLegacyData(tx, { orgName: ORG }, enriched));
+    // 2024 on suljettu, joten sen kirjaukseen tilaa ei voi lisätä.
+    expect(r.counts).toMatchObject({ "kirjauksen tila täydennetty": 1, "kirjauksen tila jäi suljetulle vuodelle": 1 });
+    const [c] = await db.asService((tx) => tx.query<{ vat_number: string }>("select vat_number from sk_clients where legacy_id = $1", [C1]));
+    expect(c.vat_number).toBe("FI12345678");
+    const [p] = await db.asService((tx) =>
+      tx.query<{ id: string; forest_land_ha: string }>("select id, forest_land_ha from sk_forest_properties where legacy_id = $1", [P1]),
+    );
+    expect(Number(p.forest_land_ha)).toBe(38.2);
+    const [a] = await db.asService((tx) => tx.query<{ forest_property_id: string }>("select forest_property_id from sk_assets where legacy_id = $1", [A1]));
+    expect(a.forest_property_id).toBe(p.id);
+  });
+
+  it("kirjauksen tila ei voi olla toisen asiakkaan", async () => {
+    await expect(
+      db.asService((tx) =>
+        tx.query(
+          `update sk_transactions set forest_property_id = (select id from sk_forest_properties where legacy_id = $1)
+            where legacy_id = '00000000-0000-4000-8000-000000000043'`,
+          [P1],
+        ),
+      ),
+    ).rejects.toThrow(/toisen asiakkaan/);
+  });
+
   it("tuodun suljetun vuoden kirjausta ei voi muuttaa", async () => {
     await expect(
       db.asService((tx) => tx.query("update sk_transactions set amount_net = 1 where legacy_id = '00000000-0000-4000-8000-000000000041'")),

@@ -6,7 +6,7 @@
 
 **Rakennetaan samaan repoon `v2`-haaraan.** Vanha sovellus pysyy tuotannossa `main`-haarassa, kunnes uusi on ajettu rinnakkain. Vanha koodi siirretään `v2`:ssa `legacy/`-kansioon, koska laskentasäännöt luetaan sieltä ja vertailu tehdään sitä vasten.
 
-**Oma Supabase-projekti.** Nykyinen `skog`-projekti on yhteinen Kasamasterin ja adepta-ppr:n kanssa, ja 3.9.2026 huomattiin, että yhden sovelluksen julkinen avain avasi naapurien tiedot (Mittarilukeman DECISIONS 24.9.2026). Asiakkaiden verotiedot kuuluvat omaan projektiin. Alue eu-central-1 kuten nykyinen.
+**Oma Supabase-projekti.** Nykyinen `skog`-projekti on yhteinen Kasamasterin ja adepta-ppr:n kanssa, ja 3.9.2026 huomattiin, että yhden sovelluksen julkinen avain avasi naapurien tiedot (Mittarilukeman DECISIONS 24.9.2026). Asiakkaiden verotiedot kuuluvat omaan projektiin. Alue eu-central-1 kuten nykyinen (korvattu: eu-west-1, ks. alempana).
 
 **Taulut englanniksi etuliitteellä `sk_`.** Sama käytäntö kuin eRapussa (`er_`) ja Mittarilukemassa (`ml_`). Vanhan kannan suomenkieliset nimet muunnetaan tiedonsiirrossa.
 
@@ -18,7 +18,7 @@
 
 **Oma kanta pingataan SQL:llä.** Uusi sovellus ei käytä supabase-js:ää eikä anon-avainta, joten ping tehdään kantakerroksen kautta (`select 1`). Kasamaster pingataan edelleen sen omalla anon-avaimella.
 
-**Vercelin alue fra1.** Kanta on Frankfurtissa (eu-central-1), joten funktiot ajetaan samassa paikassa.
+**Vercelin alue fra1.** Kanta on Frankfurtissa (eu-central-1), joten funktiot ajetaan samassa paikassa. (Korvattu: dub1, ks. alempana.)
 
 **Kehitystoiveet myöhemmin.** Mittarilukeman kehitystoiveet vaativat oman taulunsa ja sivunsa. Linkki poistettiin sivun yläkulmasta, kunnes ne tuodaan (PLAN vaihe 3).
 
@@ -34,7 +34,7 @@
 
 **Tiedostot palvelimen kautta.** Storage-ämpärille ei anneta käyttäjäkohtaisia sääntöjä. Palvelin tarkistaa oikeuden `sk_documents`-rivin kautta RLS:llä ja käyttää Storagea service role -avaimella, joka ei päädy selaimeen.
 
-**Tuonnin ulkopuolelle jäävät kentät.** Vanhan kannan `henkilotunnus_hash` jätetään pois, koska henkilötunnuksia ei käsitellä. `alv_numero`, `metsämaa_ha` sekä kirjauksen ja investoinnin `metsatila_id` jäävät toistaiseksi pois, koska uudessa mallissa niille ei vielä ole kenttää; ne lisätään, jos kirjanpitäjä tarvitsee niitä (PLAN vaihe 2).
+**Tuonnin ulkopuolelle jäävät kentät.** Vanhan kannan `henkilotunnus_hash` jätetään pois, koska henkilötunnuksia ei käsitellä. `alv_numero`, `metsämaa_ha` sekä kirjauksen ja investoinnin `metsatila_id` jäivät aluksi pois; ne lisättiin 27.9.2026 (migraatio 0004).
 
 **Vanhan kannan lukukäyttäjä.** Tuonti lukee vanhaa kantaa käyttäjällä `skog_lukija`, jolla on vain lukuoikeus Skogin tauluihin. `postgres`-salasanaa ei tarvita eikä nollata, koska sama projekti on Kasamasterin ja adepta-ppr:n käytössä.
 
@@ -63,3 +63,13 @@
 **Supabase-projekti Irlannissa (eu-west-1), Vercel dub1.** Projekti syntyi Irlantiin eikä Frankfurtiin kuten suunniteltiin. Sama alue kuin Mittarilukemalla, ja se on EU:ssa, joten projektia ei luoda uudelleen. Vercelin funktiot ajetaan samalla alueella (dub1).
 
 **Anon-roolin oikeudet pois (migraatio 0003).** Supabase antaa oletuksena julkiselle anon-roolille oikeudet public-skeeman uusiin tauluihin ja funktioihin. Skog ei käytä julkista avainta, joten oikeudet poistetaan, ja migraatiokirjanpitoon laitetaan RLS.
+
+## 2026-09-27
+
+**Investoinnin myyntihinta ei ole verolaskelman tuloa.** Investointiin liitetyn myyntikirjauksen summa jätetään verosuunnitelman ja raportin tuloista pois, koska myyntivoitto tai -tappio lasketaan investoinnista. Aiemmin myyntihinta ja myyntivoitto tulivat laskelmaan kahteen kertaan. Kirjanpidon ja arvonlisäveron summissa myynti näkyy edelleen.
+
+**Vertailu vanhaan sovellukseen: vanhan raportin yhteenveto sellaisenaan.** `vertaa:vero` laskee vanhan veroraportin luvut samalla kaavalla kuin legacy/app/veroraportti (poistot uudelleen hankintahinnasta, investoinnit pois tuloista ja menoista), jotta ero kertoo, mitä kirjanpitäjä näki. Tunnetut sääntöerot selitetään automaattisesti, ja muut listataan selvitettäviksi. Tuotantokantojen lukeminen vaatii Jukan ajon tai luvan.
+
+**Tuonnista puuttuneet kentät (migraatio 0004).** Asiakkaan ALV-numero on oma kenttänsä, koska sen voi olla ilman Y-tunnusta. Metsämaan hehtaarit ovat vain tietoa. Kirjauksen ja investoinnin metsätila on vapaaehtoinen, ja tila tarkistetaan saman asiakkaan omaksi triggerillä. Uusintatuonti täydentää tyhjät kentät jo tuotuihin riveihin, mutta suljetun vuoden kirjaukseen tilaa ei lisätä (lukitus).
+
+**Tositteen tiedosto poistetaan transaktion jälkeen.** Rivi poistetaan ensin ja tiedosto vasta tallennuksen jälkeen, jotta epäonnistunut transaktio ei vie tiedostoa. Jos tiedoston poisto epäonnistuu, se kirjataan palvelimen lokiin ilman henkilötietoja eikä näy käyttäjälle virheenä.

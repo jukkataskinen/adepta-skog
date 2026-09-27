@@ -59,7 +59,7 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [x] Tiedonsiirto vanhasta kannasta (`tuo:vanha`): muunnokset `src/lib/import/legacy.ts`, kirjoitus `src/lib/import/run.ts`, testit kuvitteellisella aineistolla, toistettava ajo (26.9.2026)
 - [x] Tiedonsiirron koeajo oikealla aineistolla `--kuiva`: kaikki rivit siirtyvät, 2 kirjauksen luokka pääteltiin (26.9.2026)
 - [x] Tuonti uuteen tuotantokantaan: Adepta Tilit Oy, 3 asiakasta, 22 kirjausta, 1 liite Storageen; Jukka pääkäyttäjäksi (26.9.2026)
-- [ ] Tuonnin ulkopuolelle jääneet kentät: `alv_numero`, `metsämaa_ha`, kirjauksen ja investoinnin metsätila (DECISIONS 26.9.2026)
+- [x] Tuonnin ulkopuolelle jääneet kentät: ALV-numero, metsämaan hehtaarit, kirjauksen ja investoinnin metsätila (migraatio 0004, lomakkeet, uusintatuonti täydentää) (27.9.2026)
 - [x] Vanhan kannan rakenne `legacy/schema.sql` (scripts/dump-legacy-schema.mts) (26.9.2026)
 - [x] Kirjausten luokat ja arvonlisäverokannat `src/lib/tax/rules.ts` (26.9.2026)
 
@@ -77,10 +77,10 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [x] Kirjanpito asiakkaan välilehdellä: kirjaukset vuosittain, summat, lisäys, muokkaus ja poisto rivi kerrallaan, suljettu vuosi vain luettavana (26.9.2026)
 - [ ] Nopeampi syöttö taulukossa suoraan (kuten vanhassa sovelluksessa), jos lomake osoittautuu hitaaksi
 - [x] Tositteen liittäminen kirjaukseen, lataus RLS:n kautta, suljetun vuoden tositteita ei voi poistaa (26.9.2026)
-- [ ] Poistetun tositteen tiedosto pois Storagesta (nyt jää orvoksi)
+- [x] Poistetun tositteen tiedosto pois Storagesta (27.9.2026)
 - [x] Luokat ja oletusverokanta päivän mukaan, Hankintatyö-luokka vanhasta sovelluksesta (26.9.2026)
 - [x] Investoinnin hankinta kirjauksesta luo investoinnin, myynti merkitsee sen myydyksi (26.9.2026)
-- [ ] Myyntivoitto (vaihe 5)
+- [x] Myyntivoitto (vaihe 5). Korjattu 27.9.2026: myyntihinta ei enää tule laskelmaan tulona myyntivoiton lisäksi
 
 ### 5. Verolaskenta (`src/lib/tax`)
 - [x] Verosäännöt `rules.ts`: pääomatulon vero 30/34 % (raja 30 000 €), metsävähennys 60 % ja vähintään 1 500 €, menojäännöspoisto 25 % (26.9.2026)
@@ -90,7 +90,7 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [x] Metsävähennys: pohja, käytetty, vuoden enimmäismäärä, vähimmäismäärä, jako tiloille (26.9.2026)
 - [~] Hankintatyön laskuri (taksat × m³, 125 m³ raja) (BLOCKERS 5). Luokka Hankintatyö on jo kirjanpidossa
 - [x] Verosuunnitelma-välilehti: laskuri, palvelin laskee uudelleen vahvistettaessa, vahvistus tallentaa poistot ja vähennyksen, pääkäyttäjä voi sulkea vuoden samalla (26.9.2026)
-- [ ] Vertailu vanhaan sovellukseen (`vertaa:vero`): vuoden 2025 luvut asiakkaittain, erot selitettynä. Tehdään tuonnin jälkeen, kun uusi Supabase-projekti on olemassa (BLOCKERS 3)
+- [~] Vertailu vanhaan sovellukseen (`vertaa:vero`): skripti ja testit valmiit (27.9.2026). Ajo tuotantokantoja vasten odottaa Jukkaa: `npm run vertaa:vero -- --vuosi 2025 --tuotanto`
 
 ### 6. Raportit ja arkisto
 - [x] Veroraportti PDF:nä: kansilehti, sisällysluettelo, tulot ja menot, verolaskelma, arvonlisävero, poistot, metsävähennys, kirjausluettelo, LUONNOS-vesileima avoimelle vuodelle (26.9.2026)

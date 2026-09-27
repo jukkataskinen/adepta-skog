@@ -60,7 +60,7 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
             { label: "Puhelin", value: c.phone },
             { label: "Osoite", value: address || null },
             { label: "Verotilin viite", value: c.tax_account_reference },
-            { label: "Arvonlisävero", value: c.vat_registered ? "Rekisterissä" : "Ei rekisterissä" },
+            { label: "Arvonlisävero", value: c.vat_registered ? (c.vat_number ? `Rekisterissä, ${c.vat_number}` : "Rekisterissä") : "Ei rekisterissä" },
             { label: "Vastuukirjanpitäjä", value: c.responsible_name ?? "Ei valittu" },
           ]}
         />

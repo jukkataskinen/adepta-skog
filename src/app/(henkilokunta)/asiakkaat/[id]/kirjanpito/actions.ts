@@ -34,6 +34,8 @@ const transactionSchema = z.object({
   assetLife: z.preprocess(emptyToNull, z.coerce.number().int().min(1).max(50).nullable()),
   // Myynti: myytävä investointi.
   saleAssetId: z.preprocess(emptyToNull, uuid.nullable()),
+  // Vapaaehtoinen: kaikki menot eivät kohdistu yhdelle tilalle.
+  forestPropertyId: z.preprocess(emptyToNull, uuid.nullable()),
 });
 
 /** Kantavirhe ymmärrettäväksi: suljettu vuosi, puuttuva oikeus tai toisen asiakkaan rivi. */
@@ -42,7 +44,7 @@ function friendly(err: unknown): string | null {
   const closed = /Verovuosi (\d+) on suljettu/.exec(msg);
   if (closed) return `Verovuosi ${closed[1]} on suljettu. Pääkäyttäjä voi avata vuoden.`;
   if (/row-level security/.test(msg)) return "Sinulla ei ole oikeutta tähän asiakkaaseen.";
-  if (/toisen asiakkaan/.test(msg)) return "Investointi kuuluu toiselle asiakkaalle.";
+  if (/toisen asiakkaan/.test(msg)) return "Investointi tai metsätila kuuluu toiselle asiakkaalle.";
   return null;
 }
 
@@ -80,17 +82,19 @@ export async function saveTransactionAction(formData: FormData) {
         if (!input.assetMethod) fail(back, "Valitse investoinnin poistotapa.");
         if (input.assetMethod === "straight_line" && !input.assetLife) fail(back, "Anna tasapoiston poistoaika vuosina.");
         const [a] = await tx.query<{ id: string }>(
-          `insert into sk_assets (organization_id, client_id, description, acquired_on, acquisition_cost, method, useful_life_years, declining_rate_pct)
-           values ($1,$2,$3,$4,$5,$6,$7,$8) returning id`,
+          `insert into sk_assets (organization_id, client_id, description, acquired_on, acquisition_cost, method, useful_life_years, declining_rate_pct,
+                                  forest_property_id)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`,
           [ctx.org.organizationId, clientId, input.description || cat.label, input.bookedOn, amount, input.assetMethod,
-            input.assetMethod === "straight_line" ? input.assetLife : null, input.assetMethod === "declining_balance" ? DECLINING_BALANCE_MAX_PCT : null],
+            input.assetMethod === "straight_line" ? input.assetLife : null, input.assetMethod === "declining_balance" ? DECLINING_BALANCE_MAX_PCT : null,
+            input.forestPropertyId],
         );
         assetId = a.id;
         await audit(tx, { organizationId: ctx.org.organizationId, userId: ctx.user.id, action: "asset.create", entity: "sk_assets", entityId: a.id });
       } else if (cat.code === "asset_purchase" && assetId) {
         // Hankinnan muutos päivittää investoinnin hinnan ja päivän.
-        await tx.query("update sk_assets set acquisition_cost = $2, acquired_on = $3, description = $4 where id = $1", [
-          assetId, amount, input.bookedOn, input.description || cat.label,
+        await tx.query("update sk_assets set acquisition_cost = $2, acquired_on = $3, description = $4, forest_property_id = $5 where id = $1", [
+          assetId, amount, input.bookedOn, input.description || cat.label, input.forestPropertyId,
         ]);
       }
       if (cat.code === "asset_sale" && input.saleAssetId) {
@@ -99,17 +103,18 @@ export async function saveTransactionAction(formData: FormData) {
       }
       if (cat.code !== "asset_purchase" && cat.code !== "asset_sale") assetId = null;
 
-      const values = [input.bookedOn, cat.kind, cat.code, input.description, amount, vatRate, input.withholding ?? 0, input.reference, assetId];
+      const values = [input.bookedOn, cat.kind, cat.code, input.description, amount, vatRate, input.withholding ?? 0, input.reference, assetId, input.forestPropertyId];
       if (editing) {
         await tx.query(
           `update sk_transactions set booked_on = $3, kind = $4, category = $5, description = $6, amount_net = $7, vat_rate = $8, withholding = $9,
-                  reference = $10, asset_id = $11 where id = $1 and client_id = $2`,
+                  reference = $10, asset_id = $11, forest_property_id = $12 where id = $1 and client_id = $2`,
           [id, clientId, ...values],
         );
       } else {
         const [row] = await tx.query<{ id: string }>(
-          `insert into sk_transactions (organization_id, client_id, booked_on, kind, category, description, amount_net, vat_rate, withholding, reference, asset_id, created_by)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) returning id`,
+          `insert into sk_transactions (organization_id, client_id, booked_on, kind, category, description, amount_net, vat_rate, withholding, reference, asset_id,
+                                        forest_property_id, created_by)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning id`,
           [ctx.org.organizationId, clientId, ...values, ctx.user.id],
         );
         id = row.id;

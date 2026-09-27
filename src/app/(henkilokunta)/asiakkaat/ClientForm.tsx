@@ -68,10 +68,15 @@ export function ClientForm({
           </Field>
         ) : null}
       </div>
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="vatRegistered" defaultChecked={client?.vat_registered ?? false} className="size-4" />
-        Arvonlisäverorekisterissä
-      </label>
+      <div className="grid items-end gap-5 sm:grid-cols-2">
+        <label className="flex items-center gap-2 pb-3 text-sm">
+          <input type="checkbox" name="vatRegistered" defaultChecked={client?.vat_registered ?? false} className="size-4" />
+          Arvonlisäverorekisterissä
+        </label>
+        <Field label="ALV-numero" htmlFor="vatNumber" hint="Esimerkiksi FI12345678. Jos ei ole, jätä tyhjäksi.">
+          <Input id="vatNumber" name="vatNumber" defaultValue={client?.vat_number ?? ""} autoComplete="off" />
+        </Field>
+      </div>
       <div>
         <Button>{submitLabel}</Button>
       </div>

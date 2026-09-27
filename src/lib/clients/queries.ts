@@ -51,6 +51,7 @@ export interface ClientDetail {
   city: string | null;
   tax_account_reference: string | null;
   vat_registered: boolean;
+  vat_number: string | null;
   responsible_user_id: string | null;
   responsible_name: string | null;
   archived_at: string | null;
@@ -59,7 +60,7 @@ export interface ClientDetail {
 export async function getClient(tx: Sql, orgId: string, id: string): Promise<ClientDetail | null> {
   const [row] = await tx.query<ClientDetail>(
     `select c.id, c.first_name, c.last_name, c.business_id, c.municipality, c.email, c.phone, c.street, c.postal_code, c.city,
-            c.tax_account_reference, c.vat_registered, c.responsible_user_id, coalesce(u.full_name, u.email) as responsible_name, c.archived_at
+            c.tax_account_reference, c.vat_registered, c.vat_number, c.responsible_user_id, coalesce(u.full_name, u.email) as responsible_name, c.archived_at
        from sk_clients c left join sk_users u on u.id = c.responsible_user_id
       where c.id = $1 and c.organization_id = $2`,
     [id, orgId],
@@ -75,6 +76,7 @@ export interface PropertyRow {
   acquisition_price: string | null;
   acquired_on: string | null;
   forest_land_share_pct: string | null;
+  forest_land_ha: string | null;
   deduction_used_before: string;
   deduction: ForestDeductionBase;
 }
@@ -83,7 +85,7 @@ const n = (v: string | null) => (v === null ? null : Number(v));
 
 export async function listProperties(tx: Sql, clientId: string): Promise<PropertyRow[]> {
   const rows = await tx.query<Omit<PropertyRow, "deduction"> & { recorded: string[] | null }>(
-    `select p.id, p.name, p.property_code, p.area_ha, p.acquisition_price, p.acquired_on::text, p.forest_land_share_pct, p.deduction_used_before,
+    `select p.id, p.name, p.property_code, p.area_ha, p.acquisition_price, p.acquired_on::text, p.forest_land_share_pct, p.forest_land_ha, p.deduction_used_before,
             (select array_agg(d.amount::text) from sk_forest_deductions d where d.forest_property_id = p.id) as recorded
        from sk_forest_properties p where p.client_id = $1 order by p.name`,
     [clientId],
@@ -101,7 +103,7 @@ export async function listProperties(tx: Sql, clientId: string): Promise<Propert
 
 export async function getProperty(tx: Sql, clientId: string, id: string) {
   const [row] = await tx.query<Omit<PropertyRow, "deduction">>(
-    `select id, name, property_code, area_ha, acquisition_price, acquired_on::text, forest_land_share_pct, deduction_used_before
+    `select id, name, property_code, area_ha, acquisition_price, acquired_on::text, forest_land_share_pct, forest_land_ha, deduction_used_before
        from sk_forest_properties where id = $1 and client_id = $2`,
     [id, clientId],
   );

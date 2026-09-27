@@ -41,6 +41,7 @@ const clientSchema = z.object({
   city: optionalText(100),
   taxAccountReference: optionalText(40),
   vatRegistered: z.preprocess((v) => v === "on", z.boolean()),
+  vatNumber: optionalText(20),
   responsibleUserId: z.preprocess(emptyToNull, uuid.nullable()),
 });
 
@@ -50,8 +51,11 @@ function clientValues(input: z.infer<typeof clientSchema>, backTo: string) {
     businessId = normalizeBusinessId(input.businessId);
     if (!isValidBusinessId(businessId)) fail(backTo, "Y-tunnus ei ole oikeaa muotoa.");
   }
+  // ALV-numero kirjoitetaan usein välilyönneillä tai pienillä kirjaimilla, joten se yhtenäistetään.
+  const vatNumber = input.vatNumber ? input.vatNumber.replace(/[\s-]/g, "").toUpperCase() : null;
+  if (vatNumber && !/^[A-Z]{2}[0-9A-Z]{2,13}$/.test(vatNumber)) fail(backTo, "ALV-numero on muotoa FI12345678.");
   return [input.firstName, input.lastName, businessId, input.municipality, input.email, input.phone, input.street, input.postalCode, input.city,
-    input.taxAccountReference, input.vatRegistered];
+    input.taxAccountReference, input.vatRegistered, vatNumber];
 }
 
 export async function createClientAction(formData: FormData) {
@@ -65,8 +69,8 @@ export async function createClientAction(formData: FormData) {
     id = await ctx.run(async (tx) => {
       const [row] = await tx.query<{ id: string }>(
         `insert into sk_clients (organization_id, first_name, last_name, business_id, municipality, email, phone, street, postal_code, city,
-                                 tax_account_reference, vat_registered, responsible_user_id)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning id`,
+                                 tax_account_reference, vat_registered, vat_number, responsible_user_id)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning id`,
         [ctx.org.organizationId, ...clientValues(input, back), responsible],
       );
       // Uudelle asiakkaalle avataan heti kuluva verovuosi.
@@ -91,7 +95,7 @@ export async function updateClientAction(formData: FormData) {
   const updated = await ctx.run(async (tx) => {
     const rows = await tx.query(
       `update sk_clients set first_name = $3, last_name = $4, business_id = $5, municipality = $6, email = $7, phone = $8, street = $9,
-              postal_code = $10, city = $11, tax_account_reference = $12, vat_registered = $13
+              postal_code = $10, city = $11, tax_account_reference = $12, vat_registered = $13, vat_number = $14
         where id = $1 and organization_id = $2 returning id`,
       [clientId, ctx.org.organizationId, ...clientValues(input, back)],
     );
@@ -153,6 +157,7 @@ const propertySchema = z.object({
   acquisitionPrice: optionalNumber(0),
   acquiredOn: z.preprocess(emptyToNull, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tarkista hankintapäivä.").nullable()),
   forestLandSharePct: optionalNumber(0, 100),
+  forestLandHa: optionalNumber(0, 1e6),
   deductionUsedBefore: optionalNumber(0),
 });
 
@@ -162,7 +167,7 @@ function propertyValues(input: z.infer<typeof propertySchema>, backTo: string) {
     code = normalizePropertyCode(input.propertyCode);
     if (!code) fail(backTo, "Kiinteistötunnus on muotoa 172-401-3-45.");
   }
-  return [input.name, code, input.areaHa, input.acquisitionPrice, input.acquiredOn, input.forestLandSharePct, input.deductionUsedBefore ?? 0];
+  return [input.name, code, input.areaHa, input.acquisitionPrice, input.acquiredOn, input.forestLandSharePct, input.deductionUsedBefore ?? 0, input.forestLandHa];
 }
 
 export async function createPropertyAction(formData: FormData) {
@@ -174,8 +179,8 @@ export async function createPropertyAction(formData: FormData) {
     await ctx.run(async (tx) => {
       const [row] = await tx.query<{ id: string }>(
         `insert into sk_forest_properties (organization_id, client_id, name, property_code, area_ha, acquisition_price, acquired_on,
-                                           forest_land_share_pct, deduction_used_before)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`,
+                                           forest_land_share_pct, deduction_used_before, forest_land_ha)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning id`,
         [ctx.org.organizationId, clientId, ...propertyValues(input, back)],
       );
       await audit(tx, { organizationId: ctx.org.organizationId, userId: ctx.user.id, action: "property.create", entity: "sk_forest_properties", entityId: row.id });
@@ -198,7 +203,7 @@ export async function updatePropertyAction(formData: FormData) {
   await ctx.run(async (tx) => {
     await tx.query(
       `update sk_forest_properties set name = $3, property_code = $4, area_ha = $5, acquisition_price = $6, acquired_on = $7,
-              forest_land_share_pct = $8, deduction_used_before = $9
+              forest_land_share_pct = $8, deduction_used_before = $9, forest_land_ha = $10
         where id = $1 and client_id = $2`,
       [propertyId, clientId, ...propertyValues(input, back)],
     );

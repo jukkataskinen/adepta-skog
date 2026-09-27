@@ -8,6 +8,7 @@ export interface PropertyValues {
   acquisition_price: string | null;
   acquired_on: string | null;
   forest_land_share_pct: string | null;
+  forest_land_ha: string | null;
   deduction_used_before: string;
 }
 
@@ -37,9 +38,12 @@ export function PropertyForm({
           <Input id="propertyCode" name="propertyCode" defaultValue={property?.property_code ?? ""} />
         </Field>
       </div>
-      <div className="grid gap-5 sm:grid-cols-3">
+      <div className="grid gap-5 sm:grid-cols-4">
         <Field label="Pinta-ala (ha)" htmlFor="areaHa">
           <Input id="areaHa" name="areaHa" inputMode="decimal" defaultValue={fi(property?.area_ha ?? null)} />
+        </Field>
+        <Field label="Metsämaata (ha)" htmlFor="forestLandHa">
+          <Input id="forestLandHa" name="forestLandHa" inputMode="decimal" defaultValue={fi(property?.forest_land_ha ?? null)} />
         </Field>
         <Field label="Hankintahinta (€)" htmlFor="acquisitionPrice">
           <Input id="acquisitionPrice" name="acquisitionPrice" inputMode="decimal" defaultValue={fi(property?.acquisition_price ?? null)} />

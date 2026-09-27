@@ -15,12 +15,13 @@ export interface TransactionRow {
   reference: string | null;
   asset_id: string | null;
   asset_description: string | null;
+  forest_property_id: string | null;
   document_count: number;
 }
 
 export async function listTransactions(tx: Sql, clientId: string, year: number): Promise<TransactionRow[]> {
   return tx.query<TransactionRow>(
-    `select t.id, t.booked_on::text, t.kind, t.category, t.description, t.amount_net, t.vat_rate, t.withholding, t.reference, t.asset_id,
+    `select t.id, t.booked_on::text, t.kind, t.category, t.description, t.amount_net, t.vat_rate, t.withholding, t.reference, t.asset_id, t.forest_property_id,
             a.description as asset_description,
             (select count(*)::int from sk_documents d where d.transaction_id = t.id) as document_count
        from sk_transactions t left join sk_assets a on a.id = t.asset_id
@@ -32,7 +33,7 @@ export async function listTransactions(tx: Sql, clientId: string, year: number):
 
 export async function getTransaction(tx: Sql, clientId: string, id: string): Promise<(TransactionRow & { tax_year: number }) | null> {
   const [row] = await tx.query<TransactionRow & { tax_year: number }>(
-    `select t.id, t.booked_on::text, t.tax_year, t.kind, t.category, t.description, t.amount_net, t.vat_rate, t.withholding, t.reference, t.asset_id,
+    `select t.id, t.booked_on::text, t.tax_year, t.kind, t.category, t.description, t.amount_net, t.vat_rate, t.withholding, t.reference, t.asset_id, t.forest_property_id,
             a.description as asset_description, 0 as document_count
        from sk_transactions t left join sk_assets a on a.id = t.asset_id
       where t.id = $1 and t.client_id = $2`,
@@ -75,6 +76,15 @@ export interface AssetOption {
   description: string;
   acquired_on: string;
   disposed_on: string | null;
+}
+
+export interface PropertyOption {
+  id: string;
+  name: string;
+}
+
+export async function listPropertyOptions(tx: Sql, clientId: string): Promise<PropertyOption[]> {
+  return tx.query<PropertyOption>("select id, name from sk_forest_properties where client_id = $1 order by name", [clientId]);
 }
 
 export async function listAssets(tx: Sql, clientId: string): Promise<AssetOption[]> {
