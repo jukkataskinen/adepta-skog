@@ -46,8 +46,8 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [x] Kirjautuminen: dev-tila toimii (26.9.2026)
 - [ ] Auth0 tuotantoon: nykyinen Skog-sovellus Auth0:ssa, itserekisteröinti pois (BLOCKERS 2)
 - [x] Oma Supabase-projekti (eu-west-1), migraatiot 0001–0003 ajettu, anon-roolin oikeudet poistettu (26.9.2026)
-- [ ] Osoite ja avaimet Verceliin (DATABASE_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, STORAGE_MODE=supabase)
-- [ ] Vercelin v2-esikatselu omalla kannallaan. Tuotanto pysyy vanhassa.
+- [x] Osoite ja avaimet Verceliin (Preview, haara v2; DATABASE_URL transaktiopooleri 6543) (27.9.2026)
+- [x] Vercelin v2-esikatselu omalla kannallaan, Auth0-kirjautuminen toimii: https://adepta-skog-git-v2-jukka-taskinens-projects.vercel.app (27.9.2026). Tuotanto pysyy vanhassa.
 - [x] Ping-reitti ja cron uuteen runkoon: oma kanta SQL:llä, Kasamaster omalla avaimellaan (26.9.2026)
 - [x] `.gitignore` ja CI-vahti henkilötiedoille (26.9.2026)
 - [x] Työpöytä, asetukset (yhteystiedot, käyttäjät, loki) ja ohjeet (26.9.2026)
