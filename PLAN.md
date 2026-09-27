@@ -105,7 +105,7 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [x] Sähköinen veroilmoitus 2C (tietovirta VSY02C, verovuodet 2025 ja 2026): puhdas muodostin `src/lib/filing/vsy02c.ts`, esikatselu ja lataus Veroraportti ja arkisto -välilehdellä, henkilötunnus vain tiedostoon, lataus Ilmoitin.fi:hin käsin (28.9.2026)
 
 ### 7. Käyttöönotto
-- [ ] 2C-tiedosto Ilmoitin.fi:n Aineiston tarkastukseen oikealla asiakkaalla ja tuotantokäytön aloitusilmoitus Verohallinnolle (BLOCKERS 8)
+- [ ] 2C-tiedosto Ilmoitin.fi:n Aineiston tarkastukseen oikealla asiakkaalla ja tuotantokäytön aloitusilmoitus Verohallinnolle (BLOCKERS 9)
 - [ ] Rinnakkaisajo: sama vuosi molemmissa, erot selitetty
 - [ ] Lopullinen tiedonsiirto, `v2` → `main`, skog.adepta.fi uuteen
 - [ ] Vanha Skog-data pois yhteisestä Supabase-projektista, kun Kasamaster ja adepta-ppr eivät sitä tarvitse
