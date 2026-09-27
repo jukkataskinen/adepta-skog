@@ -65,12 +65,12 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 
 ### 3. Perusnäkymät
 - [x] Asiakaslista ja haku, uusi asiakas, muokkaus, vastuukirjanpitäjän vaihto, arkistointi (26.9.2026)
-- [~] Asiakkaan sivu: tiedot, metsätilat ja verovuodet tehty. Välilehdet kirjanpidolle, arvonlisäverolle, verosuunnitelmalle, veroraportille ja arkistolle tulevat vaiheissa 4–6
+- [x] Asiakkaan sivu: tiedot, metsätilat, verovuodet ja välilehdet kirjanpidolle, arvonlisäverolle, verosuunnitelmalle, veroraportille ja arkistolle (27.9.2026)
 - [x] Metsätilat: lisäys, muokkaus, poisto, metsävähennyspohja ja jäljellä oleva määrä (26.9.2026)
 - [x] Verovuodet asiakkaan sivulla: avaus, sulkeminen ja uudelleen avaus (pääkäyttäjä), loki (26.9.2026)
-- [ ] Verovuoden valinta kirjanpidon välilehdillä, suljettu vuosi vain luettavana (vaihe 4)
+- [x] Verovuoden valinta kirjanpidon välilehdillä, suljettu vuosi vain luettavana (tarkistettu 27.9.2026)
 - [ ] Käyttäjät: kutsu sähköpostilla (Auth0), rooli, poisto käytöstä
-- [ ] Ohjeet kaikille näkymille, ohjelinkki jokaiselle sivulle
+- [x] Ohjeet kaikille näkymille, ohjelinkki jokaiselle sivulle; uusi asiakas, uusi tila ja kirjauksen muokkaus osoittavat ohjeen kohtaan (27.9.2026)
 - [x] Kehitystoiveet Mittarilukemasta (sivu, linkki sivun yläkulmaan) (27.9.2026)
 
 ### 4. Kirjanpito

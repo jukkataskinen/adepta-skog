@@ -9,7 +9,10 @@ import { HELP_TOPICS, sectionId } from "./topics";
  */
 const ROUTES: { pattern: RegExp; slug: string; section?: string }[] = [
   { pattern: /^\/tyopoyta/, slug: "tyopoyta" },
+  { pattern: /^\/asiakkaat\/uusi/, slug: "asiakkaat", section: "Uusi asiakas" },
+  { pattern: /^\/asiakkaat\/[^/]+\/metsatilat\/uusi/, slug: "metsatilat", section: "Uusi metsätila" },
   { pattern: /^\/asiakkaat\/[^/]+\/metsatilat/, slug: "metsatilat" },
+  { pattern: /^\/asiakkaat\/[^/]+\/kirjanpito\/[^/]+/, slug: "kirjanpito", section: "Muokkaus ja poisto" },
   { pattern: /^\/asiakkaat\/[^/]+\/kirjanpito/, slug: "kirjanpito" },
   { pattern: /^\/asiakkaat\/[^/]+\/alv/, slug: "alv" },
   { pattern: /^\/asiakkaat\/[^/]+\/verosuunnitelma/, slug: "verosuunnitelma" },
