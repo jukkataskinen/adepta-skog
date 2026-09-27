@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, use
 import { Button, Notice } from "@/components/ui";
 import { ASSET_CLASSES, category, deliveryWorkRates, DELIVERY_WORK_TAX_FREE_M3 } from "@/lib/tax/rules";
 import { formatEur } from "@/lib/format";
-import { parseAmount, parseClipboard } from "@/lib/ledger/transaction-input";
+import { normalizeDate, parseAmount, parseClipboard, toFinnishDate } from "@/lib/ledger/transaction-input";
 import {
   addButtonKeyAction,
   applyGridPaste,
@@ -52,8 +52,9 @@ const KIND_CLASS = {
 type Dialog =
   | { type: "ep"; key: string; phase: 1 | 2; value: string }
   | { type: "ht"; key: string }
-  | { type: "asset"; key: string }
-  | { type: "sale"; key: string };
+  /** toAmount: ikkuna avattiin luokan valinnasta ennen summaa, joten sen jälkeen summaan. */
+  | { type: "asset"; key: string; toAmount?: boolean }
+  | { type: "sale"; key: string; toAmount?: boolean };
 
 /**
  * Kirjanpidon taulukko: koko verovuoden kirjaukset muokattavina ja uudet rivit,
@@ -317,7 +318,7 @@ export function LedgerGrid({
     const hasAmount = amount !== null && !Number.isNaN(amount) && amount !== 0;
     if (asksWithholding(next) && hasAmount) setDialog({ type: "ep", key: r.key, phase: 1, value: next.withholding });
     else if (code === "asset_purchase" && hasAmount && !next.assetId && !next.assetRatePct) setDialog({ type: "asset", key: r.key });
-    else if (code === "asset_sale" && !next.assetId && !next.saleAssetId) setDialog({ type: "sale", key: r.key });
+    else if (code === "asset_sale" && !next.assetId && !next.saleAssetId) setDialog({ type: "sale", key: r.key, toAmount: true });
     else moveTo(index, col("amountGross"));
   }
 
@@ -364,11 +365,11 @@ export function LedgerGrid({
     else if (r.category === "asset_sale" && !r.assetId && !r.saleAssetId) setDialog({ type: "sale", key });
   }
 
-  /** Ikkunan sulkeminen ilman valintaa: takaisin summan jälkeiseen kenttään. */
-  function closeDialogBack(key: string) {
+  /** Ikkunan sulkeminen: takaisin summan jälkeiseen kenttään, tai summaan, jos sitä ei vielä ole kirjoitettu. */
+  function closeDialogBack(key: string, toAmount = false) {
     setDialog(null);
     const i = indexOf(key);
-    if (i >= 0) setPendingFocus({ row: i, col: col("amountGross") + 1 });
+    if (i >= 0) setPendingFocus({ row: i, col: col("amountGross") + (toAmount ? 0 : 1) });
   }
 
   function saveWithholding(key: string, value: number) {
@@ -558,8 +559,9 @@ export function LedgerGrid({
       ) : null}
       {result.status === "error" ? <Notice tone="alert" title={result.message} /> : null}
 
-      <div className="overflow-x-auto rounded-xl border border-line bg-paper">
-        <table ref={tableRef} className="w-full min-w-[68rem] border-collapse text-sm">
+      {/* relative: näkymättömät otsikot pysyvät vierityslaatikon sisällä eivätkä levennä sivua. */}
+      <div className="relative overflow-x-auto rounded-xl border border-line bg-paper">
+        <table ref={tableRef} className="w-full min-w-[62rem] border-collapse text-sm">
           <thead className="bg-cloud/60 text-left text-xs font-semibold uppercase tracking-wide text-ink/60">
             <tr>
               <th className="w-8 px-2 py-2 text-right">#</th>
@@ -596,7 +598,7 @@ export function LedgerGrid({
               return [
                 <tr key={r.key} className={`border-t border-line align-top ${r.id ? "" : "bg-sky-soft/30"}`}>
                   <td className="px-2 py-2.5 text-right tabular text-ink/45">{i + 1}</td>
-                  <td className="px-1 py-1 min-w-[7rem]">
+                  <td className="px-1 py-1 min-w-[6.5rem]">
                     <input
                       {...common("bookedOn")}
                       aria-label={`Päivä, rivi ${i + 1}`}
@@ -605,10 +607,15 @@ export function LedgerGrid({
                       placeholder={`p.k.${year}`}
                       autoComplete="off"
                       onFocus={(e) => e.currentTarget.select()}
+                      onBlur={(e) => {
+                        // Lyhyt päivä (5.9.) täydennetään vuodella näkyviin, jotta kirjanpitäjä näkee tulkinnan.
+                        const iso = normalizeDate(e.currentTarget.value, year);
+                        if (iso && toFinnishDate(iso) !== r.bookedOn) patchRow(r.key, { bookedOn: toFinnishDate(iso) });
+                      }}
                       onChange={(e) => patchRow(r.key, { bookedOn: e.target.value })}
                     />
                   </td>
-                  <td className="px-1 py-1 min-w-[13rem]">
+                  <td className="px-1 py-1 min-w-[11rem]">
                     <input
                       {...common("description")}
                       aria-label={`Selite, rivi ${i + 1}`}
@@ -618,7 +625,7 @@ export function LedgerGrid({
                       onChange={(e) => patchRow(r.key, { description: e.target.value })}
                     />
                   </td>
-                  <td className="px-1 py-1 min-w-[12rem]">
+                  <td className="px-1 py-1 min-w-[11rem]">
                     <button
                       type="button"
                       {...common("category")}
@@ -859,7 +866,7 @@ export function LedgerGrid({
         <p>
           <b>Enter</b> tai <b>Tab</b> seuraavaan kenttään, rivin lopussa seuraavalle tai uudelle riville. <b>Shift</b> takaisin. <b>Nuolet ylös ja alas</b> samaan
           sarakkeeseen toisella rivillä (ei selitteessä). Luokka: <b>numero</b> valitsee suoraan (1–12), nuolet ja Enter valikossa, Esc sulkee. <b>T</b> vaihtaa tulon
-          ja menon. <b>Delete</b> tyyppisarakkeessa poistaa rivin, <b>Ctrl + Z</b> palauttaa sen. <b>Ctrl + S</b> tallentaa. <b>Ctrl + N</b> lisää rivin. Voit liittää
+          ja menon. <b>Delete</b> tyyppisarakkeessa poistaa rivin, <b>Ctrl + Z</b> palauttaa sen. <b>Ctrl + S</b> tallentaa. <b>Ctrl + N</b> tai Lisää rivi lisää rivin. Voit liittää
           rivejä Excelistä (summat arvonlisäveron kanssa).
         </p>
       </div>
@@ -888,9 +895,9 @@ export function LedgerGrid({
           empty=""
           onSelect={(id) => {
             patchRow(dialog.key, { assetRatePct: id });
-            closeDialogBack(dialog.key);
+            closeDialogBack(dialog.key, dialog.toAmount);
           }}
-          onClose={() => closeDialogBack(dialog.key)}
+          onClose={() => closeDialogBack(dialog.key, dialog.toAmount)}
         />
       ) : null}
       {dialog?.type === "sale" && dialogRow ? (
@@ -902,9 +909,9 @@ export function LedgerGrid({
           empty="Asiakkaalla ei ole myymättömiä investointeja."
           onSelect={(id) => {
             patchRow(dialog.key, { saleAssetId: id });
-            closeDialogBack(dialog.key);
+            closeDialogBack(dialog.key, dialog.toAmount);
           }}
-          onClose={() => closeDialogBack(dialog.key)}
+          onClose={() => closeDialogBack(dialog.key, dialog.toAmount)}
         />
       ) : null}
 
@@ -943,8 +950,8 @@ function WithholdingDialog({
   const subtitle = [
     category(row.category)?.label ?? "Puukauppa",
     row.description || "–",
-    `${gross !== null && Number.isFinite(gross) ? num2(gross) : "–"} € (sis. alv)`,
-    `veroton ${net === null ? "–" : num2(net)} €`,
+    `${gross !== null && Number.isFinite(gross) ? num2(gross) : "–"} € (sis. alv)`,
+    `veroton ${net === null ? "–" : num2(net)} €`,
   ].join(" · ");
   return (
     <GridDialog key={phase} title="Puukaupan ennakonpidätys" subtitle={subtitle} onEscape={onClose}>
@@ -968,7 +975,7 @@ function WithholdingDialog({
               }}
             />
           </label>
-          <p className="text-ink/65">Ennakonpidätys vähennetään maksettavasta verosta. Metsätaloudessa se on yleensä 26–30 % puukaupan arvosta.</p>
+          <p className="text-ink/65">Ennakonpidätys vähennetään maksettavasta verosta. Metsätaloudessa se on yleensä 26–30 % puukaupan arvosta.</p>
           <div className="flex flex-wrap justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => onPhase(2)}>
               Ei ennakonpidätystä

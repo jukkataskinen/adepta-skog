@@ -498,8 +498,9 @@ export function pastedCategory(text: string): string | null {
 }
 
 /**
- * Liittää solut taulukkoon alkaen annetusta rivistä ja kentästä. Olemassa
- * olevat rivit korvataan liitetyiltä osin ja puuttuvat rivit lisätään loppuun.
+ * Liittää solut taulukkoon alkaen annetusta rivistä ja kentästä. Uudet
+ * (tallentamattomat) rivit täytetään liitetyiltä osin, tallennettujen kohdalle
+ * lisätään uusi rivi, ja puuttuvat rivit lisätään loppuun.
  * Jos ensimmäinen liitetty rivi on otsikkorivi (päivä ei ole päivä eikä summa
  * summa), se ohitetaan, koska Excelistä kopioidaan usein otsikot mukaan.
  * Summat ovat arvonlisäveron kanssa.
@@ -525,7 +526,10 @@ export function applyGridPaste(
   const out = rows.map((r) => ({ ...r }));
   cells.forEach((line, i) => {
     const idx = startRow + i;
+    // Tallennettua kirjausta ei korvata liittämällä: uusi rivi lisätään sen kohdalle,
+    // jotta vahingossa liitetty ei muuta vanhoja kirjauksia (ne voi muuttaa kentittäin).
     if (!out[idx]) out.push(emptyGridRow(opts.newKey(), out[idx - 1]?.bookedOn ?? ""));
+    else if (out[idx].id) out.splice(idx, 0, emptyGridRow(opts.newKey(), out[idx - 1]?.bookedOn ?? out[idx].bookedOn));
     let r = out[idx];
     line.forEach((value, j) => {
       const field = fields[startCol + j];

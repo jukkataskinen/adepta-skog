@@ -237,6 +237,14 @@ describe("liittäminen Excelistä", () => {
     expect(v.ok && v.value).toMatchObject({ amountGross: 15060, vatRate: 25.5, withholding: 3600 });
   });
 
+  it("tallennettua riviä ei korvata: liitetyt rivit lisätään sen kohdalle", () => {
+    const saved = { ...emptyGridRow("s1", "1.2.2025"), id: ID, description: "Vanha", category: "travel", amountGross: "10,00" };
+    const text = ["3.3.2025", "Uusi", "Matkakulut", "20"].join("\t") + "\n" + ["4.3.2025", "Toinen", "8", "30"].join("\t");
+    const out = applyGridPaste([saved], 0, "bookedOn", parseClipboard(text), pasteOpts);
+    expect(out.map((r) => r.description)).toEqual(["Uusi", "Toinen", "Vanha"]);
+    expect(out[2]).toEqual(saved);
+  });
+
   it("liitos keskelle alkaa valitusta kentästä", () => {
     const rows = [emptyGridRow("r0", "1.1.2025"), emptyGridRow("r1", "1.1.2025")];
     const out = applyGridPaste(rows, 1, "category", parseClipboard("Tuntematon\t50"), pasteOpts);

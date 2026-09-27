@@ -135,3 +135,31 @@
 **Hankintatyön laskuri.** Taksat ovat Verohallinnon yhtenäistämisohjeen kohdasta 4.1.9 (vuodelta 2025 toimitettava verotus), samat kuin vanhassa sovelluksessa. Uuden vuoden taksat julkaistaan vasta verotuksen aikaan, joten vuodelle ilman omia taksoja käytetään uusimpia ja laskuri kertoo sen. Laskuri täyttää tavallisen Hankintatyö-menon; tekijän tietoja ja henkilötunnusta ei kysytä, ja yli 125 m³:n ansiotulo-osuus näytetään vain tietona, koska tekijä ilmoittaa sen itse. Useamman tekijän jakoa työpanosten suhteessa ei lasketa.
 
 **v2-esikatselu Vercelissä.** Uuden sovelluksen muuttujat ovat Vercelissä vain Preview-ympäristössä haaralla v2 (tai kaikissa esikatseluissa, kun vanha sovellus ei lue niitä), jotta vanha tuotanto ei muutu. Tietokanta transaktiopoolerin kautta (portti 6543), koska Supabasen suora osoite on vain IPv6:lla eikä toimi Vercelissä. Kirjautuminen Auth0:lla eikä kehityskirjautumisella, koska kannassa on oikeita asiakastietoja. `/api/diagnostiikka` näyttää esikatselussa asetusten tilan ilman arvoja; tuotannossa se palauttaa 404. Vercelin Redeploy käyttää vanhan julkaisun asetuksia, joten muuttujien muutoksen jälkeen tarvitaan uusi julkaisu (push).
+
+## 2026-09-28
+
+**Summa syötetään arvonlisäveron kanssa.** Kirjanpitäjä kirjoittaa kuitin summan kaikissa syöttökohdissa (lomake, taulukko, Excel-liitos, investoinnin hankinta ja myynti), kuten vanhassa sovelluksessa. Veroton = pyöristys(brutto / (1 + alv/100), 2) ja alv = brutto − veroton, jotta kuitin summa säilyy sentilleen. Sääntö on yhdessä paikassa (`src/lib/tax/amounts.ts`), ja kirjanpito, arvonlisäveroyhteenveto, veroraportti, kirjausluettelo ja vertailu laskevat veron bruttosta. Laskenta tehdään sentteinä, jotta pyöristys on sama kuin Postgresin `round()`.
+
+**Kannassa brutto on lähde, veroton lasketaan triggerillä (0009).** `sk_transactions.amount_gross` lisättiin, ja `amount_net` säilyy, koska verolaskenta käyttää sitä. Trigger laskee verottoman aina bruttosta; jos lisäys tai päivitys antaa vain verottoman (vanhat skriptit ja testit), brutto lasketaan siitä kuten vanha sovellus sen näytti. Lisäksi tarkistusehto varmistaa, että veroton vastaa bruttoa ja kantaa. Pelkkä tarkistus olisi vaatinut jokaiselta kirjoittajalta saman laskun; trigger pitää säännön kannassa yhdessä kohdassa. Olemassa olevat rivit saivat brutton verottomasta, eikä veroton muuttunut (ero alle puoli senttiä). Täyttöä varten suljettujen vuosien lukitus ja aikaleiman päivitys ohitetaan migraatiossa hetkeksi.
+
+**Tuonti vanhasta: brutto verottomasta.** Vanhan kannan `summa_alv0` on veroton, joten brutto = veroton + pyöristys(veroton × alv/100, 2). Uusintatuonnin synkronointi vertaa bruttoa. Vertailu (`vertaa:vero`) laskee vanhan sovelluksen veron samalla tavalla riveittäin.
+
+**Investoinnin hankintameno ja myyntihinta ovat verottomia.** Syöttö on bruttona, mutta `sk_assets.acquisition_cost` ja `sale_price` saavat verottoman summan kuten ennenkin. 600 euron rajaa verrataan verottomaan.
+
+**Oletus-alv 0 %, jos asiakas ei ole arvonlisäverorekisterissä (Jukka vahvisti 28.9.2026).** Hän ei voi vähentää ostojen veroa eikä hänen myynnissään ole veroa, joten kulu on koko kuitin summa. Rekisteröidyllä oletus tulee luokasta ja päivästä. Kirjanpitäjä voi aina vaihtaa kannan. Sääntö on yhdessä funktiossa (`defaultVatRate`, joka saa asiakkaan tiedon).
+
+**Taulukko on kirjanpidon oletusnäkymä (Jukka vahvisti 28.9.2026).** Korvaa 27.9. päätöksen "taulukossa vain valitun vuoden uusia kirjauksia, ei investointeja". Avoimen vuoden kaikki kirjaukset ovat taulukossa muokattavina, ja lomake jää vaihtoehdoksi. Tallennus erottelee uudet, muuttuneet ja poistetut rivit samalla puhtaalla funktiolla selaimessa ja palvelimella (`planGridChanges`) ja vertaa kannan nykytilaan, ei selaimen muistamaan. Muuttunut rivi päivitetään paikallaan (ei poisto ja uudelleenkirjoitus kuten vanhassa), joten tositteet, loki ja investoinnin linkki säilyvät. Muuttumattomia rivejä ei kirjoiteta. Yksikin virhe peruu kaiken. Suljettu vuosi näkyy vain luettavana.
+
+**Kirjauksen tallennus ja poisto yhdessä funktiossa.** Lomake ja taulukko käyttävät `src/lib/ledger/write.ts`:n funktioita, joten investoinnin säännöt ovat yhdessä paikassa. Uutena: jos hankinnan luokka vaihdetaan muuksi, investointi poistetaan samoin säännöin kuin hankinnan poistossa (ei, jos poistoja on), ja jos myynnin luokka tai kohde vaihtuu, entinen kohde palautetaan käyttöön. Ennen investointi jäi orvoksi.
+
+**Tyypin voi kääntää.** Kuten vanhassa, T vaihtaa tulon menoksi ja päinvastoin (ei investoinneille). Tyyppi tallennetaan erikseen luokasta. Lomake säilyttää käännetyn tyypin, jos luokka ei muutu.
+
+**Luokan numerot vanhasta sovelluksesta.** 1–11 kuten vanhassa, Hankintatyö on 12. Numero, joka voi jatkua (1 → 10, 11, 12), odottaa toista numeroa 0,7 sekuntia; muut valitaan heti.
+
+**Ikkunat kuten vanhassa.** Ennakonpidätys kysytään puukaupasta, kun summa muuttuu tai luokka valitaan riville, jolla on summa (vanha kysyi joka kerta kentästä poistuttaessa, mikä häiritsisi vanhoja rivejä selattaessa). Tyhjä vaatii vahvistuksen. Hankintakaupan jälkeen tarjotaan hankintatyötä, jos alla ei ole Hankintatyö-riviä; tarjous ei toistu samassa istunnossa. Hankintatyössä valitaan, sisältyykö kuljetus (kuten vanhassa); lomakkeen laskuri käyttää samaa komponenttia, joten erillinen kuljetusmäärä jäi pois. Tekijän nimen saa selitteeseen, henkilötunnusta ei kysytä. Investoinnin hankinta kysyy hyödykelajin ja myynti myytävän kohteen.
+
+**Liittäminen ei korvaa tallennettuja rivejä.** Kun koko vuosi on taulukossa, vahingossa liitetty Excel-alue muuttaisi vanhoja kirjauksia. Tallennetun rivin kohdalle liitetyt rivit lisätään uusina. Sarakejärjestys seuraa taulukkoa: päivä, selite, luokka, summa, alv, ennakonpidätys, metsätila (jos tiloja), viite.
+
+**Varoitus tallentamattomista muutoksista.** Selaimen poistumisvaroitus ja sivun sisäisille linkeille oma kysymys, koska sovelluksen sisäinen siirtyminen ei laukaise selaimen varoitusta. Samanaikaisia muutoksia ei lukita riveittäin: jos toinen käyttäjä on poistanut rivin sillä välin, tallennus estetään ja pyydetään lataamaan sivu.
+
+**Ctrl + N.** Vanhan sovelluksen pikanäppäin on mukana, mutta Chrome ei yleensä anna sivun ottaa sitä, joten ohje neuvoo Lisää rivi -painikkeen ja Enterin rivin lopussa.
