@@ -113,3 +113,21 @@
 **Taulukossa vain valitun verovuoden kirjauksia, ei investointeja.** Päivän on oltava taulukon vuonna, jotta Excelistä liitetty väärän vuoden rivi ei mene huomaamatta toiselle vuodelle; vuoden voi jättää pois (5.3.). Investoinnin hankinta ja myynti tarvitsevat hyödykkeen lajin tai myytävän investoinnin, joten ne ohjataan lomakkeelle.
 
 **Taulukkosyötön loki kirjauksittain.** Jokaisesta kirjauksesta tulee oma `transaction.create`-merkintä (lisätietona `source: table`), kuten lomakkeelta. Näin yksittäisen kirjauksen historia löytyy samalla tavalla riippumatta syöttötavasta.
+
+**Rajaukset.** ~~Määräalan tai määräosan myynti, myyntikulut ja poistamattomien tie- ja ojamenojen lisääminen hankintamenoon eivät vielä ole laskelmassa.~~ Toteutettu samana päivänä (0008, alla).
+
+**Metsätilan luovutukset omaan tauluun (0008).** Tilasta voi myydä osan (määräala tai määräosa) useita kertoja, joten luovutukset ovat taulussa `sk_forest_property_disposals` (päivä, kauppahinta, osuus, myyntikulut, lahja tai verovapaa, lisätieto). 0007:n sarakkeet siirrettiin riveiksi osuudella 100 % ja poistettiin tilataulusta, jotta tieto on yhdessä paikassa. Osuus on myydyn osan osuus tilan hankintamenosta; jos sitä ei tiedetä, se lasketaan metsämaan pinta-aloista (Metsävähennys, luvut 3.4 ja 7.1.3). Kanta estää yli 100 %:n osuudet ja hankintaa aiemman päivän.
+
+**Osamyynnin laskenta.** Hankintameno luovutusvoittoon, lisäyksen enimmäismäärä (60 %, verovuodesta 2027 75 % myydyn osan metsän hankintamenosta) ja tien ja ojien poistamaton arvo jaetaan osuuden mukaan. Tilan jäljelle jäävä pohja pienenee saman verran. Tarkistettu esimerkeillä 33 ja 37. Esimerkin 33 lopussa käytettävissä oleva oikeus (10 250 €) on laskettu vähentämättä lisättyä vähennystä, mikä on ristiriidassa ohjeen kaavan (luku 6, pohja − (käytetty − lisätty)) ja esimerkin 37 kanssa; ohjelma noudattaa kaavaa.
+
+**Myyty osuus ei tuo pohjaa enää luovutusvuonna.** Aiemmin (0007) myyty tila oli mukana myyntivuoden pohjassa. Ohjeen luku 3.4 ja esimerkit 17 ja 37: pohja lasketaan verovuoden lopussa omistetuista metsistä, joten myyty osuus jää pois jo luovutusvuonna, ja saman vuoden lisäys palauttaa käytettyä. Myyntivuoden metsävähennys kohdistetaan vain vuoden lopussa omistetuille tiloille.
+
+**Lisäykseen luetaan ennen luovutusvuotta käytetty vähennys.** Luovutusvuoden oma vähennys ei kuulu lisäykseen (ohjeen esimerkit laskevat aiempien vuosien vähennyksistä, ja luku 7.1.4 jättää luovutusvuoden vähennyksen pois). Muuten vuoden vähennys ja pohja riippuisivat toisistaan kehässä. Se lisätään seuraavassa myynnissä, jos sellainen tulee.
+
+**Myyntikulut ja hankintameno-olettama.** Myyntikulut ja tien ja ojien poistamaton arvo vähennetään vain todellisen hankintamenon kanssa. Olettama (20 %, vähintään 10 vuotta omistettu 40 %) korvaa ne kaikki (Luovutusvoitto-ohje, luvut 9 ja 10). Ohjelma valitsee suuremman vähennyksen.
+
+**Tie ja oja tilan myynnissä.** Metsätie tai ojitus tunnistetaan investoinnin lajista (menojäännöspoisto 15 %) ja tilasta (`forest_property_id`). Luovutusvuonna vuoden alun poistamattomasta arvosta siirtyy myytyä osuutta vastaava osa hankintamenoon (Metsävähennys, luku 3.1.3), ja vuoden poisto lasketaan jäljelle jäävästä arvosta. Samana vuonna useassa kaupassa siirtyvä arvo jaetaan osuuksien suhteessa. Kun koko tila on myyty, arvo siirtyy kokonaan, eikä tietä enää poisteta. Luovutuksen jälkeiset arvot lasketaan ketjuna kirjatuista poistoista, koska kirjattu loppuarvo voi olla tallennettu ennen luovutuksen kirjausta.
+
+**Luovutuksen muutos vain avoimelle vuodelle.** Luovutuksen voi lisätä, muuttaa ja poistaa vain avatulla ja avoimella verovuodella, kuten kirjauksen. Kanta estää muutokset suljetulle vuodelle myös suoraan (lukitustriggeri). Jos vuoden suunnitelma on jo vahvistettu, se vahvistetaan uudelleen, jotta tien poisto ja metsävähennys päivittyvät. Myöhempien suljettujen vuosien lukuja ei tarkisteta erikseen.
+
+**Tuonti ei koske luovutuksiin.** Vanhassa sovelluksessa ei ole tilan myyntiä, joten tuonti ei tuo luovutuksia, eikä uusintatuonti poista uudessa kirjattuja.

@@ -152,3 +152,14 @@ export function forestSaleAdditionPct(year: number): number {
 export const DEEMED_COST_PCT = 20;
 export const DEEMED_COST_LONG_PCT = 40;
 export const DEEMED_COST_LONG_YEARS = 10;
+
+/**
+ * Metsätie tai ojitus tunnistetaan hyödykelajista (menojäännöspoisto 15 %).
+ * Niiden poistamaton arvo lisätään metsän hankintamenoon, kun metsä tai sen
+ * osa myydään (Verohallinto: Metsävähennys, luku 3.1.3).
+ */
+export const ROAD_DITCH_PCT = 15;
+
+export function isRoadOrDitch(asset: { method: string; decliningRatePct: number | null }): boolean {
+  return asset.method === "declining_balance" && asset.decliningRatePct === ROAD_DITCH_PCT;
+}

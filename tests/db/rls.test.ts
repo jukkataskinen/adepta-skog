@@ -23,6 +23,7 @@ const TABLES = [
   "sk_transactions",
   "sk_documents",
   "sk_feature_requests",
+  "sk_forest_property_disposals",
 ];
 
 /** Kirjanpitäjälle näkyvät taulut: vastuuasiakkaan rivit (loki on vain pääkäyttäjälle). */
@@ -37,6 +38,13 @@ beforeAll(async () => {
   a = await seedOrg(db, "Toimisto A");
   b = await seedOrg(db, "Toimisto B");
   for (const org of [a, b]) {
+    await db.asService((tx) =>
+      tx.query(
+        `insert into sk_forest_property_disposals (organization_id, client_id, forest_property_id, disposed_on, sale_price, share_pct)
+         values ($1, $2, $3, '2025-09-01', 5000, 10)`,
+        [org.id, org.client, org.property],
+      ),
+    );
     await db.asUser(org.owner.sub, (tx) =>
       audit(tx, { organizationId: org.id, userId: org.owner.id, action: "test.seed", entity: "sk_organizations", entityId: org.id }),
     );

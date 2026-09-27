@@ -1,4 +1,5 @@
 import { degrees, PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } from "pdf-lib";
+import { forestSaleLines } from "@/lib/tax/forest-sale";
 import type { ReportData } from "./data";
 
 /**
@@ -181,6 +182,7 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
     for (const d of data.depreciation) {
       w.row([d.description, d.sold ? "Myyty" : d.method, eur(d.bookValueStart), d.sold ? "–" : eur(d.amount), eur(d.bookValueEnd)], dep5);
       if (d.sold) w.text(d.saleGain ? `Luovutusvoitto ${eur(d.saleGain)}` : `Luovutustappio ${eur(d.saleLoss)}`, { size: 8, color: MUTED, x: LEFT + 4 });
+      if (d.transferred) w.text(`Metsätilan myynnissä hankintamenoon siirtyi ${eur(d.transferred)}`, { size: 8, color: MUTED, x: LEFT + 4 });
     }
   }
 
@@ -194,12 +196,12 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
     w.row(["Yhteensä", "", eur(data.plan.recordedDeduction)], p4, { bold: true });
   }
   for (const f of data.plan.forestSales) {
+    const { lines, result, note } = forestSaleLines(f);
     w.space(6);
-    w.text(`Metsätilan myynti: ${f.name}`, { bold: true, size: 11, gap: 6 });
-    w.row(["Kauppahinta", eur(f.salePrice)], two);
-    w.row([f.deemedCost ? "Hankintameno-olettama" : "Hankintameno", eur(-f.cost)], two);
-    w.row(["Käytetty metsävähennys lisätään (TVL 46 § 8 mom.)", eur(f.addition)], two, { line: true });
-    w.row([f.gain >= 0 ? "Luovutusvoitto" : "Luovutustappio", eur(f.gain)], two, { bold: true });
+    w.text(`Metsätilan ${f.sharePct < 100 ? "osan myynti" : "myynti"}: ${f.name}, ${date(f.disposedOn)}`, { bold: true, size: 11, gap: 6 });
+    lines.forEach(([label, amount], i) => w.row([label, eur(amount)], two, i === lines.length - 1 ? { line: true } : {}));
+    w.row([result[0], eur(result[1])], two, { bold: true });
+    if (note) w.text(note, { size: 8, color: MUTED, x: LEFT + 4 });
   }
 
   // 5. Kirjausluettelo

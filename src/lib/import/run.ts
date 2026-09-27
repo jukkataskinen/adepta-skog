@@ -134,7 +134,8 @@ export async function importLegacyData(tx: Sql, input: { orgName: string; create
   const yearClosed = async (client: string, year: number) =>
     (await tx.query<{ closed: boolean }>("select sk_year_is_closed($1, $2) as closed", [client, year]))[0].closed;
 
-  // Metsätilat ja metsävähennykset
+  // Metsätilat ja metsävähennykset. Tilan luovutuksia (sk_forest_property_disposals)
+  // ei tuoda: vanhassa sovelluksessa niitä ei ole, ja uudessa kirjatut jäävät ennalleen.
   const propertyMap = new Map<string, { id: string; client: string }>();
   for (const p of data.properties) {
     const m = mapProperty(p, data.deductions);

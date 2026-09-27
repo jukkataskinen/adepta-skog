@@ -21,7 +21,7 @@ function sample(status: "open" | "closed", transactions = 3): ReportData {
     vat: vatSummary([{ bookedOn: "2025-06-15", kind: "income", amountNet: 42000, vatRate: 25.5 }]),
     plan: { income: 42000, expense: 340, deliveryWork: 0, investment: 0, withholding: 0, assets: [], properties: [], deductionPool: null, forestSales: [], recordedDeduction: 0, confirmed: false },
     result: computePlan({ year: 2025, income: 42000, expense: 340, depreciation: 0, saleGain: 0, saleLoss: 0, salePrices: 0, forestDeduction: 0 }),
-    depreciation: [{ description: "Metsätraktori", method: "Menojäännöspoisto", bookValueStart: 22500, amount: 5625, bookValueEnd: 16875, sold: false, salePrice: 0, saleGain: 0, saleLoss: 0 }],
+    depreciation: [{ description: "Metsätraktori", method: "Menojäännöspoisto", bookValueStart: 22500, amount: 5625, bookValueEnd: 16875, transferred: 0, sold: false, salePrice: 0, saleGain: 0, saleLoss: 0 }],
     properties: [{ name: "Kotimetsä", remainingBefore: 57600, deduction: 0 }],
     confirmed: false,
   };
@@ -39,6 +39,19 @@ describe("veroraportti PDF:nä", () => {
   it("pitkä kirjausluettelo jatkuu seuraavalle sivulle", async () => {
     const doc = await PDFDocument.load(await renderTaxReport(sample("open", 120)));
     expect(doc.getPageCount()).toBeGreaterThan(6);
+  });
+
+  it("metsätilan osan myynti ja tien siirtyvä arvo mahtuvat raporttiin", async () => {
+    const s = sample("open");
+    s.plan.forestSales = [
+      {
+        id: "d1", propertyId: "p1", name: "Kotimetsä", year: 2025, disposedOn: "2025-08-15", salePrice: 40000, sharePct: 25, acquisitionCost: 30000,
+        roadDitchCost: 2125, sellingCosts: 1500, deemedCost: 8000, deemedPct: 20, usesDeemedCost: false, cost: 33625, addition: 3000, gain: 9375,
+      },
+    ];
+    s.depreciation = [{ ...s.depreciation[0], description: "Metsätie", transferred: 2125 }];
+    const doc = await PDFDocument.load(await renderTaxReport(s));
+    expect(doc.getPageCount()).toBe(6);
   });
 
   it("merkit, joita vakiofontti ei tunne, eivät kaada raporttia", async () => {

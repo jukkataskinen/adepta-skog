@@ -2,8 +2,8 @@ import type { Sql } from "@/lib/db/types";
 import { summarize } from "@/lib/ledger/summary";
 import { assetYear, type AssetYear } from "./depreciation";
 import { forestDeductionBase } from "./forest-deduction";
-import { forestDeductionPool, forestSales, type ForestPropertyInput } from "./forest-sale";
-import type { TransactionKind } from "./rules";
+import { disposalFractions, forestDeductionPool, forestSales, soldSharePct, type ForestPropertyInput, type ForestSale } from "./forest-sale";
+import { isRoadOrDitch, type TransactionKind } from "./rules";
 
 /**
  * Verosuunnitelman lähtötiedot yhdelle asiakkaalle ja vuodelle. Käyttäjän
@@ -29,6 +29,8 @@ export interface PlanProperty {
   recordedThisYear: number;
 }
 
+export type PlanForestSale = ForestSale & { name: string };
+
 export interface PlanData {
   income: number;
   expense: number;
@@ -41,8 +43,8 @@ export interface PlanData {
   properties: PlanProperty[];
   /** Käyttämätön metsävähennyspohja kaikista metsistä yhteensä (verovelvolliskohtainen). */
   deductionPool: number | null;
-  /** Vuonna myydyt metsätilat ja luovutusvoittoon lisättävä metsävähennys. */
-  forestSales: { id: string; name: string; salePrice: number; cost: number; deemedCost: boolean; addition: number; gain: number }[];
+  /** Vuoden metsätilan luovutukset ja luovutusvoittoon lisättävä metsävähennys. */
+  forestSales: PlanForestSale[];
   recordedDeduction: number;
   confirmed: boolean;
 }
@@ -64,71 +66,104 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
     })),
   );
 
+  const props = await tx.query<{
+    id: string; name: string; acquisition_price: string | null; acquired_on: string | null; forest_land_share_pct: string | null; deduction_used_before: string;
+    ded: { taxYear: number; amount: string }[] | null;
+  }>(
+    `select p.id, p.name, p.acquisition_price, p.acquired_on::text, p.forest_land_share_pct, p.deduction_used_before,
+            (select json_agg(json_build_object('taxYear', d.tax_year, 'amount', d.amount)) from sk_forest_deductions d where d.forest_property_id = p.id) as ded
+       from sk_forest_properties p where p.client_id = $1 order by p.acquired_on nulls last, p.name`,
+    [clientId],
+  );
+  const disposals = await tx.query<{
+    id: string; forest_property_id: string; disposed_on: string; sale_price: string; share_pct: string; selling_costs: string; no_deduction_addition: boolean;
+  }>(
+    `select id, forest_property_id, disposed_on::text, sale_price, share_pct, selling_costs, no_deduction_addition
+       from sk_forest_property_disposals where client_id = $1 order by disposed_on, id`,
+    [clientId],
+  );
+  const disposalsOf = (propertyId: string) => disposals.filter((d) => d.forest_property_id === propertyId);
+  const fractions = new Map(props.map((p) => [p.id, disposalFractions(disposalsOf(p.id).map((d) => ({ disposedOn: d.disposed_on, sharePct: Number(d.share_pct) })))]));
+
   const assets = await tx.query<{
     id: string; description: string; acquired_on: string; acquisition_cost: string; method: "straight_line" | "declining_balance";
     useful_life_years: number | null; declining_rate_pct: string | null; opening_book_value: string | null; disposed_on: string | null; sale_price: string | null;
+    forest_property_id: string | null;
     deps: { taxYear: number; amount: string; bookValueEnd: string }[] | null;
   }>(
     `select a.id, a.description, a.acquired_on::text, a.acquisition_cost, a.method, a.useful_life_years, a.declining_rate_pct, a.opening_book_value,
-            a.disposed_on::text, a.sale_price,
+            a.disposed_on::text, a.sale_price, a.forest_property_id,
             (select json_agg(json_build_object('taxYear', d.tax_year, 'amount', d.amount, 'bookValueEnd', d.book_value_end)) from sk_depreciations d where d.asset_id = a.id) as deps
        from sk_assets a where a.client_id = $1 order by a.acquired_on`,
     [clientId],
   );
   const planAssets: PlanAsset[] = [];
+  // Tien ja ojan poistamaton arvo, joka siirtyy luovutusvuonna metsän hankintamenoon: tila → vuosi → euroa.
+  const roadDitch = new Map<string, Map<number, number>>();
   for (const a of assets) {
     const deps = (a.deps ?? []).map((d) => ({ taxYear: Number(d.taxYear), amount: Number(d.amount), bookValueEnd: Number(d.bookValueEnd) }));
-    const y = assetYear(
-      {
-        acquiredOn: a.acquired_on, acquisitionCost: Number(a.acquisition_cost), method: a.method, usefulLifeYears: a.useful_life_years,
-        decliningRatePct: a.declining_rate_pct === null ? null : Number(a.declining_rate_pct),
-        openingBookValue: a.opening_book_value === null ? null : Number(a.opening_book_value),
-        disposedOn: a.disposed_on, salePrice: a.sale_price === null ? null : Number(a.sale_price),
-      },
-      deps,
-      year,
-    );
+    const rate = a.declining_rate_pct === null ? null : Number(a.declining_rate_pct);
+    const transfers = a.forest_property_id && isRoadOrDitch({ method: a.method, decliningRatePct: rate }) ? fractions.get(a.forest_property_id) ?? [] : [];
+    const input = {
+      acquiredOn: a.acquired_on, acquisitionCost: Number(a.acquisition_cost), method: a.method, usefulLifeYears: a.useful_life_years,
+      decliningRatePct: rate,
+      openingBookValue: a.opening_book_value === null ? null : Number(a.opening_book_value),
+      disposedOn: a.disposed_on, salePrice: a.sale_price === null ? null : Number(a.sale_price),
+      transferFractions: transfers,
+    };
+    for (const t of transfers) {
+      const moved = assetYear(input, deps, t.year).transferred;
+      if (!moved) continue;
+      const byYear = roadDitch.get(a.forest_property_id!) ?? new Map<number, number>();
+      byYear.set(t.year, (byYear.get(t.year) ?? 0) + moved);
+      roadDitch.set(a.forest_property_id!, byYear);
+    }
+    const y = assetYear(input, deps, year);
     if (!y.active) continue;
-    planAssets.push({ id: a.id, description: a.description, method: a.method, decliningRatePct: a.declining_rate_pct === null ? null : Number(a.declining_rate_pct), year: y, recorded: deps.find((d) => d.taxYear === year)?.amount ?? null });
+    planAssets.push({ id: a.id, description: a.description, method: a.method, decliningRatePct: rate, year: y, recorded: deps.find((d) => d.taxYear === year)?.amount ?? null });
   }
 
-  const props = await tx.query<{
-    id: string; name: string; acquisition_price: string | null; acquired_on: string | null; forest_land_share_pct: string | null; deduction_used_before: string;
-    disposed_on: string | null; sale_price: string | null; no_deduction_addition: boolean;
-    ded: { taxYear: number; amount: string }[] | null;
-  }>(
-    `select p.id, p.name, p.acquisition_price, p.acquired_on::text, p.forest_land_share_pct, p.deduction_used_before,
-            p.disposed_on::text, p.sale_price, p.no_deduction_addition,
-            (select json_agg(json_build_object('taxYear', d.tax_year, 'amount', d.amount)) from sk_forest_deductions d where d.forest_property_id = p.id) as ded
-       from sk_forest_properties p where p.client_id = $1 order by p.acquired_on nulls last, p.name`,
-    [clientId],
-  );
   const num = (v: string | null) => (v === null ? null : Number(v));
-  const inputs: (ForestPropertyInput & { name: string })[] = props.map((p) => ({
-    id: p.id,
-    name: p.name,
-    acquisitionPrice: num(p.acquisition_price),
-    acquiredOn: p.acquired_on,
-    forestLandSharePct: num(p.forest_land_share_pct),
-    usedBefore: Number(p.deduction_used_before),
-    deductions: (p.ded ?? []).map((d) => ({ taxYear: Number(d.taxYear), amount: Number(d.amount) })),
-    disposedOn: p.disposed_on,
-    salePrice: num(p.sale_price),
-    noDeductionAddition: p.no_deduction_addition,
-  }));
-  // Myyntivuonna tila on vielä omistuksessa, joten vuoden vähennyksen voi kohdistaa sille.
-  const owned = inputs.filter((p) => !p.disposedOn || Number(p.disposedOn.slice(0, 4)) >= year);
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const inputs: (ForestPropertyInput & { name: string })[] = props.map((p) => {
+    const own = disposalsOf(p.id);
+    // Vuoden siirtyvä tie- ja ojamenojen arvo jaetaan saman vuoden luovutuksille osuuksien suhteessa.
+    const sharesInYear = (y: string) => own.filter((d) => d.disposed_on.slice(0, 4) === y).reduce((s, d) => s + Number(d.share_pct), 0);
+    return {
+      id: p.id,
+      name: p.name,
+      acquisitionPrice: num(p.acquisition_price),
+      acquiredOn: p.acquired_on,
+      forestLandSharePct: num(p.forest_land_share_pct),
+      usedBefore: Number(p.deduction_used_before),
+      deductions: (p.ded ?? []).map((d) => ({ taxYear: Number(d.taxYear), amount: Number(d.amount) })),
+      disposals: own.map((d) => {
+        const y = d.disposed_on.slice(0, 4);
+        const moved = roadDitch.get(p.id)?.get(Number(y)) ?? 0;
+        return {
+          id: d.id, disposedOn: d.disposed_on, salePrice: Number(d.sale_price), sharePct: Number(d.share_pct), sellingCosts: Number(d.selling_costs),
+          noDeductionAddition: d.no_deduction_addition, roadDitchCost: r2((moved * Number(d.share_pct)) / sharesInYear(y)),
+        };
+      }),
+    };
+  });
+  // Vuoden lopussa omistetut tilat: myyty osuus ei tuo pohjaa enää luovutusvuonna (Metsävähennys, luku 3.4).
+  const owned = inputs.filter((p) => soldSharePct(p, year) < 100);
   const properties: PlanProperty[] = owned.map((p) => {
+    const left = 100 - soldSharePct(p, year);
     const base = forestDeductionBase(
-      { acquisitionPrice: p.acquisitionPrice, forestLandSharePct: p.forestLandSharePct, usedBefore: p.usedBefore, recorded: p.deductions.filter((d) => d.taxYear !== year).map((d) => d.amount) },
+      {
+        acquisitionPrice: p.acquisitionPrice === null ? null : (p.acquisitionPrice * left) / 100,
+        forestLandSharePct: p.forestLandSharePct, usedBefore: p.usedBefore, recorded: p.deductions.filter((d) => d.taxYear !== year).map((d) => d.amount),
+      },
       year,
     );
     return { id: p.id, name: p.name, remaining: base.remaining, recordedThisYear: p.deductions.find((d) => d.taxYear === year)?.amount ?? 0 };
   });
   const names = new Map(inputs.map((p) => [p.id, p.name]));
-  const sales = forestSales(inputs)
+  const sales: PlanForestSale[] = forestSales(inputs)
     .filter((x) => x.year === year)
-    .map((x) => ({ id: x.id, name: names.get(x.id) ?? "", salePrice: x.salePrice, cost: x.cost, deemedCost: x.deemedCost, addition: x.addition, gain: x.gain }));
+    .map((x) => ({ ...x, name: names.get(x.propertyId) ?? "" }));
 
   const recordedDeduction = properties.reduce((s, p) => s + p.recordedThisYear, 0);
   return {

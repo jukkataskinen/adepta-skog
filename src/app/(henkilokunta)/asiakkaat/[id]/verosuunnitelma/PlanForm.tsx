@@ -5,9 +5,13 @@ import { Button, Field, Input, Panel, SectionTitle } from "@/components/ui";
 import { planTotals, type PlanData } from "@/lib/tax/load";
 import { computePlan, forestDeductionIncome, forestDeductionLimits, validateForestDeduction } from "@/lib/tax/plan";
 import { assetClassLabel, ENTREPRENEUR_DEDUCTION_PCT } from "@/lib/tax/rules";
+import { forestSaleLines } from "@/lib/tax/forest-sale";
+import { formatDate } from "@/lib/format";
 
 // + 0 muuttaa miinusnollan nollaksi, ettei näytölle tule "−0,00 €".
 const eur = (n: number) => (n + 0).toLocaleString("fi-FI", { style: "currency", currency: "EUR" });
+// Tie tai oja: tilan osan myynnissä osa arvosta siirtyy metsän hankintamenoon, ja poisto lasketaan loppuosasta.
+const transferNote = (n: number) => (n ? ` Tilan myynnissä siirtyi hankintamenoon ${eur(n)}.` : "");
 const parse = (v: string) => {
   const n = Number(v.replace(/\s/g, "").replace(",", "."));
   return Number.isFinite(n) ? n : 0;
@@ -65,10 +69,10 @@ export function PlanForm({
                       {a.year.sold
                         ? `Myyty tänä vuonna, joten poistoa ei tehdä. ${a.year.saleGain ? `Luovutusvoitto ${eur(a.year.saleGain)}.` : `Luovutustappio ${eur(a.year.saleLoss)}.`}`
                         : a.year.smallBalance
-                          ? `Arvo vuoden alussa ${eur(a.year.bookValueStart)}. Enintään 600 euron arvon saa poistaa kerralla.`
+                          ? `Arvo vuoden alussa ${eur(a.year.bookValueStart)}.${transferNote(a.year.transferred)} Enintään 600 euron arvon saa poistaa kerralla.`
                           : a.method === "straight_line"
-                            ? `Vanha tasapoisto, nyt vapaaehtoinen: 0–${eur(a.year.max)}. Arvo vuoden alussa ${eur(a.year.bookValueStart)}.`
-                            : `${assetClassLabel(a.decliningRatePct)}: poisto 0–${eur(a.year.max)} (enintään ${a.decliningRatePct ?? 0} %). Arvo vuoden alussa ${eur(a.year.bookValueStart)}.`}
+                            ? `Vanha tasapoisto, nyt vapaaehtoinen: 0–${eur(a.year.max)}. Arvo vuoden alussa ${eur(a.year.bookValueStart)}.${transferNote(a.year.transferred)}`
+                            : `${assetClassLabel(a.decliningRatePct)}: poisto 0–${eur(a.year.max)} (enintään ${a.decliningRatePct ?? 0} %). Arvo vuoden alussa ${eur(a.year.bookValueStart)}.${transferNote(a.year.transferred)}`}
                     </p>
                   </div>
                   {!a.year.sold ? (
@@ -92,16 +96,31 @@ export function PlanForm({
         {data.forestSales.length ? (
           <section>
             <SectionTitle>Metsätilan myynti</SectionTitle>
-            <Panel className="grid gap-3 text-sm">
-              {data.forestSales.map((f) => (
-                <div key={f.id} className="grid gap-1">
-                  <p className="font-semibold">{f.name}</p>
-                  <p>Kauppahinta {eur(f.salePrice)}, {f.deemedCost ? "hankintameno-olettama" : "hankintameno"} {eur(f.cost)}.</p>
-                  <p>Luovutusvoittoon lisätään käytettyä metsävähennystä {eur(f.addition)}.</p>
-                  <p className="font-semibold">{f.gain >= 0 ? `Luovutusvoitto ${eur(f.gain)}` : `Luovutustappio ${eur(-f.gain)}`}</p>
-                </div>
-              ))}
-              <p className="text-xs text-ink/55">Voitto ilmoitetaan lomakkeella 9. Myyntikulut ja poistamattomat tie- ja ojamenot eivät ole laskelmassa.</p>
+            <Panel className="grid gap-5 text-sm">
+              {data.forestSales.map((f) => {
+                const { lines, result, note } = forestSaleLines(f);
+                return (
+                  <div key={f.id} className="grid gap-1">
+                    <p className="font-semibold">
+                      {f.name}, {f.sharePct < 100 ? "osan myynti" : "myynti"} {formatDate(f.disposedOn)}
+                    </p>
+                    <dl className="grid gap-1">
+                      {lines.map(([label, amount]) => (
+                        <div key={label} className="flex justify-between gap-4">
+                          <dt className="text-ink/75">{label}</dt>
+                          <dd className="tabular">{eur(amount)}</dd>
+                        </div>
+                      ))}
+                      <div className="flex justify-between gap-4 border-t border-line pt-1 font-semibold">
+                        <dt>{result[0]}</dt>
+                        <dd className="tabular">{eur(result[1])}</dd>
+                      </div>
+                    </dl>
+                    {note ? <p className="text-xs text-ink/55">{note}</p> : null}
+                  </div>
+                );
+              })}
+              <p className="text-xs text-ink/55">Luovutusvoitto tai -tappio ilmoitetaan lomakkeella 9. Muuta luovutuksia metsätilan sivulla.</p>
             </Panel>
           </section>
         ) : null}
