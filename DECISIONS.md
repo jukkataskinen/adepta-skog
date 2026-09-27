@@ -79,3 +79,13 @@
 **Kehitystoiveen tilaa muuttaa vain pääkäyttäjä.** Mittarilukemassa käsittelijöitä ovat pääkäyttäjä ja toimisto. Skogissa kirjanpitäjä on tavallinen käyttäjä, joten hän jättää ja näkee toiveet mutta ei merkitse toisen toivetta tehdyksi. Rajaus on kannassa (RLS), ei vain käyttöliittymässä.
 
 **Kehitystoiveista ei lähetetä ilmoituksia.** Mittarilukemassakaan ei ole sähköposti-ilmoituksia; pääkäyttäjä seuraa listaa. Ilmoitus lisätään sähköpostimoduulin kautta, jos tarvetta tulee.
+
+**Käyttäjää ei poisteta, se poistetaan käytöstä (0006).** Jäsenyysriville tulee `deactivated_at`, ja RLS-funktiot `sk_my_org_ids` ja `sk_has_org_role` ohittavat käytöstä poistetut, joten pääsy katkeaa kaikista säännöistä kerralla. Rivi säilyy, jotta loki ja sulkijatiedot pysyvät, ja käyttäjän voi ottaa takaisin käyttöön.
+
+**Vastuuasiakkaat siirretään käytöstä poiston yhteydessä.** Jos käyttäjä on arkistoimattomien asiakkaiden vastuukirjanpitäjä, käytöstä poisto estetään, kunnes valitaan käytössä oleva kirjanpitäjä, jolle asiakkaat siirtyvät samassa transaktiossa (myös arkistoidut). Muuten asiakkaat jäisivät kirjanpitäjälle, joka ei näe niitä. Käytöstä poistettua ei voi valita vastuukirjanpitäjäksi (triggeri tarkistaa vain vaihtuvan arvon).
+
+**Ei itserekisteröintiä myöskään sovelluksessa.** Kirjautuminen tuntemattomalla osoitteella ei enää luo käyttäjäriviä; käyttäjä ohjataan Ei käyttöoikeutta -sivulle. Käyttäjä syntyy vain pääkäyttäjän lisäyksestä tai skriptistä, joten Auth0:n rekisteröinnin sulkeminen ei ole ainoa suoja.
+
+**Kutsu: Auth0-tunnus ja sähköposti rajapintojen takana.** Kutsu luo tarvittaessa Auth0-tunnuksen (Management API) ja lähettää salasanan asetuslinkin, joka myös varmentaa osoitteen. Sähköposti on Mittarilukeman moduuli (Resend). Molempien oletus on testitila (`AUTH0_ADMIN_MODE=mock`, `EMAIL_MODE=mock`), eikä kumpaakaan ole ajettu oikeaa palvelua vasten.
+
+**Kutsun epäonnistuminen ei peru lisäystä.** Ulkoiset kutsut tehdään transaktion ulkopuolella. Jos viesti ei lähde, käyttäjä jää listaan ja kutsun voi lähettää uudelleen; `invited_at` kertoo viimeisimmän onnistuneen lähetyksen.

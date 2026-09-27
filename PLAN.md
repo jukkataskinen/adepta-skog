@@ -69,7 +69,8 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [x] Metsätilat: lisäys, muokkaus, poisto, metsävähennyspohja ja jäljellä oleva määrä (26.9.2026)
 - [x] Verovuodet asiakkaan sivulla: avaus, sulkeminen ja uudelleen avaus (pääkäyttäjä), loki (26.9.2026)
 - [x] Verovuoden valinta kirjanpidon välilehdillä, suljettu vuosi vain luettavana (tarkistettu 27.9.2026)
-- [ ] Käyttäjät: kutsu sähköpostilla (Auth0), rooli, poisto käytöstä
+- [x] Käyttäjät: kutsu sähköpostilla (Auth0), rooli, poisto käytöstä, vastuuasiakkaiden siirto, ei itserekisteröintiä (27.9.2026)
+- [ ] Kutsujen käyttöönotto tuotannossa: Auth0-hallintasovellus ja Resend-avain Verceliin (BLOCKERS 7)
 - [x] Ohjeet kaikille näkymille, ohjelinkki jokaiselle sivulle; uusi asiakas, uusi tila ja kirjauksen muokkaus osoittavat ohjeen kohtaan (27.9.2026)
 - [x] Kehitystoiveet Mittarilukemasta (sivu, linkki sivun yläkulmaan) (27.9.2026)
 

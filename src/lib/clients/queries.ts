@@ -129,11 +129,11 @@ export async function listTaxYears(tx: Sql, clientId: string): Promise<TaxYearRo
   );
 }
 
-/** Toimiston jäsenet vastuukirjanpitäjän valintaan. */
+/** Toimiston käytössä olevat jäsenet vastuukirjanpitäjän valintaan. */
 export async function listResponsibleOptions(tx: Sql, orgId: string): Promise<{ id: string; name: string }[]> {
   return tx.query(
     `select u.id, coalesce(u.full_name, u.email) as name from sk_org_members m join sk_users u on u.id = m.user_id
-      where m.organization_id = $1 order by name`,
+      where m.organization_id = $1 and m.deactivated_at is null order by name`,
     [orgId],
   );
 }

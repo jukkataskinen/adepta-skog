@@ -322,12 +322,35 @@ export const HELP_TOPICS: HelpTopic[] = [
         text: "Sähköposti, puhelin ja postiosoite tulevat veroraportin kansilehdelle.",
       },
       {
-        title: "Käyttäjät",
+        title: "Käyttäjän lisääminen",
         steps: [
           "Kirjoita uuden käyttäjän sähköposti ja nimi.",
           "Valitse rooli: pääkäyttäjä tai kirjanpitäjä.",
-          "Tallenna. Käyttäjä kirjautuu samalla sähköpostiosoitteella.",
+          "Paina Lisää. Käyttäjä saa sähköpostiin kutsun.",
+          "Jos hänellä ei ole vielä tunnusta, hän asettaa kutsun linkistä salasanan.",
+          "Hän kirjautuu samalla sähköpostiosoitteella, jolla lisäsit hänet.",
         ],
+      },
+      {
+        title: "Kutsu uudelleen",
+        steps: [
+          "Etsi käyttäjä listasta. Hänen kohdallaan lukee Ei vielä kirjautunut.",
+          "Paina Lähetä kutsu uudelleen.",
+        ],
+      },
+      {
+        title: "Roolin vaihto",
+        steps: ["Valitse käyttäjän riviltä uusi rooli.", "Paina Tallenna."],
+        text: "Toimistolla on aina oltava ainakin yksi pääkäyttäjä. Viimeistä pääkäyttäjää ei voi vaihtaa kirjanpitäjäksi.",
+      },
+      {
+        title: "Käytöstä poisto",
+        steps: [
+          "Etsi käyttäjä listasta.",
+          "Jos hänellä on asiakkaita, valitse kenelle ne siirtyvät.",
+          "Paina Poista käytöstä.",
+        ],
+        text: "Käytöstä poistettu ei pääse enää kirjautumaan. Hänen tietonsa ja tekemänsä muutokset säilyvät. Voit ottaa hänet takaisin käyttöön painamalla Ota käyttöön. Et voi poistaa itseäsi etkä viimeistä pääkäyttäjää.",
       },
     ],
     tips: ["Alimpana näkyvät viimeisimmät muutokset: kuka teki mitä ja milloin."],
@@ -395,6 +418,14 @@ export const HELP_TOPICS: HelpTopic[] = [
         bullets: [
           "Pääkäyttäjä: kaikki asiakkaat, käyttäjät ja verovuoden sulkeminen.",
           "Kirjanpitäjä: omat asiakkaat, kirjaukset ja raportit.",
+        ],
+      },
+      {
+        title: "Kuka pääsee sisään",
+        bullets: [
+          "Vain ne, jotka pääkäyttäjä on lisännyt. Itse ei voi rekisteröityä.",
+          "Kirjautuminen tehdään sillä sähköpostiosoitteella, johon kutsu tuli.",
+          "Käytöstä poistettu ei pääse sisään, mutta hänen tekemänsä muutokset näkyvät lokissa.",
         ],
       },
       {

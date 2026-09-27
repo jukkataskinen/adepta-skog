@@ -6,31 +6,65 @@ import { z } from "zod";
 import { requireRole } from "@/lib/auth/current-user";
 import { emptyToNull, fail, parseForm } from "@/lib/forms";
 import { audit } from "@/lib/audit";
-import { addMember, changeMemberRole, MemberError, removeMember } from "@/lib/members";
+import { addMember, changeMemberRole, deactivateMember, inviteMember, MemberError, reactivateMember } from "@/lib/members";
+import { emailSender } from "@/lib/email";
+import { accountProvisioner } from "@/lib/accounts";
+import type { StaffContext } from "@/lib/auth/current-user";
 
 const BACK = "/asetukset";
 
 const roleSchema = z.enum(["owner", "staff"]);
 
+const APP_URL = () => process.env.APP_BASE_URL ?? "https://skog.adepta.fi";
+
+async function sendInvite(ctx: StaffContext, userId: string): Promise<void> {
+  await inviteMember(ctx.db, ctx.user.sub, { organizationId: ctx.org.organizationId, actorId: ctx.user.id, userId }, {
+    email: emailSender(),
+    accounts: accountProvisioner(),
+    appUrl: APP_URL(),
+  });
+}
+
 export async function addMemberAction(formData: FormData) {
   const ctx = await requireRole("owner");
   const input = parseForm(
     z.object({
-      email: z.string().email("Tarkista sähköpostiosoite.").max(200),
-      fullName: z.preprocess((v) => (v === "" ? null : v), z.string().max(200).nullable()),
+      email: z.string().trim().email("Tarkista sähköpostiosoite.").max(200),
+      fullName: z.preprocess(emptyToNull, z.string().trim().max(200).nullable()),
       role: roleSchema,
     }),
     formData,
     BACK,
   );
+  let userId: string;
   try {
-    await addMember(ctx.db, ctx.user.sub, { organizationId: ctx.org.organizationId, actorId: ctx.user.id, ...input });
+    ({ userId } = await addMember(ctx.db, ctx.user.sub, { organizationId: ctx.org.organizationId, actorId: ctx.user.id, ...input }));
+  } catch (err) {
+    if (err instanceof MemberError) fail(BACK, err.message);
+    throw err;
+  }
+  try {
+    await sendInvite(ctx, userId);
+  } catch (err) {
+    // Käyttäjä on jo lisätty, joten kutsun voi lähettää uudelleen listasta.
+    if (err instanceof MemberError) fail(BACK, `Käyttäjä lisättiin, mutta kutsu ei lähtenyt. Lähetä kutsu uudelleen listasta. ${err.message}`);
+    throw err;
+  }
+  revalidatePath(BACK);
+  redirect(`${BACK}?ilmoitus=kayttaja`);
+}
+
+export async function inviteMemberAction(formData: FormData) {
+  const ctx = await requireRole("owner");
+  const input = parseForm(z.object({ userId: z.string().uuid() }), formData, BACK);
+  try {
+    await sendInvite(ctx, input.userId);
   } catch (err) {
     if (err instanceof MemberError) fail(BACK, err.message);
     throw err;
   }
   revalidatePath(BACK);
-  redirect(`${BACK}?ilmoitus=kayttaja`);
+  redirect(`${BACK}?ilmoitus=kutsu`);
 }
 
 export async function changeMemberRoleAction(formData: FormData) {
@@ -46,11 +80,28 @@ export async function changeMemberRoleAction(formData: FormData) {
   redirect(BACK);
 }
 
-export async function removeMemberAction(formData: FormData) {
+export async function deactivateMemberAction(formData: FormData) {
+  const ctx = await requireRole("owner");
+  const input = parseForm(
+    z.object({ userId: z.string().uuid(), transferTo: z.preprocess(emptyToNull, z.string().uuid().nullable()) }),
+    formData,
+    BACK,
+  );
+  try {
+    await ctx.run((tx) => deactivateMember(tx, { organizationId: ctx.org.organizationId, actorId: ctx.user.id, ...input }));
+  } catch (err) {
+    if (err instanceof MemberError) fail(BACK, err.message);
+    throw err;
+  }
+  revalidatePath(BACK);
+  redirect(`${BACK}?ilmoitus=poistettu`);
+}
+
+export async function reactivateMemberAction(formData: FormData) {
   const ctx = await requireRole("owner");
   const input = parseForm(z.object({ userId: z.string().uuid() }), formData, BACK);
   try {
-    await ctx.run((tx) => removeMember(tx, { organizationId: ctx.org.organizationId, actorId: ctx.user.id, ...input }));
+    await ctx.run((tx) => reactivateMember(tx, { organizationId: ctx.org.organizationId, actorId: ctx.user.id, ...input }));
   } catch (err) {
     if (err instanceof MemberError) fail(BACK, err.message);
     throw err;

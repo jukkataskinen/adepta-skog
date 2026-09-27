@@ -30,7 +30,8 @@ export const ACTIVE_ORG_COOKIE = "sk_org";
 /**
  * Kirjautunut käyttäjä ja hänen organisaatioroolinsa. Luetaan palvelun
  * roolilla, koska käyttäjärivi pitää löytää ennen kuin RLS-funktiot voivat
- * tunnistaa hänet. Välimuisti pyynnön ajaksi.
+ * tunnistaa hänet. Välimuisti pyynnön ajaksi. Käytöstä poistetut jäsenyydet
+ * eivät ole mukana, joten käytöstä poistettu ei pääse organisaatioon.
  */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const identity = await getSessionIdentity();
@@ -44,7 +45,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     const memberships = await tx.query<{ organization_id: string; name: string; role: OrgRole }>(
       `select m.organization_id, o.name, m.role from sk_org_members m
          join sk_organizations o on o.id = m.organization_id
-        where m.user_id = $1 order by o.name`,
+        where m.user_id = $1 and m.deactivated_at is null order by o.name`,
       [user.id],
     );
 
@@ -70,7 +71,9 @@ export interface StaffContext {
 /** Vaatii jäsenyyden jossakin organisaatiossa. Valittu organisaatio evästeestä. */
 export const requireStaff = cache(async (): Promise<StaffContext> => {
   const user = await getCurrentUser();
-  if (!user) redirect("/kirjaudu");
+  // Kirjautunut mutta kutsumaton ei saa käyttäjäriviä. Hänet ohjataan
+  // kertovalle sivulle eikä kirjautumiseen, josta Auth0 palauttaisi hänet heti takaisin.
+  if (!user) redirect((await getSessionIdentity()) ? "/ei-oikeutta" : "/kirjaudu");
   if (user.memberships.length === 0) redirect("/ei-oikeutta");
 
   const selected = verifySignedValue((await cookies()).get(ACTIVE_ORG_COOKIE)?.value);

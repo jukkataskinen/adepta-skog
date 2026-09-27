@@ -9,7 +9,7 @@ export default async function Dashboard() {
   const ctx = await requireStaff();
   const orgId = ctx.org.organizationId;
   const members = await ctx.run(
-    async (tx) => (await tx.query<{ n: number }>("select count(*)::int as n from sk_org_members where organization_id = $1", [orgId]))[0].n,
+    async (tx) => (await tx.query<{ n: number }>("select count(*)::int as n from sk_org_members where organization_id = $1 and deactivated_at is null", [orgId]))[0].n,
   );
   // Tulossa olevat toiminnot näkyvät, jotta käyttäjä tietää, mitä on tekeillä (PLAN.md).
   const upcoming = HELP_TOPICS.filter((t) => t.upcoming);
