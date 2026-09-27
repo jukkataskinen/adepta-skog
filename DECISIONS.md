@@ -131,3 +131,5 @@
 **Luovutuksen muutos vain avoimelle vuodelle.** Luovutuksen voi lisätä, muuttaa ja poistaa vain avatulla ja avoimella verovuodella, kuten kirjauksen. Kanta estää muutokset suljetulle vuodelle myös suoraan (lukitustriggeri). Jos vuoden suunnitelma on jo vahvistettu, se vahvistetaan uudelleen, jotta tien poisto ja metsävähennys päivittyvät. Myöhempien suljettujen vuosien lukuja ei tarkisteta erikseen.
 
 **Tuonti ei koske luovutuksiin.** Vanhassa sovelluksessa ei ole tilan myyntiä, joten tuonti ei tuo luovutuksia, eikä uusintatuonti poista uudessa kirjattuja.
+
+**Hankintatyön laskuri.** Taksat ovat Verohallinnon yhtenäistämisohjeen kohdasta 4.1.9 (vuodelta 2025 toimitettava verotus), samat kuin vanhassa sovelluksessa. Uuden vuoden taksat julkaistaan vasta verotuksen aikaan, joten vuodelle ilman omia taksoja käytetään uusimpia ja laskuri kertoo sen. Laskuri täyttää tavallisen Hankintatyö-menon; tekijän tietoja ja henkilötunnusta ei kysytä, ja yli 125 m³:n ansiotulo-osuus näytetään vain tietona, koska tekijä ilmoittaa sen itse. Useamman tekijän jakoa työpanosten suhteessa ei lasketa.

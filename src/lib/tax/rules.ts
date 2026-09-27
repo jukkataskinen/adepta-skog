@@ -29,7 +29,7 @@ export const CATEGORIES: Category[] = [
   { code: "forestry_subsidy", label: "Metsätalouden tuet", group: "Korvaukset ja tuet", kind: "income", vat: "none", legacyName: "Metsätalouden tuet" },
   { code: "asset_purchase", label: "Käyttöomaisuuden hankinta", group: "Investoinnit", kind: "investment", vat: "general", legacyName: "Käyttöomaisuuden hankinta" },
   { code: "asset_sale", label: "Käyttöomaisuuden myynti", group: "Investoinnit", kind: "income", vat: "general", legacyName: "Käyttöomaisuuden myynti" },
-  // Oma hankintatyö arvostetaan Verohallinnon taksoilla (vanha sovellus: HT_TAKSAT). Laskuri tulee vaiheessa 5 (BLOCKERS 5).
+  // Oma hankintatyö arvostetaan Verohallinnon ohjetaksoilla (DELIVERY_WORK_RATES, laskuri src/lib/tax/delivery-work.ts).
   { code: "delivery_work", label: "Hankintatyö", group: "Menot", kind: "expense", vat: "none", legacyName: "Hankintatyö" },
   { code: "wages", label: "Palkkausmenot", group: "Menot", kind: "expense", vat: "none", legacyName: "Palkkausmenot" },
   { code: "travel", label: "Matkakulut", group: "Menot", kind: "expense", vat: "general", legacyName: "Matkakulut" },
@@ -163,3 +163,43 @@ export const ROAD_DITCH_PCT = 15;
 export function isRoadOrDitch(asset: { method: string; decliningRatePct: number | null }): boolean {
   return asset.method === "declining_balance" && asset.decliningRatePct === ROAD_DITCH_PCT;
 }
+
+/**
+ * Hankintatyön ohjetaksat €/m³: työn arvo puutavaran valmistuksesta ja
+ * kuljetuksesta. Lähde: Verohallinnon yhtenäistämisohjeet, kohta 4.1.9
+ * (vuodelta 2025 toimitettava verotus). Vanha sovellus käytti samoja lukuja.
+ * Uuden vuoden taksat julkaistaan vasta verotuksen aikaan, joten vuodelle,
+ * jolle taksoja ei ole, käytetään uusimpia ja näytetään siitä huomautus.
+ */
+export interface DeliveryWorkRate {
+  code: string;
+  label: string;
+  making: number;
+  transport: number;
+}
+
+const DELIVERY_WORK_RATES: { year: number; rates: DeliveryWorkRate[] }[] = [
+  {
+    year: 2025,
+    rates: [
+      { code: "pine_log", label: "Mäntytukki", making: 6.49, transport: 2.55 },
+      { code: "pine_pulp", label: "Mäntykuitu", making: 15.0, transport: 2.63 },
+      { code: "spruce_log", label: "Kuusitukki", making: 8.38, transport: 2.58 },
+      { code: "spruce_pulp", label: "Kuusikuitu", making: 15.69, transport: 2.79 },
+      { code: "birch_log", label: "Koivutukki", making: 6.19, transport: 2.93 },
+      { code: "birch_pulp", label: "Koivukuitu", making: 13.87, transport: 3.07 },
+      { code: "energy_wood", label: "Energiapuu (kokopuu)", making: 9.25, transport: 4.8 },
+      { code: "firewood", label: "Halot ja klapit", making: 31.44, transport: 3.07 },
+    ],
+  },
+];
+
+export function deliveryWorkRates(year: number): { year: number; rates: DeliveryWorkRate[] } {
+  const sorted = [...DELIVERY_WORK_RATES].sort((a, b) => a.year - b.year);
+  let found = sorted[0];
+  for (const r of sorted) if (r.year <= year) found = r;
+  return found;
+}
+
+/** Hankintatyön arvo on tekijöille verovapaata tähän puumäärään asti maatilaa ja vuotta kohden (TVL 63 § 3 mom.). */
+export const DELIVERY_WORK_TAX_FREE_M3 = 125;

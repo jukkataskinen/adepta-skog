@@ -235,6 +235,20 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        title: "Hankintatyö",
+        steps: [
+          "Kun metsänomistaja tai hänen perheensä on itse kaatanut tai kuljettanut puut hankintakaupassa, avaa kirjauslomakkeelta Hankintatyön laskuri.",
+          "Kirjoita kuutiot puutavaralajeittain. Jos kuljetettu määrä on eri kuin valmistettu, poista rasti kohdasta Sama määrä myös kuljetettu.",
+          "Laskuri laskee työn arvon Verohallinnon ohjetaksoilla.",
+          "Valitse Käytä kirjauksessa. Luokka, summa ja selite täyttyvät. Tarkista päivä ja tallenna.",
+        ],
+        bullets: [
+          "Hankintatyön arvo vähennetään puukaupan tulosta. Myös metsävähennyksen vuosiraja lasketaan tulosta, josta arvo on vähennetty.",
+          "Työ on tekijöille verovapaata 125 kuutioon asti vuodessa. Sen yli menevä osa on tekijöiden ansiotuloa, ja he ilmoittavat sen itse.",
+          "Ohjelma ei kysy tekijän henkilötunnusta.",
+        ],
+      },
+      {
         title: "Investoinnit",
         bullets: [
           "Koneen, tien, ojan tai rakennuksen hankinta kirjataan luokalla Käyttöomaisuuden hankinta. Valitse samalla hyödykkeen laji, niin ohjelma luo investoinnin.",

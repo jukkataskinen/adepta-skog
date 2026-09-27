@@ -91,7 +91,7 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [x] Arvonlisävero-välilehti: neljännekset, vuosi ja myynnit verokannoittain (26.9.2026)
 - [x] Poistot: tasapoisto (pakollinen), menojäännöspoisto (vapaaehtoinen), poistamaton arvo, myyntivoitto ja -tappio (26.9.2026)
 - [x] Metsävähennys: pohja, käytetty, vuoden enimmäismäärä, vähimmäismäärä, jako tiloille (26.9.2026)
-- [~] Hankintatyön laskuri (taksat × m³, 125 m³ raja) (BLOCKERS 5). Luokka Hankintatyö on jo kirjanpidossa
+- [x] Hankintatyön laskuri: ohjetaksat (yhtenäistämisohje 2025, 4.1.9), 125 m³:n verovapaa osuus, täyttää kirjauksen (27.9.2026)
 - [x] Verosuunnitelma-välilehti: laskuri, palvelin laskee uudelleen vahvistettaessa, vahvistus tallentaa poistot ja vähennyksen, pääkäyttäjä voi sulkea vuoden samalla (26.9.2026)
 - [x] Vertailu vanhaan sovellukseen (`vertaa:vero`), ajettu 27.9.2026: oikea asiakas täsmää. Testiasiakkaiden ero johtui vanhassa sovelluksessa tuonnin jälkeen tehdyistä muutoksista, joten uusintatuonti synkronoi nyt avoimet vuodet (DECISIONS 27.9.2026)
 

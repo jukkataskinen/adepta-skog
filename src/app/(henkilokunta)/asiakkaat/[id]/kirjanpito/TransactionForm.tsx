@@ -1,6 +1,7 @@
 import { Button, Field, Input, Select } from "@/components/ui";
 import { ASSET_CLASSES, CATEGORIES, CATEGORY_GROUPS } from "@/lib/tax/rules";
 import type { AssetOption, PropertyOption, TransactionRow } from "@/lib/ledger/queries";
+import { DeliveryWorkCalculator } from "./DeliveryWorkCalculator";
 
 const fi = (v: string | null | undefined) => (v === null || v === undefined ? "" : String(Number(v)).replace(".", ","));
 
@@ -82,6 +83,7 @@ export function TransactionForm({
           </Field>
         ) : null}
       </div>
+      <DeliveryWorkCalculator year={Number((transaction?.booked_on ?? defaultDate).slice(0, 4))} />
       <details className="rounded-xl border border-line bg-cloud/40 px-4 py-3 text-sm" open={Boolean(transaction?.asset_id)}>
         <summary className="cursor-pointer font-semibold">Investointi (hankinta tai myynti)</summary>
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
