@@ -7,7 +7,7 @@ import { vatSummary } from "@/lib/tax/vat";
 
 function sample(status: "open" | "closed", transactions = 3): ReportData {
   const tx = Array.from({ length: transactions }, (_, i) => ({
-    bookedOn: `2025-0${(i % 9) + 1}-15`, category: "Pystykauppa", description: `Leimikko ${i} – kuusikko`, net: 1000 + i, vatRate: 25.5, gross: 1255 + i, withholding: 0,
+    bookedOn: `2025-0${(i % 9) + 1}-15`, kind: "income" as const, category: "Pystykauppa", description: `Leimikko ${i} – kuusikko`, net: 1000 + i, vatRate: 25.5, gross: 1255 + i, withholding: 0,
   }));
   return {
     year: 2025,
@@ -32,13 +32,13 @@ describe("veroraportti PDF:nä", () => {
     const bytes = await renderTaxReport(sample("closed"));
     expect(Buffer.from(bytes.slice(0, 5)).toString()).toBe("%PDF-");
     const doc = await PDFDocument.load(bytes);
-    expect(doc.getPageCount()).toBe(6);
+    expect(doc.getPageCount()).toBe(7);
     expect(doc.getTitle()).toBe("Veroraportti 2025");
   });
 
   it("pitkä kirjausluettelo jatkuu seuraavalle sivulle", async () => {
     const doc = await PDFDocument.load(await renderTaxReport(sample("open", 120)));
-    expect(doc.getPageCount()).toBeGreaterThan(6);
+    expect(doc.getPageCount()).toBeGreaterThan(7);
   });
 
   it("metsätilan osan myynti ja tien siirtyvä arvo mahtuvat raporttiin", async () => {
@@ -51,7 +51,7 @@ describe("veroraportti PDF:nä", () => {
     ];
     s.depreciation = [{ ...s.depreciation[0], description: "Metsätie", transferred: 2125 }];
     const doc = await PDFDocument.load(await renderTaxReport(s));
-    expect(doc.getPageCount()).toBe(6);
+    expect(doc.getPageCount()).toBe(7);
   });
 
   it("merkit, joita vakiofontti ei tunne, eivät kaada raporttia", async () => {

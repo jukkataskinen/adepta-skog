@@ -21,6 +21,7 @@ export interface ReportCategoryRow {
 
 export interface ReportTransaction {
   bookedOn: string;
+  kind: TransactionKind;
   category: string;
   description: string;
   net: number;
@@ -74,7 +75,7 @@ export async function loadReportData(tx: Sql, orgId: string, clientId: string, y
     const net = Number(r.amount_net);
     const rate = Number(r.vat_rate);
     return {
-      bookedOn: r.booked_on, category: category(r.category)?.label ?? r.category, description: r.description, net, vatRate: rate,
+      bookedOn: r.booked_on, kind: r.kind, category: category(r.category)?.label ?? r.category, description: r.description, net, vatRate: rate,
       gross: grossAmount(net, rate), withholding: Number(r.withholding),
     };
   });
