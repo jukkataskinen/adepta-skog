@@ -118,24 +118,46 @@ export async function appendAttachments(report: Uint8Array, attachments: Attachm
   return doc.save();
 }
 
+export interface AttachmentDocument {
+  id: string;
+  file_name: string;
+  content_type: string;
+  storage_path: string;
+  booked_on: string | null;
+  description: string | null;
+  /** Kokoomatiedostoon viittaavat kirjaukset (0011). */
+  referenced: number;
+}
+
 /**
- * Vuoden tositteet liitteiksi: ensin kirjausten tositteet kirjauspäivän
- * mukaan, sitten vuoden tositeaineisto lisäysjärjestyksessä.
+ * Liitteiden järjestys: ensin kirjausten tositteet kirjauspäivän mukaan, sitten
+ * vuoden tositeaineisto lisäysjärjestyksessä. Sama järjestys antaa liitteiden
+ * numerot sekä liiteluetteloon että kirjausluetteloon (reports/data.ts).
  */
-export async function loadAttachments(tx: Sql, clientId: string, year: number): Promise<Attachment[]> {
-  const docs = await tx.query<{ file_name: string; content_type: string; storage_path: string; booked_on: string | null; description: string | null }>(
-    `select d.file_name, d.content_type, d.storage_path, t.booked_on::text, t.description
+export async function listAttachmentDocuments(tx: Sql, clientId: string, year: number): Promise<AttachmentDocument[]> {
+  return tx.query<AttachmentDocument>(
+    `select d.id, d.file_name, d.content_type, d.storage_path, t.booked_on::text, t.description,
+            (select count(*)::int from sk_transactions s where s.source_document_id = d.id) as referenced
        from sk_documents d left join sk_transactions t on t.id = d.transaction_id
       where d.client_id = $1 and d.tax_year = $2 and d.kind = 'receipt'
-      order by (d.transaction_id is null), t.booked_on nulls last, d.created_at`,
+      order by (d.transaction_id is null), t.booked_on nulls last, d.created_at, d.id`,
     [clientId, year],
   );
+}
+
+/**
+ * Vuoden tositteet liitteiksi. Kokoomatiedosto (useita tositteita yhdessä
+ * tiedostossa) on vuoden aineistossa kerran, vaikka moni kirjaus viittaa siihen.
+ */
+export async function loadAttachments(tx: Sql, clientId: string, year: number): Promise<Attachment[]> {
+  const docs = await listAttachmentDocuments(tx, clientId, year);
   const storage = getStorage();
   const out: Attachment[] = [];
   for (const d of docs) {
     const date = d.booked_on ? d.booked_on.split("-").reverse().map(Number).join(".") : null;
+    const aineisto = d.referenced ? `Vuoden tositeaineisto, ${d.referenced === 1 ? "yksi kirjaus" : `${d.referenced} kirjausta`}` : "Vuoden tositeaineisto";
     out.push({
-      title: date ? `Kirjaus ${date}${d.description ? `: ${d.description}` : ""}` : "Vuoden tositeaineisto",
+      title: date ? `Kirjaus ${date}${d.description ? `: ${d.description}` : ""}` : aineisto,
       fileName: d.file_name,
       contentType: d.content_type,
       // Puuttuva tiedosto ei saa estää vuoden sulkemista: se mainitaan liiteluettelossa.

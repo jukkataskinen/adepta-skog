@@ -100,6 +100,7 @@ const gridRowSchema = z.object({
   assetRatePct: z.string().max(10),
   saleAssetId: z.string().max(60),
   suggestionId: z.string().uuid().nullable().optional(),
+  suggestionLine: z.number().int().min(0).max(1000).nullable().optional(),
 });
 
 const gridPayloadSchema = z.object({

@@ -1,6 +1,6 @@
 import type { Sql } from "@/lib/db/types";
 import { audit } from "@/lib/audit";
-import { parseStoredLines, type SuggestionLine } from "@/lib/ai/receipts/schema";
+import { isCompilation, parseStoredLines, type SuggestionLine } from "@/lib/ai/receipts/schema";
 
 /**
  * Tositteiden tunnistuksen ehdotukset kannassa (migraatio 0010). Tunnistus
@@ -103,37 +103,65 @@ export async function dismissSuggestion(tx: Sql, input: { actor: Actor; clientId
   return true;
 }
 
+export interface LockedSuggestion {
+  documentId: string;
+  lines: SuggestionLine[];
+}
+
 /**
  * Taulukon tallennuksen osa: ehdotukset, joiden rivejä tallennetaan. Kaikkien on
  * oltava vielä odottavia ja samalta asiakkaalta ja vuodelta; muuten joku on
  * käsitellyt ne toisaalla, ja tallennus perutaan, jotta kirjauksia ei synny kahdesti.
+ * Rivit luetaan kannasta, jotta sivut ja lähdeasiakirja tulevat tallennetusta
+ * ehdotuksesta eivätkä selaimelta.
  */
-export async function lockPendingSuggestions(tx: Sql, clientId: string, year: number, ids: string[]): Promise<Map<string, { documentId: string }>> {
-  const out = new Map<string, { documentId: string }>();
+export async function lockPendingSuggestions(tx: Sql, clientId: string, year: number, ids: string[]): Promise<Map<string, LockedSuggestion>> {
+  const out = new Map<string, LockedSuggestion>();
   if (!ids.length) return out;
-  const rows = await tx.query<{ id: string; document_id: string }>(
-    "select id, document_id from sk_receipt_suggestions where id = any($1::uuid[]) and client_id = $2 and tax_year = $3 and status = 'pending' for update",
+  const rows = await tx.query<{ id: string; document_id: string; lines: unknown }>(
+    "select id, document_id, lines from sk_receipt_suggestions where id = any($1::uuid[]) and client_id = $2 and tax_year = $3 and status = 'pending' for update",
     [ids, clientId, year],
   );
-  for (const r of rows) out.set(r.id, { documentId: r.document_id });
+  for (const r of rows) out.set(r.id, { documentId: r.document_id, lines: parseStoredLines(typeof r.lines === "string" ? JSON.parse(r.lines) : r.lines) });
   if (out.size !== new Set(ids).size) throw new SuggestionError("Ehdotus on jo käsitelty toisaalla. Lataa sivu uudelleen.");
   return out;
 }
 
+/** Ehdotuksesta syntynyt kirjaus ja ehdotuksen rivi, josta se tehtiin (null, jos tuntematon). */
+export interface CreatedFromSuggestion {
+  transactionId: string;
+  line: number | null;
+}
+
 /**
- * Hyväksyy ehdotuksen: tosite liitetään ensimmäiseen ehdotuksesta syntyneeseen
- * kirjaukseen, jolloin se on kirjauksen tosite eikä enää vuoden tosite.
- * Muut saman tositteen rivit (esimerkiksi puukaupan mittauskulut) jäävät ilman
- * omaa tiedostoa, koska sama tiedosto voi kuulua vain yhteen kirjaukseen.
+ * Hyväksyy ehdotuksen.
+ *
+ * Yhden asiakirjan tiedosto liitetään ensimmäiseen ehdotuksesta syntyneeseen
+ * kirjaukseen kuten ennenkin, jolloin se on kirjauksen tosite eikä enää vuoden
+ * tosite. Saman tiedoston muut kirjaukset (esimerkiksi puukaupan mittauskulut)
+ * saavat viittauksen tiedostoon ja sivuihin, koska sama tiedosto voi kuulua
+ * vain yhteen kirjaukseen.
+ *
+ * Kokoomatiedosto (rivit useasta eri asiakirjasta) jää vuoden tositteeksi, eikä
+ * sitä liitetä mihinkään kirjaukseen: jokainen kirjaus saa viittauksen
+ * tiedostoon ja omiin sivuihinsa. Näin raportin liitteissä tiedosto on kerran
+ * vuoden aineistona, ja kirjauksesta pääsee oikealle sivulle.
  */
 export async function acceptSuggestion(
   tx: Sql,
-  input: { actor: Actor; clientId: string; suggestionId: string; documentId: string; transactionIds: string[] },
-): Promise<void> {
-  const [first] = input.transactionIds;
-  if (first) {
+  input: { actor: Actor; clientId: string; suggestionId: string; documentId: string; lines: SuggestionLine[]; created: CreatedFromSuggestion[] },
+): Promise<{ compilation: boolean }> {
+  const compilation = isCompilation(input.lines);
+  const [first, ...rest] = input.created;
+  if (first && !compilation) {
     await tx.query("update sk_documents set transaction_id = $1 where id = $2 and client_id = $3 and transaction_id is null", [
-      first, input.documentId, input.clientId,
+      first.transactionId, input.documentId, input.clientId,
+    ]);
+  }
+  for (const c of compilation ? input.created : rest) {
+    const pages = c.line !== null ? (input.lines[c.line]?.pages ?? []) : [];
+    await tx.query("update sk_transactions set source_document_id = $1, source_pages = $2::smallint[] where id = $3 and client_id = $4", [
+      input.documentId, pages.length ? pages : null, c.transactionId, input.clientId,
     ]);
   }
   await tx.query("update sk_receipt_suggestions set status = 'accepted', decided_by = $2, decided_at = now() where id = $1", [
@@ -141,6 +169,7 @@ export async function acceptSuggestion(
   ]);
   await audit(tx, {
     organizationId: input.actor.organizationId, userId: input.actor.userId, action: "receipt_suggestion.accept", entity: "sk_receipt_suggestions",
-    entityId: input.suggestionId, details: { document: input.documentId, transactions: input.transactionIds },
+    entityId: input.suggestionId, details: { document: input.documentId, transactions: input.created.map((c) => c.transactionId), compilation },
   });
+  return { compilation };
 }

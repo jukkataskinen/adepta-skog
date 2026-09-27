@@ -4,6 +4,8 @@ import { category, type TransactionKind } from "@/lib/tax/rules";
 import { loadPlanData, type PlanData } from "@/lib/tax/load";
 import { computePlan, type PlanResult } from "@/lib/tax/plan";
 import { vatSummary, type VatPeriod } from "@/lib/tax/vat";
+import { pageLabel, parsePagesColumn } from "@/lib/ai/receipts/schema";
+import { listAttachmentDocuments } from "./attachments";
 
 /**
  * Veroraportin tiedot yhdeltä asiakkaalta ja vuodelta. Raportti näyttää
@@ -28,6 +30,8 @@ export interface ReportTransaction {
   vatRate: number;
   gross: number;
   withholding: number;
+  /** Viittaus raportin liitteeseen, esimerkiksi "3" tai "3, s. 2". null, jos tositetta ei ole tai liitteitä ei tulosteta. */
+  attachment: string | null;
 }
 
 export interface ReportData {
@@ -52,7 +56,13 @@ export interface ReportData {
 const joinAddress = (street: string | null, postal: string | null, city: string | null) =>
   [street, [postal, city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || null;
 
-export async function loadReportData(tx: Sql, orgId: string, clientId: string, year: number): Promise<ReportData | null> {
+export async function loadReportData(
+  tx: Sql,
+  orgId: string,
+  clientId: string,
+  year: number,
+  opts: { attachmentRefs?: boolean } = {},
+): Promise<ReportData | null> {
   const [org] = await tx.query<{ name: string; business_id: string | null; contact_email: string | null; contact_phone: string | null; postal_street: string | null; postal_code: string | null; postal_city: string | null }>(
     "select name, business_id, contact_email, contact_phone, postal_street, postal_code, postal_city from sk_organizations where id = $1",
     [orgId],
@@ -67,16 +77,33 @@ export async function loadReportData(tx: Sql, orgId: string, clientId: string, y
   ]);
   if (!org || !c || !y) return null;
 
-  const rows = await tx.query<{ booked_on: string; kind: TransactionKind; category: string; description: string; amount_net: string; amount_gross: string; vat_rate: string; withholding: string }>(
-    "select booked_on::text, kind, category, description, amount_net, amount_gross, vat_rate, withholding from sk_transactions where client_id = $1 and tax_year = $2 order by booked_on, created_at",
+  const rows = await tx.query<{
+    booked_on: string; kind: TransactionKind; category: string; description: string; amount_net: string; amount_gross: string; vat_rate: string; withholding: string;
+    own_document_id: string | null; source_document_id: string | null; source_pages: string | null;
+  }>(
+    `select t.booked_on::text, t.kind, t.category, t.description, t.amount_net, t.amount_gross, t.vat_rate, t.withholding,
+            (select d.id from sk_documents d where d.transaction_id = t.id and d.kind = 'receipt' order by d.created_at, d.id limit 1) as own_document_id,
+            t.source_document_id, t.source_pages::text as source_pages
+       from sk_transactions t where t.client_id = $1 and t.tax_year = $2 order by t.booked_on, t.created_at`,
     [clientId, year],
   );
+  // Liitteiden numerot samassa järjestyksessä kuin liiteluettelossa (reports/attachments.ts).
+  const attachmentNo = new Map<string, number>();
+  if (opts.attachmentRefs) (await listAttachmentDocuments(tx, clientId, year)).forEach((d, i) => attachmentNo.set(d.id, i + 1));
+  const attachmentRef = (r: (typeof rows)[number]): string | null => {
+    if (r.own_document_id && attachmentNo.has(r.own_document_id)) return String(attachmentNo.get(r.own_document_id));
+    if (r.source_document_id && attachmentNo.has(r.source_document_id)) {
+      const pages = pageLabel(parsePagesColumn(r.source_pages));
+      return `${attachmentNo.get(r.source_document_id)}${pages ? `, ${pages}` : ""}`;
+    }
+    return null;
+  };
   const transactions: ReportTransaction[] = rows.map((r) => {
     const net = Number(r.amount_net);
     const rate = Number(r.vat_rate);
     return {
       bookedOn: r.booked_on, kind: r.kind, category: category(r.category)?.label ?? r.category, description: r.description, net, vatRate: rate,
-      gross: Number(r.amount_gross), withholding: Number(r.withholding),
+      gross: Number(r.amount_gross), withholding: Number(r.withholding), attachment: attachmentRef(r),
     };
   });
   const byCat = new Map<string, ReportCategoryRow>();

@@ -70,13 +70,16 @@ export async function deleteYearReceiptAction(formData: FormData) {
   const year = Number(formData.get("year"));
   const back = `/asiakkaat/${clientId}/kirjanpito?vuosi=${year}`;
   const storagePath = await ctx.run(async (tx) => {
-    const [d] = await tx.query<{ closed: boolean; storage_path: string }>(
-      `select exists (select 1 from sk_tax_years y where y.client_id = d.client_id and y.year = d.tax_year and y.status = 'closed') as closed, d.storage_path
+    const [d] = await tx.query<{ closed: boolean; storage_path: string; booked: number }>(
+      `select exists (select 1 from sk_tax_years y where y.client_id = d.client_id and y.year = d.tax_year and y.status = 'closed') as closed, d.storage_path,
+              (select count(*)::int from sk_transactions t where t.source_document_id = d.id) as booked
          from sk_documents d where d.id = $1 and d.client_id = $2 and d.kind = 'receipt' and d.transaction_id is null`,
       [documentId, clientId],
     );
     if (!d) fail(back, "Tositetta ei löytynyt.");
     if (d.closed) fail(back, "Suljetun vuoden tositetta ei voi poistaa.");
+    // Kokoomatiedosto on kirjausten tosite: sitä ei poisteta niiden alta.
+    if (d.booked) fail(back, `Tositteeseen viittaa ${d.booked === 1 ? "yksi kirjaus" : `${d.booked} kirjausta`}. Poista ensin kirjaukset, jos tosite on lisätty väärin.`);
     await tx.query("delete from sk_documents where id = $1", [documentId]);
     await audit(tx, { organizationId: ctx.org.organizationId, userId: ctx.user.id, action: "document.delete", entity: "sk_documents", entityId: documentId });
     return d.storage_path;

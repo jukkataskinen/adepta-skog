@@ -18,7 +18,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // ?liitteet=1 liittää vuoden tositteet raportin loppuun kuten lopullisessa raportissa.
   const withAttachments = request.nextUrl.searchParams.get("liitteet") === "1";
   const result = await ctx.run(async (tx) => {
-    const data = await loadReportData(tx, ctx.org.organizationId, id, year);
+    const data = await loadReportData(tx, ctx.org.organizationId, id, year, { attachmentRefs: withAttachments });
     return data ? { data, attachments: withAttachments ? await loadAttachments(tx, id, year) : [] } : null;
   });
   if (!result) return new NextResponse("Ei löytynyt", { status: 404 });

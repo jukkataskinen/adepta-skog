@@ -441,10 +441,15 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
 
   // 5. Kirjausluettelo
   section(5);
-  const t6: Col[] = [{ width: 22 }, { width: 38 }, { width: 50 }, { width: 25, align: "right" }, { width: 12, align: "right" }, { width: 23, align: "right" }];
-  w.head(["Päivä", "Luokka", "Selite", "Ilman alv", "Alv %", "Yhteensä"], t6, 7);
+  // Liite-sarake vain, kun raportin loppuun tulee tositteet: viittaus on liitteen numero ja sivu tiedostossa.
+  const refs = data.transactions.some((t) => t.attachment);
+  const t6: Col[] = refs
+    ? [{ width: 22 }, { width: 34 }, { width: 40 }, { width: 25, align: "right" }, { width: 12, align: "right" }, { width: 23, align: "right" }, { width: 14, align: "right" }]
+    : [{ width: 22 }, { width: 38 }, { width: 50 }, { width: 25, align: "right" }, { width: 12, align: "right" }, { width: 23, align: "right" }];
+  w.head(["Päivä", "Luokka", "Selite", "Ilman alv", "Alv %", "Yhteensä", ...(refs ? ["Liite"] : [])], t6, 7);
   for (const t of data.transactions) {
-    w.row([date(t.bookedOn), t.category, t.description, eur(t.net), t.vatRate.toLocaleString("fi-FI"), eur(t.gross)], t6, {
+    const cells = [date(t.bookedOn), t.category, t.description, eur(t.net), t.vatRate.toLocaleString("fi-FI"), eur(t.gross)];
+    w.row(refs ? [...cells, t.attachment ?? "–"] : cells, t6, {
       size: 8, tone: t.kind === "income" ? "income" : t.kind === "expense" ? "expense" : undefined,
     });
   }

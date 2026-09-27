@@ -99,12 +99,15 @@ export interface YearReceipt {
   created_at: string;
   /** Tositteesta on tunnistettu ehdotus, joka odottaa taulukossa. */
   pending_suggestion: boolean;
+  /** Kirjaukset, jotka viittaavat tähän tiedostoon (kokoomatiedosto, 0011). */
+  booked_count: number;
 }
 
 export async function listYearReceipts(tx: Sql, clientId: string, year: number): Promise<YearReceipt[]> {
   return tx.query<YearReceipt>(
     `select d.id, d.file_name, d.content_type, d.size_bytes, d.created_at::text,
-            exists (select 1 from sk_receipt_suggestions s where s.document_id = d.id and s.status = 'pending') as pending_suggestion
+            exists (select 1 from sk_receipt_suggestions s where s.document_id = d.id and s.status = 'pending') as pending_suggestion,
+            (select count(*)::int from sk_transactions t where t.source_document_id = d.id) as booked_count
        from sk_documents d
       where d.client_id = $1 and d.tax_year = $2 and d.kind = 'receipt' and d.transaction_id is null order by d.created_at`,
     [clientId, year],

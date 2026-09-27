@@ -40,6 +40,7 @@ import type { AssetOption, PropertyOption } from "@/lib/ledger/queries";
 import { GridDialog } from "./GridDialog";
 import { DeliveryWorkInputs, useDeliveryWork } from "./DeliveryWorkCalculator";
 import { dismissSuggestionAction } from "./receipt-actions";
+import { DOCUMENT_TYPE_LABEL, documentHref, pageLabel, sourceDocumentLabel } from "@/lib/ai/receipts/schema";
 
 let seq = 0;
 const newKey = () => `n${Date.now().toString(36)}${(seq++).toString(36)}`;
@@ -488,6 +489,7 @@ export function LedgerGrid({
         key: r.key, id: r.id, bookedOn: r.bookedOn, description: r.description, category: r.category, amountGross: r.amountGross, vatRate: r.vatRate,
         withholding: r.withholding, forestPropertyId: r.forestPropertyId, kind: r.kind, reference: r.reference, assetRatePct: r.assetRatePct, saleAssetId: r.saleAssetId,
         suggestionId: r.id ? null : (r.suggestionId ?? null),
+        suggestionLine: r.id || !r.suggestionId ? null : (r.suggestionLine ?? null),
       }));
     // Ehdotus, jonka kaikki rivit on poistettu taulukosta, hylätään tallennuksessa.
     const present = new Set(rowsRef.current.map((r) => r.suggestionId).filter(Boolean));
@@ -809,20 +811,27 @@ export function LedgerGrid({
                   <td className="whitespace-nowrap px-2 py-2.5">
                     {sg ? (
                       <a
-                        href={`/asiakkaat/${clientId}/tositteet/${sg.documentId}`}
+                        href={documentHref(clientId, sg.documentId, sg.pages)}
                         target="_blank"
                         rel="noreferrer"
                         tabIndex={-1}
                         className="rounded-full bg-sky px-2 py-0.5 text-xs font-bold text-paper hover:bg-sky/85"
-                        title={`Avaa tosite ${sg.documentName}`}
+                        title={`Avaa tosite ${sg.documentName}${sg.pages.length ? `, ${pageLabel(sg.pages)}` : ""}`}
                       >
-                        Ehdotus
+                        {sg.pages.length ? `Ehdotus, ${pageLabel(sg.pages)}` : "Ehdotus"}
                       </a>
                     ) : r.id ? (
-                      // Tavallinen linkki: tallentamattomista muutoksista varoitetaan ennen siirtymistä.
-                      <a href={`/asiakkaat/${clientId}/kirjanpito/${r.id}`} tabIndex={-1} className="text-xs font-semibold text-sky hover:underline">
-                        {r.documentCount ? `${r.documentCount} kpl` : "Lisää"}
-                      </a>
+                      <span className="grid gap-0.5">
+                        {r.sourceDocumentId ? (
+                          <a href={documentHref(clientId, r.sourceDocumentId, r.sourcePages)} target="_blank" rel="noreferrer" tabIndex={-1} className="text-xs font-semibold text-sky hover:underline">
+                            {sourceDocumentLabel(r.sourcePages)}
+                          </a>
+                        ) : null}
+                        {/* Tavallinen linkki: tallentamattomista muutoksista varoitetaan ennen siirtymistä. */}
+                        <a href={`/asiakkaat/${clientId}/kirjanpito/${r.id}`} tabIndex={-1} className="text-xs font-semibold text-sky hover:underline">
+                          {r.documentCount ? `${r.documentCount} kpl` : "Lisää"}
+                        </a>
+                      </span>
                     ) : (
                       <span className="text-xs text-ink/35" title="Tosite lisätään tallennuksen jälkeen.">
                         –
@@ -859,16 +868,28 @@ export function LedgerGrid({
                     <td colSpan={columns.length + 5} className="px-2 pb-2 text-xs text-ink/70">
                       <span className="font-semibold text-sky">Tekoälyn ehdotus</span>
                       {" · "}
-                      <a href={`/asiakkaat/${clientId}/tositteet/${sg.documentId}`} target="_blank" rel="noreferrer" tabIndex={-1} className="font-semibold text-sky hover:underline">
-                        {sg.documentName}
+                      {sg.sourceDocument ? <span className="font-semibold">{sg.sourceDocument}</span> : null}
+                      {sg.sourceDocument ? " · " : null}
+                      <span>{DOCUMENT_TYPE_LABEL[sg.documentType]}</span>
+                      {" · "}
+                      <a href={documentHref(clientId, sg.documentId, sg.pages)} target="_blank" rel="noreferrer" tabIndex={-1} className="font-semibold text-sky hover:underline">
+                        {sg.pages.length ? `${sourceDocumentLabel(sg.pages)} ${sg.documentName}` : sg.documentName}
                       </a>
                       {" · "}
                       <span className={confidencePct < 60 ? "font-semibold text-amber" : ""}>Varmuus {confidencePct} %</span>
                       {sg.reasoning ? ` · ${sg.reasoning}` : ""}
+                      {sg.documentType === "timber_annual_summary" ? (
+                        <span className="block text-ink/70">
+                          Rivi on vuosi-ilmoituksesta eli koko vuoden yhteenvedosta. Jos kauppa on jo kirjattu tilityksestä, poista tämä rivi.
+                        </span>
+                      ) : null}
+                      {sg.duplicateWarning ? <span className="block font-semibold text-coral">{sg.duplicateWarning}</span> : null}
                       {dateWarning ? <span className="block font-semibold text-amber">{dateWarning}</span> : null}
                       {sg.first ? (
                         <span className="block">
-                          Tarkista ja muokkaa rivit, ja tallenna. Tosite liitetään ensimmäiseen kirjaukseen.{" "}
+                          {sg.compilation
+                            ? "Tiedostossa on useita asiakirjoja. Se jää vuoden tositteeksi, ja jokaiseen kirjaukseen tulee linkki oikealle sivulle. Tarkista ja muokkaa rivit, ja tallenna. "
+                            : "Tarkista ja muokkaa rivit, ja tallenna. Tosite liitetään ensimmäiseen kirjaukseen. "}
                           <button type="button" tabIndex={-1} className="font-semibold text-coral hover:underline" onClick={() => void dismissSuggestion(r.suggestionId!)}>
                             Hylkää ehdotus
                           </button>

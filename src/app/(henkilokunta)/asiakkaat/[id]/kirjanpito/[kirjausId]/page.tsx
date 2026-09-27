@@ -5,6 +5,7 @@ import { requireStaff } from "@/lib/auth/current-user";
 import { getClient } from "@/lib/clients/queries";
 import { getTransaction, listAssets, listPropertyOptions, listTransactionDocuments, listYears } from "@/lib/ledger/queries";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { documentHref, parsePagesColumn, sourceDocumentLabel } from "@/lib/ai/receipts/schema";
 import { TransactionForm } from "../TransactionForm";
 import { deleteDocumentAction, deleteTransactionAction, saveTransactionAction, uploadReceiptAction } from "../actions";
 
@@ -39,6 +40,7 @@ export default async function TransactionPage({
   if (!data) notFound();
   const { transaction: t } = data;
   const closed = data.years.find((y) => y.year === t.tax_year)?.status === "closed";
+  const sourcePages = parsePagesColumn(t.source_pages);
   const back = { href: `/asiakkaat/${id}/kirjanpito?vuosi=${t.tax_year}`, label: `Kirjanpito ${t.tax_year}` };
 
   return (
@@ -64,7 +66,17 @@ export default async function TransactionPage({
       <section className="mt-8 max-w-4xl">
         <SectionTitle>Tositteet</SectionTitle>
         <Panel>
-          {data.documents.length === 0 ? <p className="text-sm text-ink/65">Ei tositteita.</p> : null}
+          {t.source_document_id ? (
+            <p className="mb-3 text-sm text-ink/75">
+              Kirjauksen tiedot ovat tiedostossa{" "}
+              <a href={documentHref(id, t.source_document_id, sourcePages)} target="_blank" rel="noreferrer" className="font-semibold text-sky hover:underline">
+                {sourceDocumentLabel(sourcePages)}
+                {t.source_file_name ? `: ${t.source_file_name}` : ""}
+              </a>
+              . Linkki avaa tiedoston oikealta sivulta.
+            </p>
+          ) : null}
+          {data.documents.length === 0 && !t.source_document_id ? <p className="text-sm text-ink/65">Ei tositteita.</p> : null}
           <ul className="divide-y divide-line">
             {data.documents.map((d) => (
               <li key={d.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0">

@@ -11,6 +11,10 @@ import {
   SuggestionError,
 } from "@/lib/documents/receipt-suggestions";
 import { mockRecognizer } from "@/lib/ai/receipts/mock";
+import { listAttachmentDocuments } from "@/lib/reports/attachments";
+import { loadReportData } from "@/lib/reports/data";
+import { listTransactions } from "@/lib/ledger/queries";
+import { rowFromStored } from "@/lib/ledger/grid";
 import { freshDb, seedOrg, type OrgFixture } from "../helpers/db";
 
 /**
@@ -107,6 +111,13 @@ describe("tositteen tunnistus", () => {
     ]);
     const [d] = await q<{ transaction_id: string }>("select transaction_id from sk_documents where id = $1", [doc]);
     expect(d.transaction_id).toBe(created[0].id);
+    // Saman tiedoston toinen kirjaus saa viittauksen tiedostoon ja sivuun.
+    const refs = await q<{ id: string; source_document_id: string | null; source_pages: string | null }>(
+      "select id, source_document_id, source_pages::text from sk_transactions where id = any($1::uuid[])",
+      [created.map((t) => t.id)],
+    );
+    expect(refs.find((r) => r.id === created[0].id)).toMatchObject({ source_document_id: null, source_pages: null });
+    expect(refs.find((r) => r.id === created[1].id)).toMatchObject({ source_document_id: doc, source_pages: "{1}" });
     const [s] = await q<{ status: string; decided_by: string }>("select status, decided_by from sk_receipt_suggestions where id = $1", [id]);
     expect(s).toEqual({ status: "accepted", decided_by: a.staff.id });
     // Tosite on nyt kirjauksen tosite, ei vuoden tosite, eikä sitä voi tunnistaa uudelleen.
@@ -141,6 +152,64 @@ describe("tositteen tunnistus", () => {
     expect(rows.map((r) => r.status)).toEqual(["dismissed", "dismissed"]);
     const docs = await q<{ transaction_id: string | null }>("select transaction_id from sk_documents where id = any($1::uuid[])", [[doc1, doc2]]);
     expect(docs.every((d) => d.transaction_id === null)).toBe(true);
+  });
+});
+
+describe("kokoomatiedosto", () => {
+  it("jää vuoden tositteeksi, ja jokaisessa kirjauksessa on viittaus tiedostoon ja sivuihin", async () => {
+    const doc = await yearReceipt(a, "kokooma 2025.pdf");
+    const id = await recognize(a, doc);
+    const rows = (await suggestionRows(a)).filter((r) => r.suggestionId === id);
+    expect(rows.every((r) => r.suggestion?.compilation)).toBe(true);
+    // Kirjanpitäjä poistaa menekinedistämismaksun rivin ennen tallennusta: rivinumerot pysyvät oikeina.
+    const kept = rows.filter((r) => !/menekinedistämismaksu/.test(r.description));
+    const res = await save(kept);
+    expect(res.created).toBe(3);
+    const created = await q<{ id: string; category: string; reference: string | null; source_document_id: string | null; source_pages: string | null }>(
+      "select id, category, reference, source_document_id, source_pages::text from sk_transactions where source_document_id = $1 order by amount_gross desc",
+      [doc],
+    );
+    expect(created.map((t) => [t.category, t.reference, t.source_pages])).toEqual([
+      ["standing_sale", "Sopimus 10432", "{1,2}"],
+      ["delivery_sale", "Sopimus 11875", "{1,2}"],
+      ["other_expense", "Lasku 1182", "{3}"],
+    ]);
+    const [d] = await q<{ transaction_id: string | null }>("select transaction_id from sk_documents where id = $1", [doc]);
+    expect(d.transaction_id).toBeNull();
+    const [s] = await q<{ status: string }>("select status from sk_receipt_suggestions where id = $1", [id]);
+    expect(s.status).toBe("accepted");
+    const [log] = await q<{ details: { compilation: boolean } }>("select details from sk_audit_log where action = 'receipt_suggestion.accept' and entity_id = $1", [id]);
+    expect(log.details.compilation).toBe(true);
+
+    // Vuoden tositteissa tiedosto näkyy kirjattuna.
+    const receipts = await db.asUser(a.staff.sub, (tx) => listYearReceipts(tx, a.client, 2025));
+    expect(receipts.find((r) => r.id === doc)).toMatchObject({ pending_suggestion: false, booked_count: 3 });
+
+    // Taulukon rivit näyttävät linkin tiedoston sivulle.
+    const stored = await db.asUser(a.staff.sub, (tx) => listTransactions(tx, a.client, 2025));
+    const grid = stored.filter((t) => t.source_document_id === doc).map(rowFromStored);
+    expect(grid.map((r) => r.sourcePages)).toEqual(expect.arrayContaining([[1, 2], [3]]));
+
+    // Raportin liitteissä tiedosto on kerran, ja kirjausluettelossa on viittaus liitteeseen ja sivuun.
+    const docs = await db.asUser(a.staff.sub, (tx) => listAttachmentDocuments(tx, a.client, 2025));
+    expect(docs.filter((x) => x.id === doc)).toHaveLength(1);
+    const no = docs.findIndex((x) => x.id === doc) + 1;
+    const report = await db.asUser(a.staff.sub, (tx) => loadReportData(tx, a.id, a.client, 2025, { attachmentRefs: true }));
+    const refs = report!.transactions.filter((t) => t.attachment?.startsWith(`${no},`)).map((t) => t.attachment);
+    expect(refs.sort()).toEqual([`${no}, s. 1–2`, `${no}, s. 1–2`, `${no}, s. 3`]);
+    const plain = await db.asUser(a.staff.sub, (tx) => loadReportData(tx, a.id, a.client, 2025));
+    expect(plain!.transactions.every((t) => t.attachment === null)).toBe(true);
+  });
+
+  it("kirjaus ei voi viitata toisen asiakkaan tositteeseen", async () => {
+    const other = await q<{ id: string }>(
+      `insert into sk_documents (organization_id, client_id, tax_year, kind, file_name, content_type, size_bytes, storage_path)
+       values ($1, $2, 2025, 'receipt', 'toinen.pdf', 'application/pdf', 1, $3) returning id`,
+      [a.id, a.otherClient, `${a.id}/${a.otherClient}/2025/toinen.pdf`],
+    );
+    const [t] = await q<{ id: string }>("select id from sk_transactions where client_id = $1 limit 1", [a.client]);
+    await expect(q("update sk_transactions set source_document_id = $1 where id = $2", [other[0].id, t.id])).rejects.toThrow(/toisen asiakkaan/);
+    await expect(q("update sk_transactions set source_pages = '{0}' where id = $1", [t.id])).rejects.toThrow();
   });
 });
 

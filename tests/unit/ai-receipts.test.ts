@@ -6,6 +6,13 @@ import { receiptRecognizer, recognizeReceipt, type ReceiptRecognizer } from "@/l
 import { rowsFromSuggestion, suggestionDateWarning } from "@/lib/ledger/grid";
 
 const line = (over: Record<string, unknown> = {}) => ({
+  document_index: 1,
+  source_document: "Puukaupan tilitys, Metsä Oy",
+  document_type: "timber_settlement",
+  pages: [1],
+  contract_number: "10432",
+  invoice_number: null,
+  document_total: null,
   date: "2025-03-15",
   description: "Metsä Oy, pystykauppa",
   amount_gross: 12550,
@@ -28,9 +35,10 @@ describe("tunnistuksen tarkistus", () => {
     const res = validateRecognition({ lines: [line(), line({ category: "other_expense", description: "Mittauskulut", amount_gross: 124, withholding: 0 })] });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
+    const doc = { documentIndex: 1, sourceDocument: "Puukaupan tilitys, Metsä Oy", documentType: "timber_settlement", pages: [1], contractNumber: "10432", invoiceNumber: null };
     expect(res.lines).toEqual([
-      { date: "2025-03-15", description: "Metsä Oy, pystykauppa", category: "standing_sale", amountGross: 12550, vatRate: 25.5, withholding: 3000, confidence: 0.9, reasoning: "Tilityksen loppusumma ja päivä." },
-      { date: "2025-03-15", description: "Mittauskulut", category: "other_expense", amountGross: 124, vatRate: 25.5, withholding: 0, confidence: 0.9, reasoning: "Tilityksen loppusumma ja päivä." },
+      { date: "2025-03-15", description: "Metsä Oy, pystykauppa", category: "standing_sale", amountGross: 12550, vatRate: 25.5, withholding: 3000, confidence: 0.9, reasoning: "Tilityksen loppusumma ja päivä.", ...doc },
+      { date: "2025-03-15", description: "Mittauskulut", category: "other_expense", amountGross: 124, vatRate: 25.5, withholding: 0, confidence: 0.9, reasoning: "Tilityksen loppusumma ja päivä.", ...doc },
     ]);
   });
 
@@ -129,6 +137,18 @@ describe("Anthropic-toteutus ilman verkkoa", () => {
     expect(JSON.stringify(params)).not.toContain("puukauppa 15.3.2025");
   });
 
+  it("ohje ja skeema: kokoomatiedosto, vuosi-ilmoitus ja maksutiedot", async () => {
+    for (const phrase of ["Go through every page", "tilisiirtolomake", "vuosi-ilmoitus", "menekinedistämismaksu", "YYYY-12-31", "Do not list the same invoice twice"]) {
+      expect(RECEIPT_SYSTEM_PROMPT).toContain(phrase);
+    }
+    const { client, calls } = fakeClient(() => ({ stop_reason: "end_turn", parsed_output: { lines: [line()] } }));
+    await anthropicRecognizer({ apiKey: "k", client }).recognize(pdf);
+    const schema = JSON.stringify((calls[0] as { output_config: { format: { schema: unknown } } }).output_config.format.schema);
+    for (const field of ["document_index", "source_document", "document_type", "pages", "contract_number", "invoice_number", "document_total", "timber_annual_summary"]) {
+      expect(schema).toContain(field);
+    }
+  });
+
   it("kuva lähtee kuvana", async () => {
     const { client, calls } = fakeClient(() => ({ stop_reason: "end_turn", parsed_output: { lines: [line()] } }));
     await anthropicRecognizer({ apiKey: "k", client }).recognize({ ...pdf, contentType: "image/png" });
@@ -171,6 +191,10 @@ describe("tunnistus aikarajalla", () => {
   });
 });
 
+const docFields = {
+  documentIndex: 1, sourceDocument: "Tilitys", documentType: "timber_settlement" as const, pages: [1], contractNumber: "10432", invoiceNumber: null,
+};
+
 describe("ehdotus taulukon riveiksi", () => {
   const suggestion = {
     id: "11111111-1111-4111-8111-111111111111",
@@ -178,8 +202,8 @@ describe("ehdotus taulukon riveiksi", () => {
     file_name: "tilitys.pdf",
     model: "mock",
     lines: [
-      { date: "2025-03-15", description: "Pystykauppa", category: "standing_sale", amountGross: 12550, vatRate: 25.5, withholding: 3000, confidence: 0.9, reasoning: "r" },
-      { date: null, description: "Mittaus", category: "other_expense", amountGross: 124, vatRate: 25.5, withholding: 0, confidence: 0.4, reasoning: "r" },
+      { date: "2025-03-15", description: "Pystykauppa", category: "standing_sale", amountGross: 12550, vatRate: 25.5, withholding: 3000, confidence: 0.9, reasoning: "r", ...docFields },
+      { date: null, description: "Mittaus", category: "other_expense", amountGross: 124, vatRate: 25.5, withholding: 0, confidence: 0.4, reasoning: "r", ...docFields },
     ],
   };
 

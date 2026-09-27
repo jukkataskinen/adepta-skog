@@ -18,12 +18,16 @@ export interface TransactionRow {
   asset_description: string | null;
   forest_property_id: string | null;
   document_count: number;
+  /** Kokoomatiedosto tai saman tiedoston toinen kirjaus (0011). */
+  source_document_id: string | null;
+  /** Sivut tekstinä "{3,4}" (parsePagesColumn). */
+  source_pages: string | null;
 }
 
 export async function listTransactions(tx: Sql, clientId: string, year: number): Promise<TransactionRow[]> {
   return tx.query<TransactionRow>(
     `select t.id, t.booked_on::text, t.kind, t.category, t.description, t.amount_net, t.amount_gross, t.vat_rate, t.withholding, t.reference, t.asset_id, t.forest_property_id,
-            a.description as asset_description,
+            a.description as asset_description, t.source_document_id, t.source_pages::text as source_pages,
             (select count(*)::int from sk_documents d where d.transaction_id = t.id) as document_count
        from sk_transactions t left join sk_assets a on a.id = t.asset_id
       where t.client_id = $1 and t.tax_year = $2
@@ -32,11 +36,16 @@ export async function listTransactions(tx: Sql, clientId: string, year: number):
   );
 }
 
-export async function getTransaction(tx: Sql, clientId: string, id: string): Promise<(TransactionRow & { tax_year: number }) | null> {
-  const [row] = await tx.query<TransactionRow & { tax_year: number }>(
+export async function getTransaction(
+  tx: Sql,
+  clientId: string,
+  id: string,
+): Promise<(TransactionRow & { tax_year: number; source_file_name: string | null }) | null> {
+  const [row] = await tx.query<TransactionRow & { tax_year: number; source_file_name: string | null }>(
     `select t.id, t.booked_on::text, t.tax_year, t.kind, t.category, t.description, t.amount_net, t.amount_gross, t.vat_rate, t.withholding, t.reference, t.asset_id, t.forest_property_id,
-            a.description as asset_description, 0 as document_count
+            a.description as asset_description, 0 as document_count, t.source_document_id, t.source_pages::text as source_pages, sd.file_name as source_file_name
        from sk_transactions t left join sk_assets a on a.id = t.asset_id
+       left join sk_documents sd on sd.id = t.source_document_id
       where t.id = $1 and t.client_id = $2`,
     [id, clientId],
   );
