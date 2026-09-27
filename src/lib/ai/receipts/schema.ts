@@ -16,8 +16,11 @@ import { CATEGORIES, TIMBER_SALE_CODES } from "@/lib/tax/rules";
 
 export const RECEIPT_CATEGORY_CODES = CATEGORIES.map((c) => c.code) as [string, ...string[]];
 
-/** Enintään näin monta riviä yhdestä tositteesta (vuoden tositenippu voi olla pitkä). */
-export const MAX_SUGGESTION_LINES = 60;
+/**
+ * Enintään näin monta riviä yhdestä tositteesta. Koko vuoden aineisto luetaan
+ * osissa yhdeksi ehdotukseksi, joten 100 sivun skannauksesta voi tulla satoja rivejä.
+ */
+export const MAX_SUGGESTION_LINES = 400;
 
 /** Asiakirjan laji. Vuosi-ilmoitus on ostajan koko vuoden yhteenveto, ei yksittäinen kauppa. */
 export const DOCUMENT_TYPES = ["invoice", "receipt", "timber_settlement", "timber_annual_summary", "other"] as const;
@@ -153,6 +156,15 @@ const near = (a: number, b: number) => Math.abs(a - b) < 0.005;
 type LineWithTotal = SuggestionLine & { documentTotal?: number | null };
 
 /**
+ * Palan tunnistama rivi. Asiakirjan loppusumma säilytetään, kunnes palat on
+ * yhdistetty, koska maksurivien poisto tarvitsee sitä koko tiedoston tasolla.
+ */
+export type ChunkLine = SuggestionLine & { documentTotal: number | null };
+
+/** Palan tallennetun rivin muoto (sk_receipt_suggestions.chunks). */
+export const chunkLineSchema = suggestionLineSchema.extend({ documentTotal: z.number().nullable().default(null) });
+
+/**
  * Poistaa rivit, jotka toistavat saman asiakirjan loppusumman maksuna, sekä
  * saman laskun toiston (sama laskunumero, luokka ja summa toisena asiakirjana).
  * Asiakirjan viimeistä riviä ei poisteta: maksurivi poistetaan vain, jos samasta
@@ -197,9 +209,20 @@ export function removeDuplicatePaymentLines(lines: LineWithTotal[]): SuggestionL
  * Maksuosan toistava rivi poistetaan (removeDuplicatePaymentLines).
  */
 export function validateRecognition(raw: unknown): RecognitionResult {
+  const lines = validateLines(raw);
+  if (!lines) return { ok: false };
+  const out = removeDuplicatePaymentLines(lines);
+  return out.length ? { ok: true, lines: out } : { ok: false };
+}
+
+/**
+ * Rivien tarkistus ilman maksurivien poistoa. Palat käyttävät tätä, ja poisto
+ * tehdään vasta yhdistetylle tulokselle (merge.ts). null = vastaus ei kelpaa.
+ */
+export function validateLines(raw: unknown): ChunkLine[] | null {
   const parsed = recognitionOutputSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false };
-  const lines: LineWithTotal[] = [];
+  if (!parsed.success) return null;
+  const lines: ChunkLine[] = [];
   for (const l of parsed.data.lines.slice(0, MAX_SUGGESTION_LINES)) {
     const amount = round2(Math.abs(l.amount_gross));
     if (!Number.isFinite(amount) || amount <= 0 || amount > 100_000_000) continue;
@@ -227,8 +250,7 @@ export function validateRecognition(raw: unknown): RecognitionResult {
       documentTotal: total !== null && Number.isFinite(total) ? total : null,
     });
   }
-  const out = removeDuplicatePaymentLines(lines);
-  return out.length ? { ok: true, lines: out } : { ok: false };
+  return lines;
 }
 
 /** Kannasta luetut rivit: rikkinäinen rivi jätetään pois eikä se kaada sivua. */

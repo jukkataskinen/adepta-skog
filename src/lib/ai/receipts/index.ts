@@ -1,6 +1,9 @@
 import "server-only";
-import { anthropicRecognizer, RECOGNITION_TIMEOUT_MS } from "./anthropic";
+import { anthropicRecognizer } from "./anthropic";
 import { mockRecognizer } from "./mock";
+import { isWholeFile, type ChunkRange } from "./chunks";
+import { CHUNK_TIMEOUT_MS } from "./config";
+import { extractPdfPages } from "./pdf";
 import type { RecognitionResult } from "./schema";
 
 /**
@@ -25,10 +28,18 @@ export interface ReceiptRecognizer {
   mode: "mock" | "anthropic";
   /** Tallennetaan ehdotukseen, jotta tiedetään, mikä malli ehdotuksen teki. */
   model: string;
-  recognize(file: ReceiptFile, signal?: AbortSignal): Promise<RecognitionResult>;
+  /**
+   * Ilman palaa: koko tiedosto, maksurivit poistettu (validateRecognition).
+   * Palan kanssa: tiedosto on palan sivut, sivut palautetaan koko tiedoston
+   * numeroinnissa ja asiakirjan loppusumma säilyy yhdistämistä varten.
+   */
+  recognize(file: ReceiptFile, signal?: AbortSignal, chunk?: ChunkRange): Promise<RecognitionResult>;
 }
 
-/** Palvelun rajat: kuva enintään 5 Mt, PDF-pyyntö enintään 32 Mt (base64 kasvattaa kolmanneksella). */
+/**
+ * Palvelun rajat lähetettävälle tiedostolle tai palalle: kuva enintään 5 Mt,
+ * PDF-pyyntö enintään 32 Mt (base64 kasvattaa kolmanneksella).
+ */
 export const RECOGNIZE_MAX_BYTES: Record<string, number> = {
   "application/pdf": 20 * 1024 * 1024,
   "image/jpeg": 5 * 1024 * 1024,
@@ -45,7 +56,12 @@ export function receiptRecognizer(env: Record<string, string | undefined> = proc
 }
 
 /** Tunnistus aikarajalla. Aikarajan ylitys ja virheet palautetaan epäonnistumisena. */
-export async function recognizeReceipt(recognizer: ReceiptRecognizer, file: ReceiptFile, timeoutMs = RECOGNITION_TIMEOUT_MS + 5_000): Promise<RecognizeOutcome> {
+export async function recognizeReceipt(
+  recognizer: ReceiptRecognizer,
+  file: ReceiptFile,
+  timeoutMs = CHUNK_TIMEOUT_MS + 3_000,
+  chunk?: ChunkRange,
+): Promise<RecognizeOutcome> {
   const max = RECOGNIZE_MAX_BYTES[file.contentType];
   if (!max) return { ok: false, reason: "unsupported" };
   if (file.bytes.length > max) return { ok: false, reason: "too_large" };
@@ -59,10 +75,27 @@ export async function recognizeReceipt(recognizer: ReceiptRecognizer, file: Rece
     }, timeoutMs);
   });
   try {
-    return await Promise.race([recognizer.recognize(file, controller.signal).catch(() => ({ ok: false }) as const), timeout]);
+    return await Promise.race([recognizer.recognize(file, controller.signal, chunk).catch(() => ({ ok: false }) as const), timeout]);
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Yhden palan tunnistus: PDF:stä erotetaan palan sivut, ja pala lähetetään
+ * tunnistukseen palan tiedoin. Koko tiedoston pala lähetetään sellaisenaan.
+ */
+export async function recognizeChunk(recognizer: ReceiptRecognizer, file: ReceiptFile, chunk: ChunkRange): Promise<RecognizeOutcome> {
+  let bytes = file.bytes;
+  if (file.contentType === "application/pdf" && !isWholeFile(chunk)) {
+    try {
+      bytes = await extractPdfPages(file.bytes, chunk.first, chunk.last);
+    } catch {
+      console.warn("Tositteen palaa ei voitu erottaa");
+      return { ok: false };
+    }
+  }
+  return recognizeReceipt(recognizer, { ...file, bytes }, CHUNK_TIMEOUT_MS + 3_000, chunk);
 }
 
 export type { RecognitionResult, SuggestionLine } from "./schema";
