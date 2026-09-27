@@ -102,8 +102,10 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [x] Veroraportti PDF:nä: kansilehti, sisällysluettelo, tulot ja menot, verolaskelma, arvonlisävero, poistot, metsävähennys, kirjausluettelo, LUONNOS-vesileima avoimelle vuodelle (26.9.2026)
 - [x] Verovuoden sulkeminen arkistoi lopullisen raportin samassa transaktiossa, myös verosuunnitelman "Vahvista ja sulje" (26.9.2026)
 - [x] Veroraportti ja arkisto -välilehti: raportin avaus, arkistoidut raportit ja tositteet verovuosittain (26.9.2026)
+- [x] Sähköinen veroilmoitus 2C (tietovirta VSY02C, verovuodet 2025 ja 2026): puhdas muodostin `src/lib/filing/vsy02c.ts`, esikatselu ja lataus Veroraportti ja arkisto -välilehdellä, henkilötunnus vain tiedostoon, lataus Ilmoitin.fi:hin käsin (28.9.2026)
 
 ### 7. Käyttöönotto
+- [ ] 2C-tiedosto Ilmoitin.fi:n Aineiston tarkastukseen oikealla asiakkaalla ja tuotantokäytön aloitusilmoitus Verohallinnolle (BLOCKERS 8)
 - [ ] Rinnakkaisajo: sama vuosi molemmissa, erot selitetty
 - [ ] Lopullinen tiedonsiirto, `v2` → `main`, skog.adepta.fi uuteen
 - [ ] Vanha Skog-data pois yhteisestä Supabase-projektista, kun Kasamaster ja adepta-ppr eivät sitä tarvitse

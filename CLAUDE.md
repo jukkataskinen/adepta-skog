@@ -21,7 +21,7 @@ Uusi sovellus rakennetaan `v2`-haaraan (DECISIONS 26.9.2026). `main` on vanha tu
 - **Käyttöliittymä suomeksi, koodi ja tietokanta englanniksi.** Kommentit suomeksi ja ne kertovat *miksi*. Sävy: sinuttelu, rauhallinen, ei huutomerkkejä, ei emojeita.
 - **Jokainen uusi taulu:** etuliite `sk_`, `organization_id`, RLS päälle, policyt ja eksplisiittiset GRANTit (`authenticated`, `service_role`). Viittaus toiseen tauluun saman organisaation sisällä varmistetaan triggerillä `sk_check_same_org`. Lisää taulu `tests/db/rls.test.ts`:n listaan.
 - **Kaikki kantakutsut `src/lib/db`-kerroksen kautta:** `db.asUser(sub, tx => ...)` käyttäjän RLS-transaktiossa. `db.asService` vain skripteihin, kirjautumiseen ja taustatöihin. Ei supabase-js:ää, ei service role -avainta sivuilla, ei kantakutsuja selaimesta. Tämä on vanhan sovelluksen suurin virhe: rajaus oli jokaisen reitin varassa, ja se unohtui.
-- **Henkilötiedot:** asiakastiedostot, tositteet, varmuuskopiot ja viennit eivät koskaan gittiin (`.gitignore`, CI-vahti). Skriptit tulostavat vain määriä. Ei henkilötietoja URL-osoitteisiin, lokeihin tai virheviesteihin. Henkilötunnuksia ei käsitellä. Y-tunnus ja kiinteistötunnus saa tallentaa.
+- **Henkilötiedot:** asiakastiedostot, tositteet, varmuuskopiot ja viennit eivät koskaan gittiin (`.gitignore`, CI-vahti). Skriptit tulostavat vain määriä. Ei henkilötietoja URL-osoitteisiin, lokeihin tai virheviesteihin. Henkilötunnuksia ei tallenneta; niitä voi kysyä vain ilmoitustiedostoa muodostettaessa (2C: ilmoittaja ilman Y-tunnusta ja hankintatyön tekijät), ja ne ovat vain palautettavassa tiedostossa: ei kantaan, Storageen, lokeihin, audit-tietoihin, URL-osoitteisiin eikä virheviesteihin (Jukan päätös 28.9.2026). Y-tunnus ja kiinteistötunnus saa tallentaa.
 - **Muutokset lokiin:** `audit()` samassa transaktiossa kuin muutos.
 - **Lomakkeet:** server action → `parseForm(schema, formData, backTo)`. Virhe `?virhe=`-parametrilla, sivu näyttää sen `<FormError>`-komponentilla.
 - **Päivämäärät ja rahat:** kanta `date` ja `numeric(14,2)`, näyttö `src/lib/format.ts` (Europe/Helsinki). Pinta-alat `numeric(12,2)`, kuutiot `numeric(12,1)`, prosentit `numeric(5,2)`.
@@ -63,6 +63,7 @@ src/lib/properties/         metsätilat
 src/lib/ledger/             kirjaukset ja tositteet
 src/lib/tax/                verolaskenta: alv, poistot, metsävähennys, verosuunnitelma, säännöt
 src/lib/reports/            veroraportti PDF:nä, arkistointi
+src/lib/filing/             sähköiset veroilmoitukset: 2C-tiedosto (vsy02c.ts puhtaana funktiona, load, download)
 src/lib/years/              verovuoden avaus, sulkeminen ja lukitus
 src/lib/compare/            vertailu vanhaan sovellukseen (legacy-tax)
 src/lib/import/             tiedonsiirto vanhasta kannasta: muunnokset (legacy.ts) ja kirjoitus (run.ts)

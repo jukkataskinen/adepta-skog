@@ -431,7 +431,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     icon: "folder",
     title: "Veroraportti ja arkisto",
     summary: "Veroilmoitusta tukeva raportti PDF:nä. Raportit ja tositteet säilyvät arkistossa verovuosittain.",
-    highlights: ["Kansilehti ja sisällysluettelo", "LUONNOS-merkintä avoimelle vuodelle", "Raportti arkistoon, kun vuosi suljetaan"],
+    highlights: ["Kansilehti ja sisällysluettelo", "LUONNOS-merkintä avoimelle vuodelle", "Raportti arkistoon, kun vuosi suljetaan", "Veroilmoitus 2C tiedostona Ilmoitin.fi-palveluun"],
     sections: [
       {
         title: "Raportin avaaminen",
@@ -453,6 +453,28 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Investoinnit ja poistot.",
           "Metsävähennys tiloittain.",
           "Kaikki vuoden kirjaukset.",
+        ],
+      },
+      {
+        title: "Sähköinen veroilmoitus",
+        text: "Skog tekee metsätalouden veroilmoituksesta (lomake 2C) tiedoston. Sinä lataat tiedoston Ilmoitin.fi-palveluun, ja se menee sieltä Verohallinnolle. Luvut ovat samat kuin veroraportissa.",
+        steps: [
+          "Vahvista ensin vuoden verosuunnitelma. Muuten poistot ja metsävähennys puuttuvat.",
+          "Avaa asiakas ja valitse välilehti Veroraportti ja arkisto. Valitse vuosi.",
+          "Katso kohdasta Sähköinen veroilmoitus (2C), mitkä luvut menevät mihinkin kohtaan. Lue myös varoitukset.",
+          "Jos asiakkaalla ei ole Y-tunnusta, kirjoita hänen henkilötunnuksensa.",
+          "Jos vuonna on hankintatyötä, tarkista tekijät. Kirjoita jokaiselle nimi, henkilötunnus, kuutiot ja arvo. Voit myös jättää tekijät erittelemättä.",
+          "Valitse Lataa ilmoitustiedosto. Tiedosto tallentuu koneellesi.",
+          "Mene osoitteeseen www.ilmoitin.fi ja kirjaudu. Tarkista tiedosto ensin toiminnolla Aineiston tarkastus.",
+          "Kun tarkastus on kunnossa, lähetä sama tiedosto. Poista tiedosto sitten koneeltasi.",
+        ],
+        bullets: [
+          "Henkilötunnusta ei tallenneta Skogiin. Se on vain ladatussa tiedostossa, joten kirjoitat sen joka kerta uudelleen.",
+          "Koneen tai metsätilan myynnin luovutusvoitto ei kuulu tähän ilmoitukseen. Ilmoita se OmaVerossa (lomake 9).",
+          "Ennakonpidätyksiä ei ilmoiteta. Verohallinto saa ne puun ostajilta.",
+          "Jos asiakas ei ole alv-velvollinen, menot menevät ilmoitukselle arvonlisäveron kanssa. Tulot ovat aina ilman veroa.",
+          "Tarvitset asiakkaalta Suomi.fi-valtuuden (Veroasioiden hoito tai Veroilmoittaminen).",
+          "Tiedoston voi tehdä vuosille 2025 ja 2026, myös suljetulle vuodelle.",
         ],
       },
       {

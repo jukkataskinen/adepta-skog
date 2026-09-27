@@ -3,7 +3,10 @@ import { EmptyState, Notice, PageHeader, Panel, SectionTitle, Table, Td, Th } fr
 import { requireStaff } from "@/lib/auth/current-user";
 import { getClient } from "@/lib/clients/queries";
 import { defaultYear, listYears } from "@/lib/ledger/queries";
-import { formatDateTime, formatNumber } from "@/lib/format";
+import { formatDate, formatDateTime, formatEur, formatNumber } from "@/lib/format";
+import { loadFilingSource } from "@/lib/filing/load";
+import { compute2c, VSY02C_SPECS } from "@/lib/filing/vsy02c";
+import { Filing2cForm } from "./Filing2cForm";
 import { ClientTabs } from "../../ClientTabs";
 import { YearNav } from "../../YearNav";
 
@@ -30,10 +33,12 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
           [id, year],
         )
       : [];
-    return { client, years, year, docs };
+    const filing = year && VSY02C_SPECS[year] ? await loadFilingSource(tx, ctx.org.organizationId, id, year) : null;
+    return { client, years, year, docs, filing };
   });
   if (!data) notFound();
-  const { client: c, years, year, docs } = data;
+  const { client: c, years, year, docs, filing } = data;
+  const computed = filing ? compute2c(filing.data) : null;
   const closed = years.find((y) => y.year === year)?.status === "closed";
   const reports = docs.filter((d) => d.kind === "report");
 
@@ -77,6 +82,102 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
               <Notice tone="warn" title="Arkistossa ei ole raporttia tälle vuodelle.">Vuosi on suljettu ennen arkistointia tai tuotu vanhasta ohjelmasta.</Notice>
             </div>
           ) : null}
+
+          <Panel className="mb-8 max-w-4xl">
+            <h2 className="text-lg font-bold">Sähköinen veroilmoitus (2C)</h2>
+            <p className="mt-1 text-sm text-ink/70">
+              Skog tekee metsätalouden veroilmoituksesta (lomake 2C) tiedoston. Lataat tiedoston itse Ilmoitin.fi-palveluun, joka välittää sen Verohallinnolle.
+              Luvut ovat samat kuin veroraportissa: poistot ja metsävähennys tulevat vahvistetusta verosuunnitelmasta.
+            </p>
+            {!computed || !filing ? (
+              <div className="mt-4">
+                <Notice tone="neutral" title={`Vuodelle ${year} ei voi vielä tehdä sähköistä ilmoitusta.`}>
+                  Skogissa on Verohallinnon tiedostokuvaus vuosille {Object.keys(VSY02C_SPECS).join(" ja ")}.
+                </Notice>
+              </div>
+            ) : (
+              <div className="mt-4 grid gap-5">
+                <Notice tone={filing.data.hasDisposals ? "warn" : "info"} title="Luovutusvoitot ilmoitetaan erikseen OmaVerossa.">
+                  Koneen tai metsätilan myynnistä syntyvä luovutusvoitto tai -tappio ei kuulu 2C-ilmoitukseen. Ilmoita se OmaVerossa (lomake 9).
+                  {filing.data.hasDisposals ? " Tänä vuonna on myyntejä: katso luvut veroraportin verolaskelmasta." : ""} Ennakonpidätyksiä ei ilmoiteta, koska Verohallinto saa ne puun ostajilta.
+                </Notice>
+                {computed.errors.map((e) => (
+                  <Notice key={e} tone="alert" title="Korjaa ennen latausta">
+                    {e}
+                  </Notice>
+                ))}
+                {computed.warnings.length ? (
+                  <Notice tone="warn" title="Tarkista ennen latausta">
+                    <ul className="list-disc pl-5">
+                      {computed.warnings.map((w) => (
+                        <li key={w}>{w}</li>
+                      ))}
+                    </ul>
+                  </Notice>
+                ) : null}
+                <div>
+                  <h3 className="mb-2 font-semibold">Esikatselu: mitkä luvut menevät mihinkin kohtaan</h3>
+                  <Table>
+                    <thead>
+                      <tr>
+                        <Th>Tunnus</Th>
+                        <Th>Kohta</Th>
+                        <Th numeric>Summa</Th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <Td className="tabular">010</Td>
+                        <Td>Verovelvollisen Y-tunnus tai henkilötunnus</Td>
+                        <Td numeric>{c.business_id ? `${c.business_id} tai henkilötunnus` : "henkilötunnus (kysytään alla)"}</Td>
+                      </tr>
+                      {computed.fields.map((f) => (
+                        <tr key={f.code}>
+                          <Td className="tabular">{f.code}</Td>
+                          <Td>{f.label}</Td>
+                          <Td numeric>{formatEur(f.value)}</Td>
+                        </tr>
+                      ))}
+                      {filing.workers.length ? (
+                        <tr>
+                          <Td className="tabular">700–706</Td>
+                          <Td>Tehty hankintatyö tekijöittäin (nimi, henkilötunnus, määrät ja arvot lomakkeelta)</Td>
+                          <Td numeric>{formatEur(computed.deliveryWork)}</Td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </Table>
+                  <p className="mt-2 text-xs text-ink/55">
+                    Tiedostokuvaus: Verohallinto, 2C Metsätalouden veroilmoitus, tietuekuvaus {computed.spec.year}, versio {computed.spec.version} ({formatDate(computed.spec.published)}).
+                  </p>
+                </div>
+                <Filing2cForm
+                  clientId={id}
+                  year={year}
+                  businessId={c.business_id}
+                  deliveryWork={computed.deliveryWork}
+                  defaultWorkers={filing.workers}
+                  blocked={computed.errors.length > 0}
+                />
+                <div className="rounded-xl border border-line bg-cloud/40 px-4 py-3 text-sm">
+                  <p className="font-semibold">Lataa tiedosto Ilmoitin.fi-palveluun</p>
+                  <ol className="mt-1 list-decimal space-y-0.5 pl-5">
+                    <li>
+                      Mene osoitteeseen{" "}
+                      <a href="https://www.ilmoitin.fi" target="_blank" rel="noreferrer" className="font-semibold text-sky hover:underline">
+                        www.ilmoitin.fi
+                      </a>{" "}
+                      ja kirjaudu Suomi.fi-tunnuksilla.
+                    </li>
+                    <li>Tarkista tiedosto ensin toiminnolla Aineiston tarkastus. Se kertoo virheet lähettämättä mitään.</li>
+                    <li>Kun tarkastus on kunnossa, valitse Lähetä tiedosto ja lähetä sama tiedosto.</li>
+                    <li>Tallenna kuittaus. Poista ladattu tiedosto koneeltasi, koska siinä on henkilötunnus.</li>
+                  </ol>
+                  <p className="mt-1 text-ink/65">Tarvitset asiakkaalta Suomi.fi-valtuuden (Veroasioiden hoito tai Veroilmoittaminen).</p>
+                </div>
+              </div>
+            )}
+          </Panel>
 
           <SectionTitle>Arkisto {year}</SectionTitle>
           {docs.length === 0 ? (

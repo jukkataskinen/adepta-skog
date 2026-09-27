@@ -1,6 +1,8 @@
 /**
  * Suomalaiset tunnisteet: Y-tunnus, IBAN, viitenumero, kiinteistötunnus ja
- * postinumero (eRapusta). Henkilötunnuksia tämä sovellus ei käsittele.
+ * postinumero (eRapusta) sekä henkilötunnuksen muodon tarkistus.
+ * Henkilötunnusta ei tallenneta mihinkään: se tarkistetaan vain
+ * veroilmoitustiedostoa muodostettaessa (DECISIONS 28.9.2026).
  */
 
 export function normalizeBusinessId(value: string): string {
@@ -81,4 +83,38 @@ export function isValidIban(value: string): boolean {
     for (const d of code) remainder = (remainder * 10 + Number(d)) % 97;
   }
   return remainder === 1;
+}
+
+/**
+ * Henkilötunnuksen välimerkit vuosisadoittain (laki 128/2022, käytössä
+ * 1.1.2023 alkaen): 1800 +, 1900 - Y X W V U, 2000 A B C D E F.
+ */
+const PERSONAL_ID_CENTURY: Record<string, number> = {
+  "+": 1800, "-": 1900, Y: 1900, X: 1900, W: 1900, V: 1900, U: 1900, A: 2000, B: 2000, C: 2000, D: 2000, E: 2000, F: 2000,
+};
+const PERSONAL_ID_CHECK = "0123456789ABCDEFHJKLMNPRSTUVWXY";
+
+/** Poistaa välilyönnit ja muuttaa kirjaimet isoiksi. */
+export function normalizePersonalId(value: string): string {
+  return value.replace(/\s/g, "").toUpperCase();
+}
+
+/**
+ * Henkilötunnuksen muodollinen oikeellisuus: päivä on kalenterissa,
+ * välimerkki on sallittu, yksilönumero 002–999 ja tarkistusmerkki täsmää
+ * (yhdeksännumeroinen luku jaettuna 31:llä). Voimassaoloa ei voi tarkistaa,
+ * kuten ei Verohallinnon tarkistusmoduulikaan (muoto HETU2). Keinotunnuksia
+ * (esim. 010101-UUUU) ei hyväksytä.
+ */
+export function isValidPersonalId(value: string): boolean {
+  const m = /^(\d{2})(\d{2})(\d{2})([-+A-FU-Y])(\d{3})([0-9A-Y])$/.exec(normalizePersonalId(value));
+  if (!m) return false;
+  const [, dd, mm, yy, sep, ind, check] = m;
+  const century = PERSONAL_ID_CENTURY[sep];
+  if (century === undefined) return false;
+  const year = century + Number(yy);
+  const date = new Date(Date.UTC(year, Number(mm) - 1, Number(dd)));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== Number(mm) - 1 || date.getUTCDate() !== Number(dd)) return false;
+  if (Number(ind) < 2) return false;
+  return PERSONAL_ID_CHECK[Number(`${dd}${mm}${yy}${ind}`) % 31] === check;
 }

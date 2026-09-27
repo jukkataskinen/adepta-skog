@@ -2,7 +2,7 @@ import type { Sql } from "@/lib/db/types";
 import { summarize } from "@/lib/ledger/summary";
 import { assetYear, type AssetYear } from "./depreciation";
 import { forestDeductionBase } from "./forest-deduction";
-import { disposalFractions, forestDeductionPool, forestSales, soldSharePct, type ForestPropertyInput, type ForestSale } from "./forest-sale";
+import { disposalFractions, forestDeductionPool, forestDeductionTracking, forestSales, soldSharePct, type ForestPropertyInput, type ForestSale } from "./forest-sale";
 import { isRoadOrDitch, type TransactionKind } from "./rules";
 
 /**
@@ -16,6 +16,7 @@ export interface PlanAsset {
   description: string;
   method: "straight_line" | "declining_balance";
   decliningRatePct: number | null;
+  acquiredOn: string;
   year: AssetYear;
   /** Tälle vuodelle jo kirjattu poisto (vahvistettu suunnitelma). */
   recorded: number | null;
@@ -47,6 +48,14 @@ export interface PlanData {
   forestSales: PlanForestSale[];
   recordedDeduction: number;
   confirmed: boolean;
+  /**
+   * Hyödykkeet, joiden koko arvo siirtyi tänä vuonna metsän hankintamenoon
+   * (koko tila myyty). Ne eivät ole enää aktiivisia, mutta veroilmoituksen
+   * poistotaulukossa ne ovat luovutuksia.
+   */
+  transfersOut: { method: "straight_line" | "declining_balance"; decliningRatePct: number | null; acquiredOn: string; amount: number }[];
+  /** Metsävähennyksen seurantatiedot veroilmoitukselle (forestDeductionTracking). */
+  deductionTracking: ReturnType<typeof forestDeductionTracking>;
 }
 
 export async function loadPlanData(tx: Sql, clientId: string, year: number): Promise<PlanData> {
@@ -98,6 +107,7 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
     [clientId],
   );
   const planAssets: PlanAsset[] = [];
+  const transfersOut: PlanData["transfersOut"] = [];
   // Tien ja ojan poistamaton arvo, joka siirtyy luovutusvuonna metsän hankintamenoon: tila → vuosi → euroa.
   const roadDitch = new Map<string, Map<number, number>>();
   for (const a of assets) {
@@ -119,8 +129,11 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
       roadDitch.set(a.forest_property_id!, byYear);
     }
     const y = assetYear(input, deps, year);
-    if (!y.active) continue;
-    planAssets.push({ id: a.id, description: a.description, method: a.method, decliningRatePct: rate, year: y, recorded: deps.find((d) => d.taxYear === year)?.amount ?? null });
+    if (!y.active) {
+      if (y.transferred > 0) transfersOut.push({ method: a.method, decliningRatePct: rate, acquiredOn: a.acquired_on, amount: y.transferred });
+      continue;
+    }
+    planAssets.push({ id: a.id, description: a.description, method: a.method, decliningRatePct: rate, acquiredOn: a.acquired_on, year: y, recorded: deps.find((d) => d.taxYear === year)?.amount ?? null });
   }
 
   const num = (v: string | null) => (v === null ? null : Number(v));
@@ -177,6 +190,8 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
     deductionPool: forestDeductionPool(inputs, year),
     forestSales: sales,
     recordedDeduction,
+    transfersOut,
+    deductionTracking: forestDeductionTracking(inputs, year),
     confirmed: recordedDeduction > 0 || planAssets.some((a) => a.recorded !== null),
   };
 }
