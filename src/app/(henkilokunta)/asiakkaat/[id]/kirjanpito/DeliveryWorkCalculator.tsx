@@ -125,8 +125,9 @@ export function DeliveryWorkInputs({ dw, onLastEnter }: { dw: DeliveryWork; onLa
 /**
  * Hankintatyön laskuri kirjauslomakkeella. Laskee työn arvon Verohallinnon
  * ohjetaksoilla ja täyttää lomakkeelle luokan Hankintatyö, summan ja selitteen.
- * Tekijän henkilötunnusta ei kysytä: ohjelma ei käsittele henkilötunnuksia, ja
- * ansiotulon ilmoittaa tekijä itse.
+ * Tekijän henkilötunnusta ei kysytä eikä tallenneta: se kysytään vain, kun
+ * 2C-ilmoitustiedosto muodostetaan (Veroraportti ja arkisto). Tekijän nimi
+ * menee selitteeseen, josta ilmoituksen lomake hakee sen oletukseksi.
  */
 export function DeliveryWorkCalculator({ year }: { year: number }) {
   const ref = useRef<HTMLDivElement>(null);

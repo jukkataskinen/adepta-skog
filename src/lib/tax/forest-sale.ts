@@ -185,3 +185,36 @@ export function forestSaleLines(f: ForestSale): { lines: [string, number][]; res
     : null;
   return { lines, result: [f.gain >= 0 ? "Luovutusvoitto" : "Luovutustappio", f.gain], note };
 }
+
+/**
+ * Metsävähennyksen seurantatiedot veroilmoitukselle (2C, kohdat 14–16 eli
+ * tunnukset 655–657). Samat luvut kuin forestDeductionPool, mutta eriteltyinä,
+ * koska ilmoitukselle annetaan pohja, aiemmin käytetty ja luovutusvoittoihin
+ * lisätty erikseen ja Verohallinto laskee käytettävissä olevan niistä (#1991).
+ * - base: vuoden lopussa omistettujen metsien pohja (myyty osuus pois).
+ * - usedBefore: ennen verovuotta käytetty vähennys kaikilta tiloilta, myös myydyiltä.
+ * - addedToGains: luovutusvoittoihin vuoden loppuun mennessä lisätty.
+ * - missing: omistettuja tiloja, joilta puuttuu hankintahinta tai metsän osuus.
+ * null, jos yhdenkään omistetun tilan pohjaa ei voi laskea.
+ */
+export function forestDeductionTracking(
+  props: ForestPropertyInput[],
+  year: number,
+): { base: number; usedBefore: number; addedToGains: number; missing: number } | null {
+  const owned = props.filter((p) => soldSharePct(p, year) < 100);
+  const bases = owned.map((p) =>
+    p.acquisitionPrice === null || p.forestLandSharePct === null
+      ? null
+      : (p.acquisitionPrice * p.forestLandSharePct * forestDeductionPct(year) * (100 - soldSharePct(p, year))) / 1e6,
+  );
+  if (!bases.some((b) => b !== null)) return null;
+  const addedToGains = forestSales(props)
+    .filter((s) => s.year <= year)
+    .reduce((x, s) => x + s.addition, 0);
+  return {
+    base: round2(bases.reduce<number>((s, b) => s + (b ?? 0), 0)),
+    usedBefore: usedBefore(props, year),
+    addedToGains: round2(addedToGains),
+    missing: bases.filter((b) => b === null).length,
+  };
+}
