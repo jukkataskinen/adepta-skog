@@ -16,6 +16,8 @@ import { TransactionForm } from "./TransactionForm";
 import { saveLedgerGridAction, saveTransactionAction } from "./actions";
 import { LedgerGrid } from "./LedgerGrid";
 import { toFinnishDate } from "@/lib/ledger/transaction-input";
+import { listYearReceipts } from "@/lib/documents/year-receipts";
+import { YearReceipts } from "./YearReceipts";
 
 export const metadata = { title: "Kirjanpito" };
 
@@ -45,6 +47,7 @@ export default async function LedgerPage({
       rows: year ? await listTransactions(tx, id, year) : [],
       assets: await listAssets(tx, id),
       properties: await listPropertyOptions(tx, id),
+      receipts: year ? await listYearReceipts(tx, id, year) : [],
     };
   });
   if (!data) notFound();
@@ -90,6 +93,8 @@ export default async function LedgerPage({
             <Stat label="Investoinnit ilman alv" value={formatEur(sum.investment.net)} />
             <Stat label="Tulos ennen poistoja" value={formatEur(sum.netResult)} tone={sum.netResult < 0 ? "alert" : undefined} />
           </div>
+
+          <YearReceipts clientId={id} year={year} receipts={data.receipts} readOnly={closed} />
 
           {!closed ? (
             <nav className="mb-4 flex gap-1 text-sm" aria-label="Syöttötapa">

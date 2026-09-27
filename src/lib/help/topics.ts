@@ -284,6 +284,21 @@ export const HELP_TOPICS: HelpTopic[] = [
         text: "Avaa kirjaus päivästä. Voit muuttaa tietoja, lisätä tositteen tai poistaa kirjauksen. Muutokset jäävät lokiin.",
       },
       {
+        title: "Vuoden tositteet",
+        steps: [
+          "Avaa asiakkaan kirjanpito ja valitse vuosi.",
+          "Valitse Lisää tositteet.",
+          "Vedä tiedostot laatikkoon tai valitse ne. Voit lisätä useita kerralla. PDF, JPG tai PNG, enintään 25 Mt tiedostoa kohden.",
+          "Tositteet tallentuvat heti ja näkyvät listassa. Nimestä tositteen voi avata.",
+          "Kun vuosi suljetaan, kaikki vuoden tositteet liitetään lopullisen veroraportin loppuun.",
+        ],
+        bullets: [
+          "Myös yksittäisten kirjausten tositteet tulevat raportin liitteiksi.",
+          "Veroraportti ja arkisto -välilehdeltä voit avata luonnoksen tositteineen jo ennen sulkemista.",
+          "Suljetun vuoden tositteita ei voi poistaa eikä lisätä.",
+        ],
+      },
+      {
         title: "Tositteet",
         steps: [
           "Avaa kirjaus.",

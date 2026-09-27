@@ -4,16 +4,19 @@ import { audit } from "@/lib/audit";
 import { documentPath, getStorage } from "@/lib/storage";
 import { loadReportData } from "./data";
 import { renderTaxReport } from "./pdf";
+import { appendAttachments, loadAttachments } from "./attachments";
 
 /**
  * Suljetun vuoden veroraportti arkistoon. Kutsutaan samassa transaktiossa kuin
  * vuoden sulkeminen: jos raportin tallennus epäonnistuu, vuosi jää avoimeksi.
  * Uudelleen suljettaessa syntyy uusi versio, vanha säilyy arkistossa.
+ * Lopullisen raportin loppuun liitetään vuoden tositteet.
  */
 export async function archiveReport(tx: Sql, input: { organizationId: string; clientId: string; year: number; userId: string }): Promise<string> {
   const data = await loadReportData(tx, input.organizationId, input.clientId, input.year);
   if (!data) throw new Error("Raportin tiedot puuttuvat");
-  const bytes = Buffer.from(await renderTaxReport(data));
+  const report = await renderTaxReport(data);
+  const bytes = Buffer.from(await appendAttachments(report, await loadAttachments(tx, input.clientId, input.year), { year: input.year }));
   const id = randomUUID();
   const fileName = `veroraportti_${input.year}.pdf`;
   const storagePath = documentPath(input.organizationId, input.clientId, input.year, id, fileName);

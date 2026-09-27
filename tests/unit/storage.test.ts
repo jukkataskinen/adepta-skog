@@ -45,3 +45,40 @@ describe("tiedostot", () => {
     expect(() => getStorage({ STORAGE_MODE: "supabase" })).toThrow(/puuttuu/);
   });
 });
+
+describe("latausosoite ja koko", () => {
+  it("paikallinen latausosoite on allekirjoitettu, ja koko löytyy tallennuksen jälkeen", async () => {
+    const s = getStorage({ STORAGE_MODE: "local" });
+    const { url, form } = await s.createUploadUrl("org/a/2025/iso.pdf");
+    expect(form).toBe(false);
+    expect(url).toMatch(/^\/api\/tositteet\/lataus\?t=/);
+    expect(await s.size("org/a/2025/iso.pdf")).toBeNull();
+    await s.put("org/a/2025/iso.pdf", Buffer.from("12345"), "application/pdf");
+    expect(await s.size("org/a/2025/iso.pdf")).toBe(5);
+  });
+});
+
+describe("Supabase: latausosoite ja koko", () => {
+  it("pyytää allekirjoitetun latausosoitteen ja lukee koon HEAD-pyynnöllä", async () => {
+    const calls: { url: string; method: string }[] = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+      calls.push({ url: String(url), method: init?.method ?? "GET" });
+      if (init?.method === "POST") return new Response(JSON.stringify({ url: "/object/upload/sign/documents/o/a/2025/x.pdf?token=abc" }), { status: 200 });
+      if (init?.method === "HEAD") return new Response(null, { status: 200, headers: { "content-length": "1234" } });
+      return new Response(null, { status: 404 });
+    }) as typeof fetch;
+    try {
+      const s = getStorage({ STORAGE_MODE: "supabase", SUPABASE_URL: "https://projekti.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "testiavain" });
+      expect(await s.createUploadUrl("o/a/2025/x.pdf")).toEqual({
+        url: "https://projekti.supabase.co/storage/v1/object/upload/sign/documents/o/a/2025/x.pdf?token=abc",
+        form: true,
+      });
+      expect(await s.size("o/a/2025/x.pdf")).toBe(1234);
+      expect(calls.map((c) => c.method)).toEqual(["POST", "HEAD"]);
+      expect(calls[0].url).toBe("https://projekti.supabase.co/storage/v1/object/upload/sign/documents/o/a/2025/x.pdf");
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+});

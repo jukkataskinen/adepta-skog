@@ -61,6 +61,16 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
             >
               {closed ? "Avaa raportti" : "Avaa luonnos"}
             </a>
+            {docs.some((d) => d.kind === "receipt") ? (
+              <a
+                href={`/asiakkaat/${id}/veroraportti/${year}?liitteet=1`}
+                target="_blank"
+                rel="noreferrer"
+                className="ml-3 mt-4 inline-flex min-h-10 items-center rounded-xl border border-line px-4 text-sm font-semibold hover:border-ink/30"
+              >
+                {closed ? "Avaa tositteineen" : "Avaa luonnos tositteineen"}
+              </a>
+            ) : null}
           </Panel>
           {closed && reports.length === 0 ? (
             <div className="mb-5 max-w-3xl">
@@ -70,7 +80,7 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
 
           <SectionTitle>Arkisto {year}</SectionTitle>
           {docs.length === 0 ? (
-            <EmptyState title="Ei tiedostoja">Tositteet lisätään kirjanpidossa kirjauksen sivulla.</EmptyState>
+            <EmptyState title="Ei tiedostoja">Tositteet lisätään kirjanpidossa: koko vuoden tositteet painikkeella Lisää tositteet, yksittäisen kirjauksen tosite kirjauksen sivulla.</EmptyState>
           ) : (
             <Table>
               <thead>
