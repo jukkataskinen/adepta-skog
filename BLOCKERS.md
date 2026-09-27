@@ -5,7 +5,15 @@ Asiat, jotka odottavat tietoa tai päätöstä.
 1. ~~**Ovatko taulut auki anon-avaimelle?**~~ Ratkaistu 26.9.2026 rivimäärillä: eivät ole. `asiakkaat`, `tapahtumat`, `metsatilat`, `investoinnit` ja `metsavahennykset` antavat anon-avaimella virheen (policy lukee asetusta `app.current_org_id`, jota ei ole asetettu). `kayttajat`, `organisaatiot`, `arkisto` ja `poistot` palauttavat nolla riviä. Kirjoitusoikeutta ei testattu. Seuraus: selaimesta kantaa käyttävät sivut (kirjanpito, alv, veroraportti, verosuunnitelma, käyttäjät) eivät saa tietoja.
 2. **Auth0:n itserekisteröinti.** Etusivu luo jokaiselle uudelle kirjautujalle oman organisaation. Varmistettava, että Skog-sovelluksessa rekisteröityminen on suljettu.
 3. ~~**Uusi Supabase-projekti.**~~ Ratkaistu 26.9.2026: projekti luotu (eu-west-1), migraatiot 0001–0003 ajettu. Alkuperäinen: Jukka luo projektin ja antaa osoitteen ja avaimet `.env.local`:iin ja Verceliin.
-4. **Verosäännöt.** Vahvistettava Verohallinnon ohjeista (26.9.2026). Uusi sovellus poikkeaa vanhasta kahdessa kohdassa:
+4. **Verosäännöt.** Selvitys Verohallinnon ohjeista 27.9.2026: `docs/verosaannot-selvitys-2026-09-27.md`. Jos se pitää paikkansa, nykyinen laskenta poikkeaa ohjeista seitsemässä kohdassa. Laskentaa ei ole muutettu ennen Jukan tai kirjanpitäjän vahvistusta:
+   a) Metsävähennyksen vuosiraja lasketaan metsätalouden bruttopääomatulosta (vanha sovellus oli tässä oikeassa), ja vuodesta 2026 prosentti on 75 % (pohja myös 75 %, laki 872/2025).
+   b) Metsävähennysmetsät ovat yksi kokonaisuus, ei tilakohtaista jakoa.
+   c) Menojäännöspoiston pohjaan kuuluvat myös verovuonna hankitut koneet, joten poiston voi tehdä jo ostovuonna.
+   d) Enintään 600 euron menojäännös poistetaan kerralla, ja pienhankinta vähennetään vuosimenona.
+   e) Koneen myyntivoitto tai -tappio on luovutusvoittoa tai -tappiota (lomake 9), ei metsätalouden pääomatuloa.
+   f) Metsätaloudessa ei ole pakollista tasapoistoa: metsäteille ja ojitukselle enintään 15 % ja rakennuksille enintään 10 % menojäännöksestä.
+   g) Veroarviosta puuttuu yrittäjävähennys (5 %).
+   Aiempi kirjaus: Vahvistettava Verohallinnon ohjeista (26.9.2026). Uusi sovellus poikkeaa vanhasta kahdessa kohdassa:
    1) Metsävähennyksen vuosiraja: uusi 60 % metsätalouden puhtaasta pääomatulosta (poistojen jälkeen, ennen vähennystä), vanha 60 % bruttotuloista.
    2) Menojäännöspoiston pohja: uusi poistamaton arvo vuoden alussa (edellisen vuoden loppuarvo), vanha hankintahinta miinus jäännösarvo joka vuosi.
    Lisäksi: myyntivuonna ei poistoa, myyntihinnan ja poistamattoman arvon erotus on myyntivoittoa tai -tappiota; metsävähennys jaetaan tiloille järjestyksessä.
