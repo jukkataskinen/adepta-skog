@@ -42,8 +42,8 @@ export function PlanForm({
   const ded = parse(deduction);
   const plan = computePlan({ year, income: data.income, expense: data.expense, ...totals, forestDeduction: ded });
   const limits = useMemo(
-    () => forestDeductionLimits(data.properties, forestDeductionIncome(data.income, data.deliveryWork), year),
-    [data.properties, data.income, data.deliveryWork, year],
+    () => forestDeductionLimits(data.properties, forestDeductionIncome(data.income, data.deliveryWork), year, data.deductionPool),
+    [data.properties, data.income, data.deliveryWork, year, data.deductionPool],
   );
   const error = validateForestDeduction(ded, limits);
 
@@ -89,11 +89,28 @@ export function PlanForm({
           </Panel>
         </section>
 
+        {data.forestSales.length ? (
+          <section>
+            <SectionTitle>Metsätilan myynti</SectionTitle>
+            <Panel className="grid gap-3 text-sm">
+              {data.forestSales.map((f) => (
+                <div key={f.id} className="grid gap-1">
+                  <p className="font-semibold">{f.name}</p>
+                  <p>Kauppahinta {eur(f.salePrice)}, {f.deemedCost ? "hankintameno-olettama" : "hankintameno"} {eur(f.cost)}.</p>
+                  <p>Luovutusvoittoon lisätään käytettyä metsävähennystä {eur(f.addition)}.</p>
+                  <p className="font-semibold">{f.gain >= 0 ? `Luovutusvoitto ${eur(f.gain)}` : `Luovutustappio ${eur(-f.gain)}`}</p>
+                </div>
+              ))}
+              <p className="text-xs text-ink/55">Voitto ilmoitetaan lomakkeella 9. Myyntikulut ja poistamattomat tie- ja ojamenot eivät ole laskelmassa.</p>
+            </Panel>
+          </section>
+        ) : null}
+
         <section>
           <SectionTitle>Metsävähennys</SectionTitle>
           <Panel>
             <ul className="mb-4 grid gap-1 text-sm text-ink/75">
-              <li>Käyttämätöntä pohjaa tiloilla yhteensä {eur(limits.available)}.</li>
+              <li>Käyttämätöntä pohjaa kaikista metsistä yhteensä {eur(limits.available)}.</li>
               <li>
                 Vuoden enimmäismäärä on {limits.annualPct} % metsätalouden tuloista ennen kuluja ja poistoja
                 {data.deliveryWork ? " (oman hankintatyön arvo vähennetty)" : ""}: {eur(limits.annualMax)}.
@@ -127,7 +144,7 @@ export function PlanForm({
               [`Yrittäjävähennys ${ENTREPRENEUR_DEDUCTION_PCT} %`, -plan.entrepreneurDeduction],
               ["Metsätalouden verotettava tulo", plan.forestryTaxable],
               ...(totals.salePrices
-                ? [[plan.saleExempt ? "Koneiden myynti, verovapaa (enintään 1 000 €)" : "Koneiden luovutusvoitto tai -tappio", plan.saleResult]]
+                ? [[plan.saleExempt ? "Myynnit, verovapaa (enintään 1 000 €)" : "Luovutusvoitot ja -tappiot (lomake 9)", plan.saleResult]]
                 : []),
             ] as [string, number][]
           ).map(([label, value]) => (

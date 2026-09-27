@@ -110,9 +110,9 @@ export async function loadReportData(tx: Sql, orgId: string, clientId: string, y
     income: plan.income,
     expense: plan.expense,
     depreciation: depreciation.reduce((s, d) => s + d.amount, 0),
-    saleGain: depreciation.reduce((s, d) => s + d.saleGain, 0),
-    saleLoss: depreciation.reduce((s, d) => s + d.saleLoss, 0),
-    salePrices: depreciation.reduce((s, d) => s + d.salePrice, 0),
+    saleGain: depreciation.reduce((s, d) => s + d.saleGain, 0) + plan.forestSales.reduce((s, f) => s + Math.max(0, f.gain), 0),
+    saleLoss: depreciation.reduce((s, d) => s + d.saleLoss, 0) + plan.forestSales.reduce((s, f) => s + Math.max(0, -f.gain), 0),
+    salePrices: depreciation.reduce((s, d) => s + d.salePrice, 0) + plan.forestSales.reduce((s, f) => s + f.salePrice, 0),
     forestDeduction: plan.recordedDeduction,
   });
 

@@ -40,3 +40,31 @@ describe("verosuunnitelman lähtötiedot", () => {
     expect(r?.result).toMatchObject({ netBeforeDeduction: 1000, entrepreneurDeduction: 50, forestryTaxable: 950, saleResult: 2500, taxable: 3450 });
   });
 });
+
+describe("metsätilan myynti", () => {
+  let b: OrgFixture;
+  beforeAll(async () => {
+    b = await seedOrg(db, "Toimisto B");
+    // Kotimetsä (120 000 €, metsää 80 %, vähennys 3 000 € vuonna 2025) myydään 2026.
+    await db.asService(async (tx) => {
+      await tx.query("insert into sk_tax_years (organization_id, client_id, year) values ($1, $2, 2026)", [b.id, b.client]);
+      await tx.query("update sk_forest_properties set disposed_on = '2026-06-01', sale_price = 150000 where id = $1", [b.property]);
+    });
+  });
+
+  it("käytetty metsävähennys lisätään luovutusvoittoon, ja voitto on verolaskelmassa", async () => {
+    const plan = await db.asUser(b.staff.sub, (tx) => loadPlanData(tx, b.client, 2026));
+    expect(plan.forestSales).toEqual([
+      { id: b.property, name: "Kotimetsä", salePrice: 150000, cost: 120000, deemedCost: false, addition: 3000, gain: 33000 },
+    ]);
+    const r = await db.asUser(b.staff.sub, (tx) => loadReportData(tx, b.id, b.client, 2026));
+    expect(r?.result.saleResult).toBe(33000);
+  });
+
+  it("myyty tila ei tuo pohjaa myyntiä seuraavana vuonna", async () => {
+    await db.asService((tx) => tx.query("insert into sk_tax_years (organization_id, client_id, year) values ($1, $2, 2027)", [b.id, b.client]));
+    const plan = await db.asUser(b.staff.sub, (tx) => loadPlanData(tx, b.client, 2027));
+    expect(plan.properties).toEqual([]);
+    expect(plan.deductionPool).toBeNull();
+  });
+});

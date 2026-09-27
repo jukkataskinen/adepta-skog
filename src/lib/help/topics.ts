@@ -132,8 +132,27 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Jos hankintahinta tai metsän osuus puuttuu, pohjaa ei lasketa.",
         ],
       },
+      {
+        title: "Tilan myynti",
+        steps: [
+          "Avaa tila asiakkaan sivulta.",
+          "Avaa kohta Tilan myynti tai luovutus.",
+          "Kirjoita luovutuspäivä ja kauppahinta. Päivä on lopullisen kauppakirjan päivä.",
+          "Jos tila annetaan lahjana tai luovutus on verovapaa, rastita ruutu. Silloin metsävähennystä ei lisätä.",
+          "Tallenna.",
+          "Avaa myyntivuoden verosuunnitelma. Siinä näkyy luovutusvoitto.",
+        ],
+        bullets: [
+          "Luovutusvoittoon lisätään kaikki käytetty metsävähennys, myös muilta tiloilta käytetty.",
+          "Lisäys on kuitenkin enintään 60 prosenttia myydyn metsän hankintamenosta. Vuodesta 2027 raja on 75 prosenttia.",
+          "Kerran lisättyä vähennystä ei lisätä uudelleen seuraavassa myynnissä.",
+          "Jos tila on ostettu ja myyty samana vuonna, lisäystä ei tehdä.",
+          "Ohjelma käyttää hankintamenoa tai hankintameno-olettamaa sen mukaan, kumpi on edullisempi.",
+          "Tilan osan eli määräalan myyntiä ohjelma ei vielä laske.",
+        ],
+      },
     ],
-    tips: ["Suljetun vuoden metsävähennys estää tilan poistamisen."],
+    tips: ["Suljetun vuoden metsävähennys estää tilan poistamisen. Myyty tila merkitään myydyksi, sitä ei poisteta."],
     related: ["asiakkaat", "verosuunnitelma"],
   },
   {

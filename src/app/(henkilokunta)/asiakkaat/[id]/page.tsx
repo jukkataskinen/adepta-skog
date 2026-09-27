@@ -109,6 +109,7 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
                     <Link href={`/asiakkaat/${id}/metsatilat/${p.id}`} className="row-link-main font-semibold">
                       {p.name}
                     </Link>
+                    {p.disposed_on ? <span className="ml-2 text-xs text-ink/55">Myyty {formatDate(p.disposed_on)}</span> : null}
                   </Td>
                   <Td className="tabular">{p.property_code ?? "–"}</Td>
                   <Td numeric>{p.area_ha ? formatNumber(p.area_ha, "ha") : "–"}</Td>

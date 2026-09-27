@@ -148,8 +148,8 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
   w.row(["Metsävähennys", eur(-data.plan.recordedDeduction)], two);
   w.row(["Yrittäjävähennys 5 %", eur(-r.entrepreneurDeduction)], two, { line: true });
   w.row(["Metsätalouden verotettava pääomatulo", eur(r.forestryTaxable)], two, { bold: true });
-  if (data.depreciation.some((d) => d.sold)) {
-    w.row([r.saleExempt ? "Koneiden myynti, verovapaa (enintään 1 000 €)" : "Koneiden luovutusvoitto tai -tappio (lomake 9)", eur(r.saleResult)], two, { line: true });
+  if (data.depreciation.some((d) => d.sold) || data.plan.forestSales.length) {
+    w.row([r.saleExempt ? "Myynnit, verovapaa (enintään 1 000 €)" : "Luovutusvoitot ja -tappiot (lomake 9)", eur(r.saleResult)], two, { line: true });
   }
   w.row(["Verotettava pääomatulo", eur(r.taxable)], two, { bold: true });
   w.row(["Arvioitu vero 30 %", eur(r.tax.low)], two);
@@ -192,6 +192,14 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
     w.row(["Metsätila", "Pohjaa ennen vuotta", "Vähennys tänä vuonna"], p4, { bold: true, line: true });
     for (const p of data.properties) w.row([p.name, p.remainingBefore === null ? "Tiedot puuttuvat" : eur(p.remainingBefore), eur(p.deduction)], p4);
     w.row(["Yhteensä", "", eur(data.plan.recordedDeduction)], p4, { bold: true });
+  }
+  for (const f of data.plan.forestSales) {
+    w.space(6);
+    w.text(`Metsätilan myynti: ${f.name}`, { bold: true, size: 11, gap: 6 });
+    w.row(["Kauppahinta", eur(f.salePrice)], two);
+    w.row([f.deemedCost ? "Hankintameno-olettama" : "Hankintameno", eur(-f.cost)], two);
+    w.row(["Käytetty metsävähennys lisätään (TVL 46 § 8 mom.)", eur(f.addition)], two, { line: true });
+    w.row([f.gain >= 0 ? "Luovutusvoitto" : "Luovutustappio", eur(f.gain)], two, { bold: true });
   }
 
   // 5. Kirjausluettelo

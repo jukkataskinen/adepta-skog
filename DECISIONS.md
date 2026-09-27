@@ -99,3 +99,9 @@
 **Enintään 600 euron hankinta ohjataan vuosimenoksi.** Kirjaus estetään luokalla Käyttöomaisuuden hankinta ja ohjeistetaan käyttämään Muut vuosimenot. Enintään kolmen vuoden käyttöajan sääntö on ohjeessa, koska käyttöaikaa ei kysytä.
 
 **Metsävähennyksen tilakohtainen jako jää tallennukseen.** Verotuksessa metsät ovat yksi kokonaisuus, mutta vähennys tallennetaan edelleen tiloille vanhin pohja ensin, jotta seuranta pysyy. Tilan myynnin luovutusvoittolisäystä ei vielä lasketa.
+
+**Metsätilan myynti: käytetyn metsävähennyksen lisäys luovutusvoittoon (0007).** Tilalle tallennetaan luovutuspäivä, kauppahinta ja merkintä vastikkeettomasta tai verovapaasta luovutuksesta. Lisäys lasketaan ohjelmassa aina uudelleen eikä sitä tallenneta, jotta se pysyy oikeana, vaikka aiempia vähennyksiä korjattaisiin. Säännöt Verohallinnon ohjeen Metsävähennys luvusta 7: kaikki käytetty vähennys miinus aiemmin lisätty, enintään myydyn metsän vähennysoikeus (60 %, verovuodesta 2027 75 %), myös tappioon, samana vuonna myytyjen kesken vähennysoikeuksien suhteessa, ei samana vuonna hankitulle. Luovutusvoitto lasketaan hankintamenolla tai hankintameno-olettamalla, kumpi on edullisempi, ja se tulee verolaskelmaan luovutusvoittona.
+
+**Metsävähennyspohja on verovelvolliskohtainen.** Verosuunnitelman käyttämätön pohja on omistettujen metsien pohja miinus käytetty vähennys, jota ei ole lisätty luovutusvoittoon. Tilakohtainen jäännös on vain tallennusta varten; jos yhteinen pohja on suurempi kuin tilojen jäännökset, ylimenevä osa kirjataan viimeiselle tilalle.
+
+**Rajaukset.** Määräalan tai määräosan myynti, myyntikulut ja poistamattomien tie- ja ojamenojen lisääminen hankintamenoon eivät vielä ole laskelmassa. Ne mainitaan ohjeessa ja laskurin huomautuksessa.

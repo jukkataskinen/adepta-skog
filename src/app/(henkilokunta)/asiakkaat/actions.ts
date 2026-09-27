@@ -158,6 +158,9 @@ const propertySchema = z.object({
   acquiredOn: z.preprocess(emptyToNull, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tarkista hankintapäivä.").nullable()),
   forestLandSharePct: optionalNumber(0, 100),
   forestLandHa: optionalNumber(0, 1e6),
+  disposedOn: z.preprocess(emptyToNull, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tarkista luovutuspäivä.").nullable()),
+  salePrice: optionalNumber(0),
+  noDeductionAddition: z.preprocess((v) => v === "on", z.boolean()),
   deductionUsedBefore: optionalNumber(0),
 });
 
@@ -201,11 +204,15 @@ export async function updatePropertyAction(formData: FormData) {
   const back = `/asiakkaat/${clientId}/metsatilat/${propertyId}`;
   const input = parseForm(propertySchema, formData, back);
   await ctx.run(async (tx) => {
+    // Myynnin tiedot kulkevat yhdessä: päivä ilman hintaa tai hinta ilman päivää ei kelpaa.
+    if ((input.disposedOn === null) !== (input.salePrice === null)) fail(back, "Anna sekä luovutuspäivä että kauppahinta, tai jätä molemmat tyhjiksi.");
+    if (input.disposedOn && input.acquiredOn && input.disposedOn < input.acquiredOn) fail(back, "Luovutuspäivä on ennen hankintapäivää.");
     await tx.query(
       `update sk_forest_properties set name = $3, property_code = $4, area_ha = $5, acquisition_price = $6, acquired_on = $7,
-              forest_land_share_pct = $8, deduction_used_before = $9, forest_land_ha = $10
+              forest_land_share_pct = $8, deduction_used_before = $9, forest_land_ha = $10,
+              disposed_on = $11, sale_price = $12, no_deduction_addition = $13
         where id = $1 and client_id = $2`,
-      [propertyId, clientId, ...propertyValues(input, back)],
+      [propertyId, clientId, ...propertyValues(input, back), input.disposedOn, input.salePrice, input.disposedOn ? input.noDeductionAddition : false],
     );
     await audit(tx, { organizationId: ctx.org.organizationId, userId: ctx.user.id, action: "property.update", entity: "sk_forest_properties", entityId: propertyId });
   });

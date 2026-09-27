@@ -2,6 +2,7 @@ import type { Sql } from "@/lib/db/types";
 import { summarize } from "@/lib/ledger/summary";
 import { assetYear, type AssetYear } from "./depreciation";
 import { forestDeductionBase } from "./forest-deduction";
+import { forestDeductionPool, forestSales, type ForestPropertyInput } from "./forest-sale";
 import type { TransactionKind } from "./rules";
 
 /**
@@ -36,7 +37,12 @@ export interface PlanData {
   investment: number;
   withholding: number;
   assets: PlanAsset[];
+  /** Vuonna omistetut tilat: metsävähennys tallennetaan niille. */
   properties: PlanProperty[];
+  /** Käyttämätön metsävähennyspohja kaikista metsistä yhteensä (verovelvolliskohtainen). */
+  deductionPool: number | null;
+  /** Vuonna myydyt metsätilat ja luovutusvoittoon lisättävä metsävähennys. */
+  forestSales: { id: string; name: string; salePrice: number; cost: number; deemedCost: boolean; addition: number; gain: number }[];
   recordedDeduction: number;
   confirmed: boolean;
 }
@@ -87,24 +93,42 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
   }
 
   const props = await tx.query<{
-    id: string; name: string; acquisition_price: string | null; forest_land_share_pct: string | null; deduction_used_before: string;
+    id: string; name: string; acquisition_price: string | null; acquired_on: string | null; forest_land_share_pct: string | null; deduction_used_before: string;
+    disposed_on: string | null; sale_price: string | null; no_deduction_addition: boolean;
     ded: { taxYear: number; amount: string }[] | null;
   }>(
-    `select p.id, p.name, p.acquisition_price, p.forest_land_share_pct, p.deduction_used_before,
+    `select p.id, p.name, p.acquisition_price, p.acquired_on::text, p.forest_land_share_pct, p.deduction_used_before,
+            p.disposed_on::text, p.sale_price, p.no_deduction_addition,
             (select json_agg(json_build_object('taxYear', d.tax_year, 'amount', d.amount)) from sk_forest_deductions d where d.forest_property_id = p.id) as ded
        from sk_forest_properties p where p.client_id = $1 order by p.acquired_on nulls last, p.name`,
     [clientId],
   );
-  const properties: PlanProperty[] = props.map((p) => {
-    const ded = (p.ded ?? []).map((d) => ({ taxYear: Number(d.taxYear), amount: Number(d.amount) }));
-    const base = forestDeductionBase({
-      acquisitionPrice: p.acquisition_price === null ? null : Number(p.acquisition_price),
-      forestLandSharePct: p.forest_land_share_pct === null ? null : Number(p.forest_land_share_pct),
-      usedBefore: Number(p.deduction_used_before),
-      recorded: ded.filter((d) => d.taxYear !== year).map((d) => d.amount),
-    }, year);
-    return { id: p.id, name: p.name, remaining: base.remaining, recordedThisYear: ded.find((d) => d.taxYear === year)?.amount ?? 0 };
+  const num = (v: string | null) => (v === null ? null : Number(v));
+  const inputs: (ForestPropertyInput & { name: string })[] = props.map((p) => ({
+    id: p.id,
+    name: p.name,
+    acquisitionPrice: num(p.acquisition_price),
+    acquiredOn: p.acquired_on,
+    forestLandSharePct: num(p.forest_land_share_pct),
+    usedBefore: Number(p.deduction_used_before),
+    deductions: (p.ded ?? []).map((d) => ({ taxYear: Number(d.taxYear), amount: Number(d.amount) })),
+    disposedOn: p.disposed_on,
+    salePrice: num(p.sale_price),
+    noDeductionAddition: p.no_deduction_addition,
+  }));
+  // Myyntivuonna tila on vielä omistuksessa, joten vuoden vähennyksen voi kohdistaa sille.
+  const owned = inputs.filter((p) => !p.disposedOn || Number(p.disposedOn.slice(0, 4)) >= year);
+  const properties: PlanProperty[] = owned.map((p) => {
+    const base = forestDeductionBase(
+      { acquisitionPrice: p.acquisitionPrice, forestLandSharePct: p.forestLandSharePct, usedBefore: p.usedBefore, recorded: p.deductions.filter((d) => d.taxYear !== year).map((d) => d.amount) },
+      year,
+    );
+    return { id: p.id, name: p.name, remaining: base.remaining, recordedThisYear: p.deductions.find((d) => d.taxYear === year)?.amount ?? 0 };
   });
+  const names = new Map(inputs.map((p) => [p.id, p.name]));
+  const sales = forestSales(inputs)
+    .filter((x) => x.year === year)
+    .map((x) => ({ id: x.id, name: names.get(x.id) ?? "", salePrice: x.salePrice, cost: x.cost, deemedCost: x.deemedCost, addition: x.addition, gain: x.gain }));
 
   const recordedDeduction = properties.reduce((s, p) => s + p.recordedThisYear, 0);
   return {
@@ -115,6 +139,8 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
     withholding: sum.withholding,
     assets: planAssets,
     properties,
+    deductionPool: forestDeductionPool(inputs, year),
+    forestSales: sales,
     recordedDeduction,
     confirmed: recordedDeduction > 0 || planAssets.some((a) => a.recorded !== null),
   };
@@ -132,6 +158,12 @@ export function planTotals(data: PlanData, chosen: Record<string, number>) {
       saleLoss += a.year.saleLoss;
       salePrices += a.year.salePrice;
     } else depreciation += Math.min(Math.max(chosen[a.id] ?? 0, 0), a.year.max);
+  }
+  // Metsätilan luovutusvoitto tai -tappio (lisäyksineen) samaan luovutusvoittojen summaan.
+  for (const f of data.forestSales) {
+    if (f.gain >= 0) saleGain += f.gain;
+    else saleLoss -= f.gain;
+    salePrices += f.salePrice;
   }
   const r = (n: number) => Math.round(n * 100) / 100;
   return { depreciation: r(depreciation), saleGain: r(saleGain), saleLoss: r(saleLoss), salePrices: r(salePrices) };

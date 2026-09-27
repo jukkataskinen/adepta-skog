@@ -78,6 +78,9 @@ export interface PropertyRow {
   forest_land_share_pct: string | null;
   forest_land_ha: string | null;
   deduction_used_before: string;
+  disposed_on: string | null;
+  sale_price: string | null;
+  no_deduction_addition: boolean;
   deduction: ForestDeductionBase;
 }
 
@@ -88,6 +91,7 @@ const currentYear = () => Number(new Intl.DateTimeFormat("en", { timeZone: "Euro
 export async function listProperties(tx: Sql, clientId: string): Promise<PropertyRow[]> {
   const rows = await tx.query<Omit<PropertyRow, "deduction"> & { recorded: string[] | null }>(
     `select p.id, p.name, p.property_code, p.area_ha, p.acquisition_price, p.acquired_on::text, p.forest_land_share_pct, p.forest_land_ha, p.deduction_used_before,
+            p.disposed_on::text, p.sale_price, p.no_deduction_addition,
             (select array_agg(d.amount::text) from sk_forest_deductions d where d.forest_property_id = p.id) as recorded
        from sk_forest_properties p where p.client_id = $1 order by p.name`,
     [clientId],
@@ -105,7 +109,8 @@ export async function listProperties(tx: Sql, clientId: string): Promise<Propert
 
 export async function getProperty(tx: Sql, clientId: string, id: string) {
   const [row] = await tx.query<Omit<PropertyRow, "deduction">>(
-    `select id, name, property_code, area_ha, acquisition_price, acquired_on::text, forest_land_share_pct, forest_land_ha, deduction_used_before
+    `select id, name, property_code, area_ha, acquisition_price, acquired_on::text, forest_land_share_pct, forest_land_ha, deduction_used_before,
+            disposed_on::text, sale_price, no_deduction_addition
        from sk_forest_properties where id = $1 and client_id = $2`,
     [id, clientId],
   );

@@ -42,8 +42,17 @@ export function forestDeductionIncome(income: number, deliveryWork: number): num
   return round2(Math.max(0, income - deliveryWork));
 }
 
-export function forestDeductionLimits(properties: ForestDeductionProperty[], taxableForestIncome: number, year: number): ForestDeductionLimits {
-  const available = round2(properties.reduce((s, p) => s + (p.remaining ?? 0), 0));
+/**
+ * Vuoden rajat. `pool` on verovelvolliskohtainen käyttämätön pohja
+ * (forestDeductionPool); jos sitä ei anneta, käytetään tilojen summaa.
+ */
+export function forestDeductionLimits(
+  properties: ForestDeductionProperty[],
+  taxableForestIncome: number,
+  year: number,
+  pool?: number | null,
+): ForestDeductionLimits {
+  const available = round2(pool ?? properties.reduce((s, p) => s + (p.remaining ?? 0), 0));
   const annualPct = forestDeductionPct(year);
   const annualMax = round2(Math.max(0, (taxableForestIncome * annualPct) / 100));
   const max = round2(Math.min(available, annualMax));
@@ -65,6 +74,14 @@ export function allocateForestDeduction(properties: ForestDeductionProperty[], a
       out.push({ id: p.id, amount: take });
       left = round2(left - take);
     }
+  }
+  // Tilan myynnin jälkeen yhteinen pohja voi olla suurempi kuin tilojen omat jäännökset.
+  // Loppu kirjataan viimeiselle tilalle, koska verotuksessa jakoa ei ole.
+  if (left > 0 && properties.length) {
+    const last = properties[properties.length - 1];
+    const e = out.find((o) => o.id === last.id);
+    if (e) e.amount = round2(e.amount + left);
+    else out.push({ id: last.id, amount: left });
   }
   return out;
 }

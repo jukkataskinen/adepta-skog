@@ -131,3 +131,24 @@ export const ENTREPRENEUR_DEDUCTION_PCT = 5;
 
 /** Luovutusvoitto on verovapaa, jos vuoden luovutushinnat ovat yhteensä enintään tämän (TVL 48 § 6 mom.). */
 export const SALE_EXEMPTION_LIMIT = 1000;
+
+/**
+ * Metsätilan luovutus: luovutusvoittoon lisättävän käytetyn metsävähennyksen
+ * enimmäisosuus myydyn metsän hankintamenosta (TVL 46 § 8 mom.). Laki 872/2025
+ * nosti sen 75 prosenttiin, mutta sitä sovelletaan vasta verovuodesta 2027.
+ */
+const FOREST_SALE_ADDITION_PCT: { fromYear: number; pct: number }[] = [
+  { fromYear: 2009, pct: 60 },
+  { fromYear: 2027, pct: 75 },
+];
+
+export function forestSaleAdditionPct(year: number): number {
+  let pct = FOREST_SALE_ADDITION_PCT[0].pct;
+  for (const r of FOREST_SALE_ADDITION_PCT) if (year >= r.fromYear) pct = r.pct;
+  return pct;
+}
+
+/** Hankintameno-olettama: 20 % luovutushinnasta, 40 % jos omistettu vähintään 10 vuotta (TVL 46 § 2 mom.). */
+export const DEEMED_COST_PCT = 20;
+export const DEEMED_COST_LONG_PCT = 40;
+export const DEEMED_COST_LONG_YEARS = 10;

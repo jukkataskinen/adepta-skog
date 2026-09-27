@@ -46,7 +46,7 @@ export async function confirmPlanAction(formData: FormData) {
     }
     const totals = planTotals(data, chosen);
     const plan = computePlan({ year, income: data.income, expense: data.expense, ...totals, forestDeduction: deduction });
-    const limits = forestDeductionLimits(data.properties, forestDeductionIncome(data.income, data.deliveryWork), year);
+    const limits = forestDeductionLimits(data.properties, forestDeductionIncome(data.income, data.deliveryWork), year, data.deductionPool);
     const error = validateForestDeduction(deduction, limits);
     if (error) fail(back, error);
 
