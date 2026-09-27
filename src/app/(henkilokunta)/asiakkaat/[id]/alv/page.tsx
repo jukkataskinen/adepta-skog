@@ -25,7 +25,7 @@ export default async function VatPage({ params, searchParams }: { params: Promis
   });
   if (!data) notFound();
   const { client: c, years, year } = data;
-  const s = vatSummary(data.rows.map((r) => ({ bookedOn: r.booked_on, kind: r.kind, amountNet: Number(r.amount_net), vatRate: Number(r.vat_rate) })));
+  const s = vatSummary(data.rows.map((r) => ({ bookedOn: r.booked_on, kind: r.kind, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), vatRate: Number(r.vat_rate) })));
 
   return (
     <>

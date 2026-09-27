@@ -50,8 +50,8 @@ export interface PlanData {
 }
 
 export async function loadPlanData(tx: Sql, clientId: string, year: number): Promise<PlanData> {
-  const rows = await tx.query<{ kind: TransactionKind; category: string; asset_id: string | null; amount_net: string; vat_rate: string; withholding: string }>(
-    "select kind, category, asset_id, amount_net, vat_rate, withholding from sk_transactions where client_id = $1 and tax_year = $2",
+  const rows = await tx.query<{ kind: TransactionKind; category: string; asset_id: string | null; amount_net: string; amount_gross: string; withholding: string }>(
+    "select kind, category, asset_id, amount_net, amount_gross, withholding from sk_transactions where client_id = $1 and tax_year = $2",
     [clientId, year],
   );
   // Investointiin liitetyn myynnin hinta ei ole tuloa sellaisenaan: verotettavaa on vain
@@ -61,7 +61,7 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
     rows.map((r) => ({
       kind: r.kind,
       amountNet: r.category === "asset_sale" && r.asset_id ? 0 : Number(r.amount_net),
-      vatRate: Number(r.vat_rate),
+      amountGross: r.category === "asset_sale" && r.asset_id ? 0 : Number(r.amount_gross),
       withholding: Number(r.withholding),
     })),
   );

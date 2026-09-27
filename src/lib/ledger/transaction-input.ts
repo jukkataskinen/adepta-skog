@@ -1,12 +1,17 @@
 import { z } from "zod";
-import { CATEGORIES, category, defaultVatRate, type TransactionKind } from "@/lib/tax/rules";
-import { grossAmount } from "@/lib/ledger/summary";
+import { CATEGORIES, category, defaultVatRate, SMALL_ASSET_LIMIT, type TransactionKind } from "@/lib/tax/rules";
 
 /**
  * Kirjauksen kenttien tarkistus. Sama skeema palvelee kirjauslomaketta ja
  * taulukkosyöttöä, jotta säännöt ovat yhdessä paikassa. Moduuli on puhdas
  * (ei kantaa, ei Nextiä), joten sitä voi käyttää myös selaimessa esikatseluun.
  */
+
+/** Investointien viestit: samat lomakkeella, taulukossa ja palvelimella. */
+export const SMALL_ASSET_MESSAGE = `Enintään ${SMALL_ASSET_LIMIT} euron hankinta kirjataan vuosimenona. Valitse luokka Muut vuosimenot.`;
+export const ASSET_CLASS_MESSAGE = "Valitse hyödykkeen laji: kone, tie tai oja, tai rakennus.";
+export const SALE_ASSET_MESSAGE = "Valitse myytävä investointi.";
+export const DEPRECIATED_MESSAGE = "Investoinnista on jo tehty poistoja, joten hankintaa ei voi poistaa.";
 
 const blank = (v: unknown) => (v === undefined || (typeof v === "string" && v.trim() === "") ? null : v);
 
@@ -62,127 +67,38 @@ export const transactionFieldsSchema = z.object({
   bookedOn: z.preprocess((v) => (typeof v === "string" ? (normalizeDate(v) ?? v) : v), z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tarkista päivä.")),
   category: z.string({ message: "Valitse luokka." }).refine((c) => category(c) !== null, "Valitse luokka."),
   description: z.string().max(500, "Selite on liian pitkä.").default(""),
-  amountNet: amount(-1e10, "Tarkista summa.").refine((v) => v !== null, "Anna summa ilman arvonlisäveroa."),
+  // Kuitin summa arvonlisäveron kanssa. Veroton osa lasketaan siitä (src/lib/tax/amounts.ts).
+  amountGross: amount(-1e10, "Tarkista summa.").refine((v) => v !== null, "Anna summa (sis. alv)."),
   vatRate: amount(0, "Tarkista verokanta.").refine((v) => v === null || v < 100, "Tarkista verokanta."),
   withholding: amount(0, "Tarkista ennakonpidätys."),
   reference: z.preprocess(blank, z.string().max(100, "Viite on liian pitkä.").nullable()),
   // Vapaaehtoinen: kaikki menot eivät kohdistu yhdelle tilalle.
   forestPropertyId: z.preprocess(blank, z.string().uuid("Valitse metsätila.").nullable()),
+  // Tyyppi tulee luokasta. Taulukossa T-näppäin voi kääntää tulon menoksi tai
+  // päinvastoin (kuten vanhassa sovelluksessa), joten se voidaan antaa erikseen.
+  kind: z.preprocess(blank, z.enum(["income", "expense", "investment"], { message: "Tarkista tyyppi." }).nullable()).default(null),
 });
 
 export type TransactionFields = z.infer<typeof transactionFieldsSchema>;
 
-/** Tyhjä verokanta = luokan oletus kirjauksen päivälle. */
-export function effectiveVatRate(input: { category: string; bookedOn: string; vatRate: number | null }): number {
-  return input.vatRate ?? defaultVatRate(input.category, input.bookedOn);
-}
-
-// ---------------------------------------------------------------------------
-// Taulukkosyöttö
-// ---------------------------------------------------------------------------
-
-/** Taulukon sarakkeet järjestyksessä. Excelistä liitetyt sarakkeet tulkitaan tässä järjestyksessä. */
-export const BATCH_FIELDS = ["bookedOn", "category", "description", "amountNet", "vatRate", "withholding", "reference", "forestPropertyId"] as const;
-export type BatchField = (typeof BATCH_FIELDS)[number];
-export type BatchRowInput = { key: string } & Record<BatchField, string>;
-export type RowErrors = Partial<Record<BatchField, string>>;
-
-/** Investoinnit tarvitsevat hyödykkeen lajin tai myytävän investoinnin, joten ne kirjataan lomakkeella. */
-export const TABLE_EXCLUDED_CATEGORIES = ["asset_purchase", "asset_sale"];
-export const INVESTMENT_HINT = "Investoinnin hankinta ja myynti kirjataan lomakkeella, koska ne tarvitsevat lisätiedot.";
-export const MAX_BATCH_ROWS = 500;
-
-export interface ValidBatchRow {
-  key: string;
-  bookedOn: string;
-  category: string;
-  kind: TransactionKind;
-  description: string;
-  amountNet: number;
-  vatRate: number;
-  withholding: number;
-  reference: string | null;
-  forestPropertyId: string | null;
-}
-
-export type BatchState =
-  | { status: "idle" }
-  | { status: "error"; message: string; rowErrors: Record<string, RowErrors> }
-  | { status: "saved"; count: number };
-
-export function emptyBatchRow(key: string, bookedOn = ""): BatchRowInput {
-  return { key, bookedOn, category: "", description: "", amountNet: "", vatRate: "", withholding: "", reference: "", forestPropertyId: "" };
+/** Tyhjä verokanta = oletus luokalle, päivälle ja asiakkaalle (rules.ts, defaultVatRate). */
+export function effectiveVatRate(
+  input: { category: string; bookedOn: string; vatRate: number | null },
+  client: { vatRegistered: boolean },
+): number {
+  return input.vatRate ?? defaultVatRate(input.category, input.bookedOn, client);
 }
 
 /**
- * Tyhjä rivi ohitetaan tallennuksessa: taulukon lopussa on usein tyhjä rivi.
- * Päivää ei lasketa, koska uusi rivi saa sen valmiiksi edelliseltä riviltä.
+ * Kirjauksen tyyppi. Investoinnin hankinta ja myynti ovat aina luokkansa
+ * tyyppiä, koska investointi syntyy tai myydään niistä. Muissa annettu tulo tai
+ * meno säilyy; jos sitä ei annettu, tyyppi tulee luokasta.
  */
-export function isBlankRow(r: BatchRowInput): boolean {
-  return BATCH_FIELDS.every((f) => f === "bookedOn" || !String(r[f] ?? "").trim());
-}
-
-export function validateBatchRow(
-  raw: BatchRowInput,
-  opts: { year: number; propertyIds: string[] },
-): { ok: true; value: ValidBatchRow } | { ok: false; errors: RowErrors } {
-  const errors: RowErrors = {};
-  const date = normalizeDate(raw.bookedOn ?? "", opts.year);
-  const result = transactionFieldsSchema.safeParse({ ...raw, bookedOn: date ?? raw.bookedOn ?? "" });
-  if (!result.success) {
-    for (const issue of result.error.issues) {
-      const f = issue.path[0] as BatchField;
-      if (BATCH_FIELDS.includes(f) && !errors[f]) errors[f] = issue.message.startsWith("Invalid") ? "Tarkista arvo." : issue.message;
-    }
-  }
-  if (TABLE_EXCLUDED_CATEGORIES.includes(raw.category)) errors.category = INVESTMENT_HINT;
-  if (date && Number(date.slice(0, 4)) !== opts.year && !errors.bookedOn) errors.bookedOn = `Päivän on oltava vuonna ${opts.year}.`;
-  if (result.success && result.data.forestPropertyId && !opts.propertyIds.includes(result.data.forestPropertyId)) {
-    errors.forestPropertyId = "Valitse asiakkaan metsätila.";
-  }
-  if (!result.success || Object.keys(errors).length) return { ok: false, errors };
-  const v = result.data;
-  const cat = category(v.category)!;
-  return {
-    ok: true,
-    value: {
-      key: raw.key,
-      bookedOn: v.bookedOn,
-      category: cat.code,
-      kind: cat.kind,
-      description: v.description,
-      amountNet: v.amountNet!,
-      vatRate: effectiveVatRate(v),
-      withholding: v.withholding ?? 0,
-      reference: v.reference,
-      forestPropertyId: v.forestPropertyId,
-    },
-  };
-}
-
-/** Koko taulukko: kelvolliset rivit ja virheet rivin avaimella. Tyhjät rivit ohitetaan. */
-export function validateBatch(rows: BatchRowInput[], opts: { year: number; propertyIds: string[] }) {
-  const valid: ValidBatchRow[] = [];
-  const rowErrors: Record<string, RowErrors> = {};
-  for (const r of rows) {
-    if (isBlankRow(r)) continue;
-    const res = validateBatchRow(r, opts);
-    if (res.ok) valid.push(res.value);
-    else rowErrors[r.key] = res.errors;
-  }
-  return { valid, rowErrors, hasErrors: Object.keys(rowErrors).length > 0 };
-}
-
-/** Rivin esikatselu selaimessa: tehokas verokanta ja summa verollisena, jos ne voi jo laskea. */
-export function previewRow(r: BatchRowInput, year: number): { defaultVat: number | null; gross: number | null } {
-  const date = normalizeDate(r.bookedOn, year) ?? `${year}-12-31`;
-  const cat = category(r.category);
-  const defaultVat = cat ? defaultVatRate(cat.code, date) : null;
-  const net = parseAmount(r.amountNet);
-  const rate = parseAmount(r.vatRate);
-  const vat = rate === null ? defaultVat : rate;
-  if (net === null || Number.isNaN(net) || vat === null || Number.isNaN(vat)) return { defaultVat, gross: null };
-  return { defaultVat, gross: grossAmount(net, vat) };
+export function effectiveKind(categoryCode: string, kind: TransactionKind | null): TransactionKind {
+  const cat = category(categoryCode);
+  if (!cat) return kind ?? "expense";
+  if (cat.kind === "investment" || cat.code === "asset_sale") return cat.kind;
+  return kind === "income" || kind === "expense" ? kind : cat.kind;
 }
 
 // ---------------------------------------------------------------------------
@@ -201,51 +117,4 @@ export function resolveCategory(text: string): string | null {
   const t = text.trim().toLowerCase();
   if (!t) return null;
   return CATEGORIES.find((c) => c.code === t || c.label.toLowerCase() === t || c.legacyName.toLowerCase() === t)?.code ?? null;
-}
-
-function pastedValue(field: BatchField, value: string, opts: { year: number; properties: { id: string; name: string }[] }): string {
-  if (field === "bookedOn") {
-    const iso = normalizeDate(value, opts.year);
-    return iso ? toFinnishDate(iso) : value;
-  }
-  if (field === "category") return resolveCategory(value) ?? value;
-  if (field === "forestPropertyId") {
-    const t = value.trim().toLowerCase();
-    return opts.properties.find((p) => p.id === value.trim() || p.name.toLowerCase() === t)?.id ?? value;
-  }
-  return value;
-}
-
-/**
- * Liittää solut taulukkoon alkaen annetusta rivistä ja sarakkeesta. Olemassa
- * olevat rivit korvataan liitetyiltä osin ja puuttuvat rivit lisätään loppuun.
- * Jos ensimmäinen liitetty rivi on otsikkorivi (päivä ei ole päivä eikä summa
- * summa), se ohitetaan, koska Excelistä kopioidaan usein otsikot mukaan.
- */
-export function applyPaste(
-  rows: BatchRowInput[],
-  startRow: number,
-  startCol: number,
-  grid: string[][],
-  opts: { year: number; properties: { id: string; name: string }[]; fields?: readonly BatchField[]; newKey: () => string },
-): BatchRowInput[] {
-  const fields = opts.fields ?? BATCH_FIELDS;
-  let cells = grid;
-  if (cells.length > 1 && fields[startCol] === "bookedOn") {
-    const first = cells[0];
-    const amountIdx = fields.indexOf("amountNet") - startCol;
-    const amountCell = amountIdx >= 0 ? first[amountIdx] : undefined;
-    const amountOk = amountCell !== undefined && !Number.isNaN(parseAmount(amountCell) ?? Number.NaN);
-    if (!normalizeDate(first[0] ?? "", opts.year) && !amountOk) cells = cells.slice(1);
-  }
-  const out = rows.map((r) => ({ ...r }));
-  cells.forEach((line, i) => {
-    const idx = startRow + i;
-    if (!out[idx]) out.push(emptyBatchRow(opts.newKey()));
-    line.forEach((value, j) => {
-      const field = fields[startCol + j];
-      if (field) out[idx][field] = pastedValue(field, value, opts);
-    });
-  });
-  return out;
 }

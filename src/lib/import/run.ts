@@ -255,10 +255,10 @@ export async function importLegacyData(tx: Sql, input: { orgName: string; create
     const property = propertyFor(r.legacyPropertyId, client);
     const [existing] = await tx.query<{ id: string; forest_property_id: string | null; closed: boolean; same: boolean }>(
       `select id, forest_property_id, sk_year_is_closed(client_id, tax_year) as closed,
-              (booked_on = $2::date and kind = $3 and category = $4 and description = $5 and amount_net = $6::numeric
+              (booked_on = $2::date and kind = $3 and category = $4 and description = $5 and amount_gross = $6::numeric
                and vat_rate = $7::numeric and withholding = $8::numeric and reference is not distinct from $9) as same
          from sk_transactions where legacy_id = $1`,
-      [r.legacyId, r.bookedOn, r.kind, r.category, r.description, r.amountNet, r.vatRate, r.withholding, r.reference],
+      [r.legacyId, r.bookedOn, r.kind, r.category, r.description, r.amountGross, r.vatRate, r.withholding, r.reference],
     );
     if (existing) {
       const fillProperty = Boolean(property && !existing.forest_property_id);
@@ -269,9 +269,9 @@ export async function importLegacyData(tx: Sql, input: { orgName: string; create
         continue;
       }
       await tx.query(
-        `update sk_transactions set booked_on = $2, kind = $3, category = $4, description = $5, amount_net = $6, vat_rate = $7, withholding = $8,
+        `update sk_transactions set booked_on = $2, kind = $3, category = $4, description = $5, amount_gross = $6, vat_rate = $7, withholding = $8,
                 reference = $9, forest_property_id = coalesce(forest_property_id, $10) where id = $1`,
-        [existing.id, r.bookedOn, r.kind, r.category, r.description, r.amountNet, r.vatRate, r.withholding, r.reference, property],
+        [existing.id, r.bookedOn, r.kind, r.category, r.description, r.amountGross, r.vatRate, r.withholding, r.reference, property],
       );
       add(existing.same ? "kirjauksen tila täydennetty" : "kirjauksia päivitetty");
       continue;
@@ -281,10 +281,10 @@ export async function importLegacyData(tx: Sql, input: { orgName: string; create
       continue;
     }
     const ins = await tx.query(
-      `insert into sk_transactions (organization_id, client_id, booked_on, kind, category, description, amount_net, vat_rate, withholding, reference, legacy_id,
+      `insert into sk_transactions (organization_id, client_id, booked_on, kind, category, description, amount_gross, vat_rate, withholding, reference, legacy_id,
                                     forest_property_id)
        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) on conflict (legacy_id) do nothing returning id`,
-      [org.id, client, r.bookedOn, r.kind, r.category, r.description, r.amountNet, r.vatRate, r.withholding, r.reference, r.legacyId, property],
+      [org.id, client, r.bookedOn, r.kind, r.category, r.description, r.amountGross, r.vatRate, r.withholding, r.reference, r.legacyId, property],
     );
     add("kirjauksia", ins.length);
   }

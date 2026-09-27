@@ -1,26 +1,17 @@
 import type { TransactionKind } from "@/lib/tax/rules";
+import { round2, vatOf } from "@/lib/tax/amounts";
 
 /**
- * Kirjausten summat. Kannassa summa on ilman arvonlisäveroa ja verokanta
- * erikseen, joten vero ja bruttosumma lasketaan täällä yhdellä tavalla
- * kaikkialle (taulukko, arvonlisäveroyhteenveto, veroraportti).
+ * Kirjausten summat. Kannassa on bruttosumma (kuitin summa) ja siitä laskettu
+ * veroton summa, ja vero on niiden erotus (src/lib/tax/amounts.ts). Sama sääntö
+ * koskee taulukkoa, arvonlisäveroyhteenvetoa ja veroraporttia.
  */
 
 export interface LedgerRow {
   kind: TransactionKind;
   amountNet: number;
-  vatRate: number;
+  amountGross: number;
   withholding: number;
-}
-
-const round2 = (n: number) => Math.round(n * 100) / 100;
-
-export function vatAmount(amountNet: number, vatRate: number): number {
-  return round2((amountNet * vatRate) / 100);
-}
-
-export function grossAmount(amountNet: number, vatRate: number): number {
-  return round2(amountNet + vatAmount(amountNet, vatRate));
 }
 
 export interface KindTotals {
@@ -45,10 +36,9 @@ export function summarize(rows: LedgerRow[]): LedgerSummary {
   const t = { income: empty(), expense: empty(), investment: empty() };
   let withholding = 0;
   for (const r of rows) {
-    const vat = vatAmount(r.amountNet, r.vatRate);
     t[r.kind].net += r.amountNet;
-    t[r.kind].vat += vat;
-    t[r.kind].gross += r.amountNet + vat;
+    t[r.kind].vat += vatOf(r.amountNet, r.amountGross);
+    t[r.kind].gross += r.amountGross;
     withholding += r.withholding;
   }
   for (const k of Object.values(t)) {

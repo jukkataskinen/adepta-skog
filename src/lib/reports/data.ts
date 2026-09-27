@@ -1,5 +1,5 @@
 import type { Sql } from "@/lib/db/types";
-import { grossAmount, vatAmount } from "@/lib/ledger/summary";
+import { vatOf } from "@/lib/tax/amounts";
 import { category, type TransactionKind } from "@/lib/tax/rules";
 import { loadPlanData, type PlanData } from "@/lib/tax/load";
 import { computePlan, type PlanResult } from "@/lib/tax/plan";
@@ -66,8 +66,8 @@ export async function loadReportData(tx: Sql, orgId: string, clientId: string, y
   ]);
   if (!org || !c || !y) return null;
 
-  const rows = await tx.query<{ booked_on: string; kind: TransactionKind; category: string; description: string; amount_net: string; vat_rate: string; withholding: string }>(
-    "select booked_on::text, kind, category, description, amount_net, vat_rate, withholding from sk_transactions where client_id = $1 and tax_year = $2 order by booked_on, created_at",
+  const rows = await tx.query<{ booked_on: string; kind: TransactionKind; category: string; description: string; amount_net: string; amount_gross: string; vat_rate: string; withholding: string }>(
+    "select booked_on::text, kind, category, description, amount_net, amount_gross, vat_rate, withholding from sk_transactions where client_id = $1 and tax_year = $2 order by booked_on, created_at",
     [clientId, year],
   );
   const transactions: ReportTransaction[] = rows.map((r) => {
@@ -75,7 +75,7 @@ export async function loadReportData(tx: Sql, orgId: string, clientId: string, y
     const rate = Number(r.vat_rate);
     return {
       bookedOn: r.booked_on, category: category(r.category)?.label ?? r.category, description: r.description, net, vatRate: rate,
-      gross: grossAmount(net, rate), withholding: Number(r.withholding),
+      gross: Number(r.amount_gross), withholding: Number(r.withholding),
     };
   });
   const byCat = new Map<string, ReportCategoryRow>();
@@ -83,9 +83,10 @@ export async function loadReportData(tx: Sql, orgId: string, clientId: string, y
     const label = category(r.category)?.label ?? r.category;
     const e = byCat.get(label) ?? { label, kind: r.kind, net: 0, vat: 0, gross: 0 };
     const net = Number(r.amount_net);
+    const gross = Number(r.amount_gross);
     e.net += net;
-    e.vat += vatAmount(net, Number(r.vat_rate));
-    e.gross += grossAmount(net, Number(r.vat_rate));
+    e.vat += vatOf(net, gross);
+    e.gross += gross;
     byCat.set(label, e);
   }
 
@@ -132,7 +133,7 @@ export async function loadReportData(tx: Sql, orgId: string, clientId: string, y
     },
     categories: [...byCat.values()],
     transactions,
-    vat: vatSummary(rows.map((r) => ({ bookedOn: r.booked_on, kind: r.kind, amountNet: Number(r.amount_net), vatRate: Number(r.vat_rate) }))),
+    vat: vatSummary(rows.map((r) => ({ bookedOn: r.booked_on, kind: r.kind, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), vatRate: Number(r.vat_rate) }))),
     plan,
     result,
     depreciation,

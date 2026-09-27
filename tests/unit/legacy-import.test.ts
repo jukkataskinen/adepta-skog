@@ -52,9 +52,12 @@ describe("vanhan kannan muunnos", () => {
     const t = mapTransaction({ id: "k1", asiakas_id: "c1", tyyppi: "tulo", kuvaus: "Leimikko", paivamaara: "2025-06-15", summa_alv0: "15000.00", alv_prosentti: "25.5", kategoria: "Pystykauppa", ennakko: 0, viite: null, verovuosi: 2025 });
     expect(!isSkipped(t) && t.row.category).toBe("standing_sale");
     expect(!isSkipped(t) && t.categoryGuessed).toBe(false);
+    // Vanha summa on veroton; brutto kuten vanha sovellus sen näytti.
+    expect(!isSkipped(t) && [t.row.amountNet, t.row.amountGross]).toEqual([15000, 18825]);
     const u = mapTransaction({ id: "k2", asiakas_id: "c1", tyyppi: "meno", kuvaus: "", paivamaara: "2025-07-01", summa_alv0: 120, alv_prosentti: 25.5, kategoria: "", ennakko: null, viite: null, verovuosi: 2025 });
     expect(!isSkipped(u) && u.row.category).toBe("other_expense");
     expect(!isSkipped(u) && u.categoryGuessed).toBe(true);
+    expect(!isSkipped(u) && u.row.amountGross).toBe(150.6);
   });
 
   it("kirjaus: päivä kelpaa myös Date-oliona", () => {
@@ -81,7 +84,9 @@ describe("arvonlisävero", () => {
   it("yleinen verokanta nousi 1.9.2024", () => {
     expect(generalVatRate("2024-08-31")).toBe(24);
     expect(generalVatRate("2024-09-01")).toBe(25.5);
-    expect(defaultVatRate("standing_sale", "2025-01-01")).toBe(25.5);
-    expect(defaultVatRate("wages", "2025-01-01")).toBe(0);
+    expect(defaultVatRate("standing_sale", "2025-01-01", { vatRegistered: true })).toBe(25.5);
+    // Arvonlisäverorekisteriin kuulumattomalle oletus on aina 0 %.
+    expect(defaultVatRate("standing_sale", "2025-01-01", { vatRegistered: false })).toBe(0);
+    expect(defaultVatRate("wages", "2025-01-01", { vatRegistered: true })).toBe(0);
   });
 });

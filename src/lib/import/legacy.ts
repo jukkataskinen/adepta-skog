@@ -1,3 +1,4 @@
+import { grossFromNet } from "@/lib/tax/amounts";
 import { CATEGORIES, type TransactionKind } from "@/lib/tax/rules";
 
 /**
@@ -267,6 +268,8 @@ export interface TransactionRow {
   category: string;
   description: string;
   amountNet: number;
+  /** Vanhassa kannassa oli vain veroton summa; brutto lasketaan siitä kuten vanha sovellus sen näytti. */
+  amountGross: number;
   vatRate: number;
   withholding: number;
   reference: string | null;
@@ -299,6 +302,7 @@ export function mapTransaction(t: LegacyTransaction): { row: TransactionRow; cat
       category: found?.code ?? fallback,
       description: text(t.kuvaus) ?? "",
       amountNet: amount,
+      amountGross: grossFromNet(amount, num(t.alv_prosentti) ?? 0),
       vatRate: num(t.alv_prosentti) ?? 0,
       withholding: num(t.ennakko) ?? 0,
       reference: text(t.viite),

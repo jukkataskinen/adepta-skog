@@ -18,22 +18,28 @@ export interface Category {
   vat: VatDefault;
   /** Vanhan sovelluksen nimi tiedonsiirtoa varten. */
   legacyName: string;
+  /**
+   * Pikanumero taulukkosyötön luokkavalikossa. Numerot 1–11 ovat samat kuin
+   * vanhassa sovelluksessa, jotta kirjanpitäjän tottumukset säilyvät; Hankintatyö
+   * on uusi numero 12.
+   */
+  no: number;
 }
 
 export const CATEGORIES: Category[] = [
-  { code: "standing_sale", label: "Pystykauppa", group: "Puukauppatulot", kind: "income", vat: "general", legacyName: "Pystykauppa" },
-  { code: "delivery_sale", label: "Hankintakauppa", group: "Puukauppatulot", kind: "income", vat: "general", legacyName: "Hankintakauppa" },
-  { code: "firewood_sale", label: "Polttopuukauppa", group: "Puukauppatulot", kind: "income", vat: "general", legacyName: "Polttopuukauppa" },
-  { code: "insurance_compensation", label: "Vakuutuskorvaukset", group: "Korvaukset ja tuet", kind: "income", vat: "none", legacyName: "Vakuutuskorvaukset" },
-  { code: "moose_damage_compensation", label: "Hirvivahinkokorvaukset", group: "Korvaukset ja tuet", kind: "income", vat: "none", legacyName: "Hirvivahinkokorvaukset" },
-  { code: "forestry_subsidy", label: "Metsätalouden tuet", group: "Korvaukset ja tuet", kind: "income", vat: "none", legacyName: "Metsätalouden tuet" },
-  { code: "asset_purchase", label: "Käyttöomaisuuden hankinta", group: "Investoinnit", kind: "investment", vat: "general", legacyName: "Käyttöomaisuuden hankinta" },
-  { code: "asset_sale", label: "Käyttöomaisuuden myynti", group: "Investoinnit", kind: "income", vat: "general", legacyName: "Käyttöomaisuuden myynti" },
+  { code: "standing_sale", no: 1, label: "Pystykauppa", group: "Puukauppatulot", kind: "income", vat: "general", legacyName: "Pystykauppa" },
+  { code: "delivery_sale", no: 2, label: "Hankintakauppa", group: "Puukauppatulot", kind: "income", vat: "general", legacyName: "Hankintakauppa" },
+  { code: "firewood_sale", no: 3, label: "Polttopuukauppa", group: "Puukauppatulot", kind: "income", vat: "general", legacyName: "Polttopuukauppa" },
+  { code: "insurance_compensation", no: 4, label: "Vakuutuskorvaukset", group: "Korvaukset ja tuet", kind: "income", vat: "none", legacyName: "Vakuutuskorvaukset" },
+  { code: "moose_damage_compensation", no: 5, label: "Hirvivahinkokorvaukset", group: "Korvaukset ja tuet", kind: "income", vat: "none", legacyName: "Hirvivahinkokorvaukset" },
+  { code: "forestry_subsidy", no: 6, label: "Metsätalouden tuet", group: "Korvaukset ja tuet", kind: "income", vat: "none", legacyName: "Metsätalouden tuet" },
+  { code: "asset_purchase", no: 10, label: "Käyttöomaisuuden hankinta", group: "Investoinnit", kind: "investment", vat: "general", legacyName: "Käyttöomaisuuden hankinta" },
+  { code: "asset_sale", no: 11, label: "Käyttöomaisuuden myynti", group: "Investoinnit", kind: "income", vat: "general", legacyName: "Käyttöomaisuuden myynti" },
+  { code: "wages", no: 7, label: "Palkkausmenot", group: "Menot", kind: "expense", vat: "none", legacyName: "Palkkausmenot" },
+  { code: "travel", no: 8, label: "Matkakulut", group: "Menot", kind: "expense", vat: "general", legacyName: "Matkakulut" },
+  { code: "other_expense", no: 9, label: "Muut vuosimenot", group: "Menot", kind: "expense", vat: "general", legacyName: "Muut vuosimenot" },
   // Oma hankintatyö arvostetaan Verohallinnon ohjetaksoilla (DELIVERY_WORK_RATES, laskuri src/lib/tax/delivery-work.ts).
-  { code: "delivery_work", label: "Hankintatyö", group: "Menot", kind: "expense", vat: "none", legacyName: "Hankintatyö" },
-  { code: "wages", label: "Palkkausmenot", group: "Menot", kind: "expense", vat: "none", legacyName: "Palkkausmenot" },
-  { code: "travel", label: "Matkakulut", group: "Menot", kind: "expense", vat: "general", legacyName: "Matkakulut" },
-  { code: "other_expense", label: "Muut vuosimenot", group: "Menot", kind: "expense", vat: "general", legacyName: "Muut vuosimenot" },
+  { code: "delivery_work", no: 12, label: "Hankintatyö", group: "Menot", kind: "expense", vat: "none", legacyName: "Hankintatyö" },
 ];
 
 export const CATEGORY_GROUPS = [...new Set(CATEGORIES.map((c) => c.group))];
@@ -60,10 +66,21 @@ export function generalVatRate(date: string): number {
   return rate;
 }
 
-/** Luokan oletusverokanta kirjauksen päivälle. */
-export function defaultVatRate(code: string, date: string): number {
+/**
+ * Uuden kirjauksen oletusverokanta. Arvonlisäverorekisteriin kuulumaton
+ * asiakas ei voi vähentää ostojen veroa eikä hänen myynnissään ole veroa,
+ * joten hänelle oletus on aina 0 % ja kulu on koko kuitin summa (Jukan
+ * vahvistus 28.9.2026). Rekisteröidyllä oletus tulee luokasta ja päivästä.
+ * Kirjanpitäjä voi aina vaihtaa kannan riville.
+ */
+export function defaultVatRate(code: string, date: string, client: { vatRegistered: boolean }): number {
+  if (!client.vatRegistered) return 0;
   const c = category(code);
   return c?.vat === "general" ? generalVatRate(date) : 0;
+}
+
+export function categoryByNo(no: number): Category | null {
+  return CATEGORIES.find((c) => c.no === no) ?? null;
 }
 
 /**
