@@ -201,6 +201,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         steps: [
           "Kirjaa myynti kirjanpitoon luokalla Käyttöomaisuuden myynti ja valitse myytävä investointi.",
           "Myyntivuonna konetta ei poisteta.",
+          "Myyntihintaa ei lasketa tuloksi sellaisenaan. Verolaskelmaan tulee vain myyntivoitto tai myyntitappio.",
           "Jos hinta on suurempi kuin poistamaton arvo, erotus on myyntivoittoa ja lisätään tuloihin.",
           "Jos hinta on pienempi, erotus on myyntitappiota ja vähennetään.",
         ],

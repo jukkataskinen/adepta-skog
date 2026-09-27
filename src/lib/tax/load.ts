@@ -39,11 +39,21 @@ export interface PlanData {
 }
 
 export async function loadPlanData(tx: Sql, clientId: string, year: number): Promise<PlanData> {
-  const rows = await tx.query<{ kind: TransactionKind; amount_net: string; vat_rate: string; withholding: string }>(
-    "select kind, amount_net, vat_rate, withholding from sk_transactions where client_id = $1 and tax_year = $2",
+  const rows = await tx.query<{ kind: TransactionKind; category: string; asset_id: string | null; amount_net: string; vat_rate: string; withholding: string }>(
+    "select kind, category, asset_id, amount_net, vat_rate, withholding from sk_transactions where client_id = $1 and tax_year = $2",
     [clientId, year],
   );
-  const sum = summarize(rows.map((r) => ({ kind: r.kind, amountNet: Number(r.amount_net), vatRate: Number(r.vat_rate), withholding: Number(r.withholding) })));
+  // Investointiin liitetyn myynnin hinta ei ole tuloa sellaisenaan: verotettavaa on vain
+  // myyntivoitto (tai vähennettävää myyntitappio), joka lasketaan investoinnista.
+  // Muuten myyntihinta ja myyntivoitto tulisivat laskelmaan kahteen kertaan.
+  const sum = summarize(
+    rows.map((r) => ({
+      kind: r.kind,
+      amountNet: r.category === "asset_sale" && r.asset_id ? 0 : Number(r.amount_net),
+      vatRate: Number(r.vat_rate),
+      withholding: Number(r.withholding),
+    })),
+  );
 
   const assets = await tx.query<{
     id: string; description: string; acquired_on: string; acquisition_cost: string; method: "straight_line" | "declining_balance";

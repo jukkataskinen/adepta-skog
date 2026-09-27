@@ -110,7 +110,7 @@ export function PlanForm({
         <SectionTitle>Laskelma {year}</SectionTitle>
         <Panel className="grid gap-2 text-sm">
           {[
-            ["Tulot ilman alv", data.income],
+            ["Tulot ilman alv ja koneiden myyntejä", data.income],
             ["Myyntivoitot", totals.saleGain],
             ["Menot", -data.expense],
             ["Myyntitappiot", -totals.saleLoss],

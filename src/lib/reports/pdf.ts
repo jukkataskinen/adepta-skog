@@ -143,7 +143,7 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
   const dep = data.depreciation.reduce((s, d) => s + d.amount, 0);
   const gain = data.depreciation.reduce((s, d) => s + d.saleGain, 0);
   const loss = data.depreciation.reduce((s, d) => s + d.saleLoss, 0);
-  w.row(["Tulot ilman arvonlisäveroa", eur(data.plan.income)], two);
+  w.row(["Tulot ilman arvonlisäveroa ja koneiden myyntejä", eur(data.plan.income)], two);
   if (gain) w.row(["Myyntivoitot", eur(gain)], two);
   w.row(["Menot", eur(-data.plan.expense)], two);
   if (loss) w.row(["Myyntitappiot", eur(-loss)], two);
