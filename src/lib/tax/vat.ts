@@ -1,4 +1,4 @@
-import { vatAmount } from "@/lib/ledger/summary";
+import { round2, vatOf } from "./amounts";
 import type { TransactionKind } from "./rules";
 
 /**
@@ -11,6 +11,8 @@ export interface VatRow {
   bookedOn: string;
   kind: TransactionKind;
   amountNet: number;
+  amountGross: number;
+  /** Myynnit ryhmitellään verokannoittain. */
   vatRate: number;
 }
 
@@ -25,14 +27,12 @@ export interface VatPeriod {
   byRate: { rate: number; net: number; vat: number }[];
 }
 
-const round2 = (n: number) => Math.round(n * 100) / 100;
-
 function period(label: string, rows: VatRow[]): VatPeriod {
   let output = 0;
   let input = 0;
   const rates = new Map<number, { net: number; vat: number }>();
   for (const r of rows) {
-    const vat = vatAmount(r.amountNet, r.vatRate);
+    const vat = vatOf(r.amountNet, r.amountGross);
     if (r.kind === "income") {
       output += vat;
       const e = rates.get(r.vatRate) ?? { net: 0, vat: 0 };

@@ -18,6 +18,7 @@ export function TransactionForm({
   defaultDate,
   submitLabel,
   compact,
+  vatRegistered,
 }: {
   action: (formData: FormData) => Promise<void>;
   clientId: string;
@@ -27,6 +28,8 @@ export function TransactionForm({
   defaultDate: string;
   submitLabel: string;
   compact?: boolean;
+  /** Oletusverokanta riippuu asiakkaan arvonlisäverorekisteröinnistä (rules.ts, defaultVatRate). */
+  vatRegistered: boolean;
 }) {
   const saleOptions = assets.filter((a) => !a.disposed_on || a.id === transaction?.asset_id);
   return (
@@ -56,12 +59,12 @@ export function TransactionForm({
         <Field label="Selite" htmlFor="description">
           <Input id="description" name="description" defaultValue={transaction?.description ?? ""} autoComplete="off" />
         </Field>
-        <Field label="Summa ilman alv (€)" htmlFor="amountNet">
-          <Input id="amountNet" name="amountNet" inputMode="decimal" required defaultValue={fi(transaction?.amount_net)} className="text-right" />
+        <Field label="Summa (sis. alv) (€)" htmlFor="amountGross">
+          <Input id="amountGross" name="amountGross" inputMode="decimal" required defaultValue={fi(transaction?.amount_gross)} className="text-right" />
         </Field>
       </div>
       <div className={`grid gap-4 ${properties.length ? "sm:grid-cols-[8rem_9rem_minmax(0,1fr)_minmax(0,1fr)]" : "sm:grid-cols-[8rem_9rem_minmax(0,1fr)]"}`}>
-        <Field label="Alv %" htmlFor="vatRate" hint={compact ? undefined : "Tyhjä = luokan oletus."}>
+        <Field label="Alv %" htmlFor="vatRate" hint={compact ? undefined : vatRegistered ? "Tyhjä = luokan oletus." : "Tyhjä = 0 %, koska asiakas ei ole arvonlisäverorekisterissä."}>
           <Input id="vatRate" name="vatRate" inputMode="decimal" defaultValue={fi(transaction?.vat_rate)} placeholder="oletus" className="text-right" />
         </Field>
         <Field label="Ennakonpidätys (€)" htmlFor="withholding">

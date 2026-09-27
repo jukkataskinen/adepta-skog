@@ -13,7 +13,7 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 ## Toimialan perusasiat
 
 - Asiakas on metsänomistaja. Hänellä on yksi tai useampi metsätila (kiinteistötunnus, pinta-ala, hankintahinta ja -päivä, metsämaan osuus).
-- Kirjaukset ovat metsätalouden tuloja ja menoja verovuosittain: summa ilman arvonlisäveroa, arvonlisäveroprosentti, luokka, ennakonpidätys.
+- Kirjaukset ovat metsätalouden tuloja ja menoja verovuosittain: summa arvonlisäveron kanssa (kuten kuitissa), josta veroton summa lasketaan, arvonlisäveroprosentti, luokka, ennakonpidätys.
 - Investoinnit (koneet, tiet, ojat) poistetaan tasapoistona tai menojäännöspoistona (25 %). Myyty kone poistuu poistolaskelmasta, ja myynnistä lasketaan myyntivoitto.
 - Metsävähennyksen pohja on 60 % metsämaan hankintamenosta. Kertymää seurataan metsätiloittain.
 - Arvonlisävero lasketaan niille asiakkaille, jotka ovat arvonlisäverorekisterissä.
@@ -25,7 +25,7 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - **Organisaatio** (kirjanpitotoimisto) → **käyttäjät** (rooli)
 - **Asiakas** (vastuukirjanpitäjä, arvonlisäverorekisteröinti, yhteystiedot) → **metsätila** → **metsävähennyskertymä** verovuosittain
 - **Verovuosi** asiakkaalle: avoin / suljettu, sulkemisen tekijä ja aika
-- **Kirjaus**: päivä, tyyppi (tulo / meno), luokka, summa ilman arvonlisäveroa, arvonlisäveroprosentti, ennakonpidätys, viite, tosite
+- **Kirjaus**: päivä, tyyppi (tulo / meno), luokka, summa arvonlisäveron kanssa ja siitä laskettu veroton summa, arvonlisäveroprosentti, ennakonpidätys, viite, tosite
 - **Investointi** → **poisto** verovuosittain (määrä ja jäännösarvo vuoden lopussa)
 - **Arkisto**: verovuoden raportti ja tositteet (Storage)
 
@@ -77,6 +77,9 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 ### 4. Kirjanpito
 - [x] Kirjanpito asiakkaan välilehdellä: kirjaukset vuosittain, summat, lisäys, muokkaus ja poisto rivi kerrallaan, suljettu vuosi vain luettavana (26.9.2026)
 - [x] Nopeampi syöttö taulukossa suoraan (kuten vanhassa sovelluksessa): Kirjanpito → Taulukkosyöttö, näppäimistö, liittäminen Excelistä, kaikki tai ei mitään (27.9.2026)
+- [x] Summa arvonlisäveron kanssa kaikissa syöttökohdissa (lomake, taulukko, Excel, investoinnit), veroton ja vero lasketaan siitä yhdellä säännöllä; migraatio 0009 `amount_gross` (28.9.2026)
+- [x] Oletus-alv 0 % asiakkaalle, joka ei ole arvonlisäverorekisterissä (Jukka vahvisti 28.9.2026)
+- [x] Taulukko kirjanpidon oletusnäkymänä: koko vuoden kirjaukset muokattavina, vanhan sovelluksen näppäimet, luokan numerovalinta, ennakonpidätyksen ja hankintatyön ikkunat, investointien hankinta ja myynti, poisto ja Ctrl + Z, tallennus yhdessä transaktiossa paikallaan, varoitus tallentamattomista muutoksista (28.9.2026)
 - [x] Tositteen liittäminen kirjaukseen, lataus RLS:n kautta, suljetun vuoden tositteita ei voi poistaa (26.9.2026)
 - [x] Poistetun tositteen tiedosto pois Storagesta (27.9.2026)
 - [x] Luokat ja oletusverokanta päivän mukaan, Hankintatyö-luokka vanhasta sovelluksesta (26.9.2026)

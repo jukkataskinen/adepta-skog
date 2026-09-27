@@ -123,11 +123,11 @@ describe("verosuunnitelma", () => {
 describe("arvonlisävero", () => {
   it("neljännekset ja vuosi, myynti verokannoittain", () => {
     const s = vatSummary([
-      { bookedOn: "2025-01-28", kind: "income", amountNet: 6200, vatRate: 25.5 },
-      { bookedOn: "2025-06-15", kind: "income", amountNet: 42000, vatRate: 25.5 },
-      { bookedOn: "2025-08-30", kind: "income", amountNet: 900, vatRate: 0 },
-      { bookedOn: "2025-10-05", kind: "expense", amountNet: 1000, vatRate: 25.5 },
-      { bookedOn: "2025-11-05", kind: "investment", amountNet: 8000, vatRate: 25.5 },
+      { bookedOn: "2025-01-28", kind: "income", amountNet: 6200, amountGross: 7781, vatRate: 25.5 },
+      { bookedOn: "2025-06-15", kind: "income", amountNet: 42000, amountGross: 52710, vatRate: 25.5 },
+      { bookedOn: "2025-08-30", kind: "income", amountNet: 900, amountGross: 900, vatRate: 0 },
+      { bookedOn: "2025-10-05", kind: "expense", amountNet: 1000, amountGross: 1255, vatRate: 25.5 },
+      { bookedOn: "2025-11-05", kind: "investment", amountNet: 8000, amountGross: 10040, vatRate: 25.5 },
     ]);
     expect(s.quarters.map((q) => q.payable)).toEqual([1581, 10710, 0, -2295]);
     expect(s.year).toMatchObject({ output: 12291, input: 2295, payable: 9996 });

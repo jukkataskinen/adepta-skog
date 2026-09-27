@@ -18,7 +18,7 @@ function sample(status: "open" | "closed", transactions = 3): ReportData {
     client: { name: "Aino Esimerkki", businessId: null, address: "Metsätie 2, 99990 Demola", municipality: "Demola", vatRegistered: true, taxAccountReference: "1234567890" },
     categories: [{ label: "Pystykauppa", kind: "income", net: 42000, vat: 10710, gross: 52710 }],
     transactions: tx,
-    vat: vatSummary([{ bookedOn: "2025-06-15", kind: "income", amountNet: 42000, vatRate: 25.5 }]),
+    vat: vatSummary([{ bookedOn: "2025-06-15", kind: "income", amountNet: 42000, amountGross: 52710, vatRate: 25.5 }]),
     plan: { income: 42000, expense: 340, deliveryWork: 0, investment: 0, withholding: 0, assets: [], properties: [], deductionPool: null, forestSales: [], recordedDeduction: 0, confirmed: false },
     result: computePlan({ year: 2025, income: 42000, expense: 340, depreciation: 0, saleGain: 0, saleLoss: 0, salePrices: 0, forestDeduction: 0 }),
     depreciation: [{ description: "Metsätraktori", method: "Menojäännöspoisto", bookValueStart: 22500, amount: 5625, bookValueEnd: 16875, transferred: 0, sold: false, salePrice: 0, saleGain: 0, saleLoss: 0 }],

@@ -1,3 +1,4 @@
+import { grossFromNet } from "@/lib/tax/amounts";
 import type { LegacyAsset, LegacyDeduction, LegacyDepreciation, LegacyTransaction } from "@/lib/import/legacy";
 import type { ReportData } from "@/lib/reports/data";
 
@@ -62,7 +63,8 @@ export function legacyFigures(input: LegacyInput): LegacyFigures {
   const rows = input.transactions.filter((t) => t.verovuosi === input.year);
   const sum = (f: (t: LegacyTransaction) => boolean, v: (t: LegacyTransaction) => number) => rows.filter(f).reduce((s, t) => s + v(t), 0);
   const net = (t: LegacyTransaction) => n(t.summa_alv0);
-  const vat = (t: LegacyTransaction) => (n(t.summa_alv0) * n(t.alv_prosentti)) / 100;
+  // Vanha näytti brutton verottomasta summasta sentteihin pyöristetyllä verolla (src/lib/tax/amounts.ts).
+  const vat = (t: LegacyTransaction) => grossFromNet(n(t.summa_alv0), n(t.alv_prosentti)) - n(t.summa_alv0);
   const isIncome = (t: LegacyTransaction) => t.tyyppi === "tulo";
   const isExpense = (t: LegacyTransaction) => t.tyyppi === "meno";
   const isInvestment = (t: LegacyTransaction) => t.tyyppi === "investointi";

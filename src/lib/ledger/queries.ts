@@ -10,6 +10,7 @@ export interface TransactionRow {
   category: string;
   description: string;
   amount_net: string;
+  amount_gross: string;
   vat_rate: string;
   withholding: string;
   reference: string | null;
@@ -21,7 +22,7 @@ export interface TransactionRow {
 
 export async function listTransactions(tx: Sql, clientId: string, year: number): Promise<TransactionRow[]> {
   return tx.query<TransactionRow>(
-    `select t.id, t.booked_on::text, t.kind, t.category, t.description, t.amount_net, t.vat_rate, t.withholding, t.reference, t.asset_id, t.forest_property_id,
+    `select t.id, t.booked_on::text, t.kind, t.category, t.description, t.amount_net, t.amount_gross, t.vat_rate, t.withholding, t.reference, t.asset_id, t.forest_property_id,
             a.description as asset_description,
             (select count(*)::int from sk_documents d where d.transaction_id = t.id) as document_count
        from sk_transactions t left join sk_assets a on a.id = t.asset_id
@@ -33,7 +34,7 @@ export async function listTransactions(tx: Sql, clientId: string, year: number):
 
 export async function getTransaction(tx: Sql, clientId: string, id: string): Promise<(TransactionRow & { tax_year: number }) | null> {
   const [row] = await tx.query<TransactionRow & { tax_year: number }>(
-    `select t.id, t.booked_on::text, t.tax_year, t.kind, t.category, t.description, t.amount_net, t.vat_rate, t.withholding, t.reference, t.asset_id, t.forest_property_id,
+    `select t.id, t.booked_on::text, t.tax_year, t.kind, t.category, t.description, t.amount_net, t.amount_gross, t.vat_rate, t.withholding, t.reference, t.asset_id, t.forest_property_id,
             a.description as asset_description, 0 as document_count
        from sk_transactions t left join sk_assets a on a.id = t.asset_id
       where t.id = $1 and t.client_id = $2`,
