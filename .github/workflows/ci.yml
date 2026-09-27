@@ -26,4 +26,9 @@ jobs:
         run: |
           if git ls-files | grep -iE '\.(csv|xlsx?|dump|bak|sql\.gz)$'; then
             echo "Repossa on tiedosto, joka voi sisältää asiakastietoja"; exit 1; fi
+      # Anthropicin API-avain (sk-ant-...) ei kuulu repoon. Avain on vain Vercelin ympäristömuuttujissa.
+      - name: Avainvahti
+        run: |
+          if git grep -nIE 'sk-ant-[A-Za-z0-9_-]{8,}' -- . ':!package-lock.json'; then
+            echo "Repossa on Anthropic-avaimen muotoinen merkkijono. Poista se ja vaihda avain."; exit 1; fi
       - run: npm audit --audit-level=high || true

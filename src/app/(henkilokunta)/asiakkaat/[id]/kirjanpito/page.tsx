@@ -7,7 +7,9 @@ import { getClient } from "@/lib/clients/queries";
 import { defaultYear, listAssets, listPropertyOptions, listTransactions, listYears } from "@/lib/ledger/queries";
 import { summarize } from "@/lib/ledger/summary";
 import { vatOf } from "@/lib/tax/amounts";
-import { rowFromStored } from "@/lib/ledger/grid";
+import { rowFromStored, rowsFromSuggestion } from "@/lib/ledger/grid";
+import { listPendingSuggestions } from "@/lib/documents/receipt-suggestions";
+import { receiptRecognizer } from "@/lib/ai/receipts";
 import { category } from "@/lib/tax/rules";
 import { formatDate, formatEur } from "@/lib/format";
 import { ClientTabs } from "../../ClientTabs";
@@ -20,6 +22,8 @@ import { listYearReceipts } from "@/lib/documents/year-receipts";
 import { YearReceipts } from "./YearReceipts";
 
 export const metadata = { title: "Kirjanpito" };
+// Tositteen tunnistus (server action tältä sivulta) voi kestää kymmeniä sekunteja.
+export const maxDuration = 120;
 
 const KIND_LABEL = { income: "Tulo", expense: "Meno", investment: "Investointi" } as const;
 
@@ -48,6 +52,7 @@ export default async function LedgerPage({
       assets: await listAssets(tx, id),
       properties: await listPropertyOptions(tx, id),
       receipts: year ? await listYearReceipts(tx, id, year) : [],
+      suggestions: year ? await listPendingSuggestions(tx, id, year) : [],
     };
   });
   if (!data) notFound();
@@ -94,7 +99,15 @@ export default async function LedgerPage({
             <Stat label="Tulos ennen poistoja" value={formatEur(sum.netResult)} tone={sum.netResult < 0 ? "alert" : undefined} />
           </div>
 
-          <YearReceipts clientId={id} year={year} receipts={data.receipts} readOnly={closed} />
+          <YearReceipts
+            clientId={id}
+            year={year}
+            receipts={data.receipts}
+            readOnly={closed}
+            testMode={receiptRecognizer().mode === "mock"}
+            gridMode={gridMode}
+            gridHref={modeHref(true)}
+          />
 
           {!closed ? (
             <nav className="mb-4 flex gap-1 text-sm" aria-label="Syöttötapa">
@@ -113,6 +126,7 @@ export default async function LedgerPage({
               clientId={id}
               year={year}
               initialRows={rows.map(rowFromStored)}
+              suggestionRows={data.suggestions.flatMap((sg) => rowsFromSuggestion(sg, { vatRegistered: c.vat_registered, defaultDate: toFinnishDate(defaultDate) }))}
               properties={data.properties}
               assets={data.assets}
               vatRegistered={c.vat_registered}

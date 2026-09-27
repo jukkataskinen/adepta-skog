@@ -24,6 +24,7 @@ const TABLES = [
   "sk_documents",
   "sk_feature_requests",
   "sk_forest_property_disposals",
+  "sk_receipt_suggestions",
 ];
 
 /** Kirjanpitäjälle näkyvät taulut: vastuuasiakkaan rivit (loki on vain pääkäyttäjälle). */
@@ -45,6 +46,18 @@ beforeAll(async () => {
         [org.id, org.client, org.property],
       ),
     );
+    await db.asService(async (tx) => {
+      const [doc] = await tx.query<{ id: string }>(
+        `insert into sk_documents (organization_id, client_id, tax_year, kind, file_name, content_type, size_bytes, storage_path)
+         values ($1, $2, 2025, 'receipt', 'vuoden-tosite.pdf', 'application/pdf', 10, $3) returning id`,
+        [org.id, org.client, `${org.id}/${org.client}/2025/vuoden-tosite.pdf`],
+      );
+      await tx.query(
+        `insert into sk_receipt_suggestions (organization_id, client_id, document_id, tax_year, lines, model)
+         values ($1, $2, $3, 2025, '[{"date":null}]', 'mock')`,
+        [org.id, org.client, doc.id],
+      );
+    });
     await db.asUser(org.owner.sub, (tx) =>
       audit(tx, { organizationId: org.id, userId: org.owner.id, action: "test.seed", entity: "sk_organizations", entityId: org.id }),
     );
