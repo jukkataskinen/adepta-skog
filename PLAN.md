@@ -71,7 +71,7 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [ ] Verovuoden valinta kirjanpidon välilehdillä, suljettu vuosi vain luettavana (vaihe 4)
 - [ ] Käyttäjät: kutsu sähköpostilla (Auth0), rooli, poisto käytöstä
 - [ ] Ohjeet kaikille näkymille, ohjelinkki jokaiselle sivulle
-- [ ] Kehitystoiveet Mittarilukemasta (sivu, linkki sivun yläkulmaan)
+- [x] Kehitystoiveet Mittarilukemasta (sivu, linkki sivun yläkulmaan) (27.9.2026)
 
 ### 4. Kirjanpito
 - [x] Kirjanpito asiakkaan välilehdellä: kirjaukset vuosittain, summat, lisäys, muokkaus ja poisto rivi kerrallaan, suljettu vuosi vain luettavana (26.9.2026)

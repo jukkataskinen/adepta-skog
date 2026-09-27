@@ -101,6 +101,10 @@ export async function seedOrg(db: Database, name: string): Promise<OrgFixture> {
        values ($1, $2, 2025, 'receipt', $3, 'kuitti.pdf', 'application/pdf', 1024, $4)`,
       [id, client, transaction, `${id}/${client}/2025/${transaction}.pdf`],
     );
+    await tx.query(
+      "insert into sk_feature_requests (organization_id, created_by, feature, title, description) values ($1, $2, 'kirjanpito', 'Toive', 'Kuvaus')",
+      [id, staff.id],
+    );
     return { id, owner, staff, client, otherClient, property, asset, transaction };
   });
 }

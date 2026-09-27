@@ -22,6 +22,7 @@ const TABLES = [
   "sk_forest_deductions",
   "sk_transactions",
   "sk_documents",
+  "sk_feature_requests",
 ];
 
 /** Kirjanpitäjälle näkyvät taulut: vastuuasiakkaan rivit (loki on vain pääkäyttäjälle). */

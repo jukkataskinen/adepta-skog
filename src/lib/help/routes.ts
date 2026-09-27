@@ -16,7 +16,8 @@ const ROUTES: { pattern: RegExp; slug: string; section?: string }[] = [
   { pattern: /^\/asiakkaat\/[^/]+\/raportti/, slug: "veroraportti" },
   { pattern: /^\/asiakkaat/, slug: "asiakkaat" },
   { pattern: /^\/asetukset/, slug: "asetukset" },
-]
+  { pattern: /^\/kehitystoiveet/, slug: "kehitystoiveet" },
+];
 
 /** Sivun ohje: otsikko ja osoite (osioon asti, jos sivu vastaa ohjeen osiota). */
 export function helpFor(pathname: string): { slug: string; title: string; href: string } | null {

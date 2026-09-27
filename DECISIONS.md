@@ -63,3 +63,11 @@
 **Supabase-projekti Irlannissa (eu-west-1), Vercel dub1.** Projekti syntyi Irlantiin eikä Frankfurtiin kuten suunniteltiin. Sama alue kuin Mittarilukemalla, ja se on EU:ssa, joten projektia ei luoda uudelleen. Vercelin funktiot ajetaan samalla alueella (dub1).
 
 **Anon-roolin oikeudet pois (migraatio 0003).** Supabase antaa oletuksena julkiselle anon-roolille oikeudet public-skeeman uusiin tauluihin ja funktioihin. Skog ei käytä julkista avainta, joten oikeudet poistetaan, ja migraatiokirjanpitoon laitetaan RLS.
+
+## 2026-09-27
+
+**Kehitystoiveet Mittarilukemasta (0005).** Taulu `sk_feature_requests`, sivut `/kehitystoiveet` ja linkki sivun yläkulmaan Ohje-linkin viereen. Toive kohdistetaan toimintoon, joka on sama kuin ohjesivuston aihe, kuten Mittarilukemassa. Migraation numero on 0005, koska 0004 on varattu toiselle työlle.
+
+**Kehitystoiveen tilaa muuttaa vain pääkäyttäjä.** Mittarilukemassa käsittelijöitä ovat pääkäyttäjä ja toimisto. Skogissa kirjanpitäjä on tavallinen käyttäjä, joten hän jättää ja näkee toiveet mutta ei merkitse toisen toivetta tehdyksi. Rajaus on kannassa (RLS), ei vain käyttöliittymässä.
+
+**Kehitystoiveista ei lähetetä ilmoituksia.** Mittarilukemassakaan ei ole sähköposti-ilmoituksia; pääkäyttäjä seuraa listaa. Ilmoitus lisätään sähköpostimoduulin kautta, jos tarvetta tulee.
