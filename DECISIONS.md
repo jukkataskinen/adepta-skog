@@ -91,3 +91,11 @@
 **Kutsun epäonnistuminen ei peru lisäystä.** Ulkoiset kutsut tehdään transaktion ulkopuolella. Jos viesti ei lähde, käyttäjä jää listaan ja kutsun voi lähettää uudelleen; `invited_at` kertoo viimeisimmän onnistuneen lähetyksen.
 
 **Uusintatuonti korvaa avoimen vuoden vanhan kannan nykytilalla.** Vertailu (27.9.2026) näytti, että vanha sovellus tallentaa vuoden poistamalla ja kirjoittamalla kirjaukset uudelleen uusilla tunnisteilla, jolloin uusintatuonti olisi tuplannut ne. Nyt avoimen vuoden vanhasta tuodut kirjaukset lisätään, päivitetään ja poistetaan vanhan kannan mukaan, ja poistot ja metsävähennykset päivitetään. Uudessa sovelluksessa tehdyt kirjaukset ja suljetut vuodet jäävät ennalleen, ja ohitetut muutokset lasketaan. Jukka hyväksyi poistavan synkronoinnin.
+
+**Verolaskenta Verohallinnon ohjeiden mukaan (Jukan päätös 27.9.2026).** Lähde docs/verosaannot-selvitys-2026-09-27.md. Metsävähennyksen vuosiraja lasketaan veronalaisesta metsätalouden tulosta ennen kuluja ja poistoja, ja siitä vähennetään oman hankintatyön arvo. Prosentti on 60 % vuoteen 2025 ja 75 % vuodesta 2026, ja sama prosentti koskee pohjaa (vanha pohja × 1,25). Poistot ovat vapaaehtoisia menojäännöspoistoja hyödykelajin mukaan (kone 25 %, tie tai oja 15 %, rakennus 10 %), ja enintään 600 euron jäännöksen saa poistaa kerralla. Koneen myyntivoitto tai -tappio on luovutusvoittoa metsätalouden tuloksen ulkopuolella, ja enintään 1 000 euron myynnit ovat verovapaita. Metsätalouden tuloksesta tehdään 5 %:n yrittäjävähennys.
+
+**Vanhat tasapoistot säilyvät vapaaehtoisina.** Vanhasta sovelluksesta tuoduille tasapoistoille lasketaan sama vuosiosuus enimmäismääränä, koska hyödykkeen lajia ei tiedetä. Uusille hankinnoille tasapoistoa ei voi valita. Kirjanpitäjä voi tehdä pienemmän poiston.
+
+**Enintään 600 euron hankinta ohjataan vuosimenoksi.** Kirjaus estetään luokalla Käyttöomaisuuden hankinta ja ohjeistetaan käyttämään Muut vuosimenot. Enintään kolmen vuoden käyttöajan sääntö on ohjeessa, koska käyttöaikaa ei kysytä.
+
+**Metsävähennyksen tilakohtainen jako jää tallennukseen.** Verotuksessa metsät ovat yksi kokonaisuus, mutta vähennys tallennetaan edelleen tiloille vanhin pohja ensin, jotta seuranta pysyy. Tilan myynnin luovutusvoittolisäystä ei vielä lasketa.

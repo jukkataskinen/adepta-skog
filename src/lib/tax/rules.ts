@@ -2,7 +2,7 @@
  * Verosäännöt ja kirjausten luokat. Vuosikohtaiset arvot ovat täällä eivätkä
  * koodin seassa (CLAUDE.md). Luokat vastaavat vanhan sovelluksen luokkia
  * (legacy/app/asiakas/asiakas.html, KATEGORIAT), jotta tiedonsiirto ja
- * vertailu vanhaan onnistuvat. Prosenttien lähteet vahvistetaan (BLOCKERS 4).
+ * vertailu vanhaan onnistuvat. Lähteet: docs/verosaannot-selvitys-2026-09-27.md.
  */
 
 export type TransactionKind = "income" | "expense" | "investment";
@@ -66,15 +66,34 @@ export function defaultVatRate(code: string, date: string): number {
   return c?.vat === "general" ? generalVatRate(date) : 0;
 }
 
-/** Menojäännöspoiston enimmäisprosentti koneille ja kalustolle. */
+/**
+ * Menojäännöspoiston enimmäisprosentit hyödykelajeittain. Metsätaloudessa ei ole
+ * tasapoistoa: kaikki poistot tehdään hyödykekohtaisesti poistamattomasta
+ * hankintamenosta, ja prosentti on enimmäismäärä (Verohallinto: Poistoina
+ * vähennettävät menot; docs/verosaannot-selvitys-2026-09-27.md).
+ */
+export const ASSET_CLASSES = [
+  { pct: 25, label: "Kone tai laite" },
+  { pct: 15, label: "Metsätie tai ojitus" },
+  { pct: 10, label: "Rakennus" },
+] as const;
+export const ASSET_CLASS_PCTS: number[] = ASSET_CLASSES.map((c) => c.pct);
 export const DECLINING_BALANCE_MAX_PCT = 25;
 
-/** Metsävähennyksen pohja: osuus metsämaan hankintamenosta. */
-export const FOREST_DEDUCTION_BASE_PCT = 60;
+export function assetClassLabel(pct: number | null): string {
+  return ASSET_CLASSES.find((c) => c.pct === pct)?.label ?? "Menojäännöspoisto";
+}
+
+/**
+ * Pienen hyödykkeen raja (TVL 115 § 3 mom., vuodesta 2021): enintään tämän
+ * suuruinen menojäännös poistetaan kerralla, ja enintään tämän suuruinen
+ * hankinta vähennetään vuosimenona.
+ */
+export const SMALL_ASSET_LIMIT = 600;
 
 /**
  * Pääomatulon vero: alempi kanta rajaan asti, ylempi sen yli. Voimassa
- * verovuodesta 2015 (30 % / 34 %, raja 30 000 €). Vanha sovellus käytti samoja.
+ * verovuodesta 2015 (30 % / 34 %, raja 30 000 €), myös 2025 ja 2026.
  */
 const CAPITAL_INCOME_TAX: { fromYear: number; lowPct: number; highPct: number; threshold: number }[] = [
   { fromYear: 2015, lowPct: 30, highPct: 34, threshold: 30000 },
@@ -87,9 +106,28 @@ export function capitalIncomeTaxRule(year: number) {
 }
 
 /**
- * Metsävähennys vuodessa enintään tämä osuus metsätalouden puhtaasta
- * pääomatulosta ennen vähennystä, ja vähintään MIN euroa (pienempää ei tehdä).
- * Vanha sovellus laski ylärajan bruttotuloista (BLOCKERS 4).
+ * Metsävähennyksen prosentti. Sama luku on sekä pohja (osuus metsän eli
+ * metsämaan ja puuston hankintamenosta) että vuosiraja (osuus verovuoden
+ * veronalaisesta metsätalouden pääomatulosta). Laki 872/2025 nosti molemmat
+ * 75 prosenttiin verovuodesta 2026, ja vanha pohja korotetaan kertoimella 1,25,
+ * joten pohja lasketaan aina tarkasteltavan vuoden prosentilla.
  */
-export const FOREST_DEDUCTION_ANNUAL_PCT = 60;
+const FOREST_DEDUCTION_PCT: { fromYear: number; pct: number }[] = [
+  { fromYear: 2008, pct: 60 },
+  { fromYear: 2026, pct: 75 },
+];
+
+export function forestDeductionPct(year: number): number {
+  let pct = FOREST_DEDUCTION_PCT[0].pct;
+  for (const r of FOREST_DEDUCTION_PCT) if (year >= r.fromYear) pct = r.pct;
+  return pct;
+}
+
+/** Pienempää metsävähennystä ei tehdä (TVL 55 § 4 mom.). */
 export const FOREST_DEDUCTION_MIN = 1500;
+
+/** Yrittäjävähennys: osuus metsävähennyksen jälkeisestä metsätalouden puhtaasta pääomatulosta (TVL 30 a §). */
+export const ENTREPRENEUR_DEDUCTION_PCT = 5;
+
+/** Luovutusvoitto on verovapaa, jos vuoden luovutushinnat ovat yhteensä enintään tämän (TVL 48 § 6 mom.). */
+export const SALE_EXEMPTION_LIMIT = 1000;

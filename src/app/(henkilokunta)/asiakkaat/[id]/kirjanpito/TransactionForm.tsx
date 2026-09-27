@@ -1,5 +1,5 @@
 import { Button, Field, Input, Select } from "@/components/ui";
-import { CATEGORIES, CATEGORY_GROUPS } from "@/lib/tax/rules";
+import { ASSET_CLASSES, CATEGORIES, CATEGORY_GROUPS } from "@/lib/tax/rules";
 import type { AssetOption, PropertyOption, TransactionRow } from "@/lib/ledger/queries";
 
 const fi = (v: string | null | undefined) => (v === null || v === undefined ? "" : String(Number(v)).replace(".", ","));
@@ -84,20 +84,20 @@ export function TransactionForm({
       </div>
       <details className="rounded-xl border border-line bg-cloud/40 px-4 py-3 text-sm" open={Boolean(transaction?.asset_id)}>
         <summary className="cursor-pointer font-semibold">Investointi (hankinta tai myynti)</summary>
-        <div className="mt-3 grid gap-4 sm:grid-cols-3">
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
           {transaction?.asset_id && transaction.category === "asset_purchase" ? (
-            <p className="text-ink/70 sm:col-span-3">Kirjaus on investoinnin {transaction.asset_description} hankinta. Summan ja päivän muutos päivittää investoinnin.</p>
+            <p className="text-ink/70 sm:col-span-2">Kirjaus on investoinnin {transaction.asset_description} hankinta. Summan ja päivän muutos päivittää investoinnin.</p>
           ) : (
             <>
-              <Field label="Poistotapa (hankinta)" htmlFor="assetMethod">
-                <Select id="assetMethod" name="assetMethod" defaultValue="">
+              <Field label="Hyödykkeen laji (hankinta)" htmlFor="assetRatePct" hint="Poisto enintään lajin prosentti joka vuosi.">
+                <Select id="assetRatePct" name="assetRatePct" defaultValue="">
                   <option value="">Ei valittu</option>
-                  <option value="declining_balance">Menojäännöspoisto 25 %</option>
-                  <option value="straight_line">Tasapoisto</option>
+                  {ASSET_CLASSES.map((c) => (
+                    <option key={c.pct} value={c.pct}>
+                      {c.label} {c.pct} %
+                    </option>
+                  ))}
                 </Select>
-              </Field>
-              <Field label="Poistoaika vuosina (tasapoisto)" htmlFor="assetLife">
-                <Input id="assetLife" name="assetLife" inputMode="numeric" />
               </Field>
               <Field label="Myytävä investointi (myynti)" htmlFor="saleAssetId">
                 <Select id="saleAssetId" name="saleAssetId" defaultValue={transaction?.category === "asset_sale" ? (transaction.asset_id ?? "") : ""}>

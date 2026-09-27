@@ -53,7 +53,7 @@ export function PropertyForm({
         </Field>
       </div>
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Metsämaan osuus hankintahinnasta (%)" htmlFor="forestLandSharePct" hint="Metsävähennyksen pohja lasketaan tästä osuudesta.">
+        <Field label="Metsän osuus hankintahinnasta (%)" htmlFor="forestLandSharePct" hint="Metsämaa ja puusto yhdessä, ilman rakennuksia, peltoa, teitä ja ojia. Metsävähennyksen pohja lasketaan tästä.">
           <Input id="forestLandSharePct" name="forestLandSharePct" inputMode="decimal" defaultValue={fi(property?.forest_land_share_pct ?? null)} />
         </Field>
         <Field label="Metsävähennystä käytetty ennen Skogia (€)" htmlFor="deductionUsedBefore" hint="Aiemmin muualla tehdyt vähennykset.">

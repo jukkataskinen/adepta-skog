@@ -116,7 +116,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         steps: [
           "Avaa asiakas ja valitse Lisää metsätila.",
           "Kirjoita tilan nimi ja kiinteistötunnus.",
-          "Kirjoita hankintahinta ja metsämaan osuus hinnasta prosentteina.",
+          "Kirjoita hankintahinta ja metsän osuus hinnasta prosentteina. Metsä tarkoittaa metsämaata ja puustoa yhdessä. Rakennukset, pelto, tiet ja ojat eivät kuulu siihen.",
           "Metsämaan hehtaarit ovat vain tiedoksi. Ne eivät muuta laskelmia.",
           "Jos vähennystä on käytetty jo ennen Skogia, kirjoita se omaan kenttäänsä.",
           "Tallenna.",
@@ -125,10 +125,11 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         title: "Metsävähennyksen pohja",
         bullets: [
-          "Pohja on 60 prosenttia metsämaan osuudesta hankintahinnasta.",
+          "Pohja on 60 prosenttia metsän osuudesta hankintahinnasta. Vuodesta 2026 se on 75 prosenttia.",
+          "Verotuksessa kaikkien tilojen pohja on yhteinen. Tilakohtainen luku auttaa vain seurannassa.",
           "Käytetty on ennen Skogia käytetty määrä ja Skogissa kirjatut vähennykset yhteensä.",
           "Jäljellä on pohja miinus käytetty.",
-          "Jos hankintahinta tai metsämaan osuus puuttuu, pohjaa ei lasketa.",
+          "Jos hankintahinta tai metsän osuus puuttuu, pohjaa ei lasketa.",
         ],
       },
     ],
@@ -172,7 +173,8 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         title: "Investoinnit",
         bullets: [
-          "Koneen tai muun investoinnin hankinta kirjataan luokalla Käyttöomaisuuden hankinta. Valitse samalla poistotapa, niin ohjelma luo investoinnin.",
+          "Koneen, tien, ojan tai rakennuksen hankinta kirjataan luokalla Käyttöomaisuuden hankinta. Valitse samalla hyödykkeen laji, niin ohjelma luo investoinnin.",
+          "Enintään 600 euron hankinta kirjataan vuosimenona luokalla Muut vuosimenot. Samoin hankinta, joka kestää enintään kolme vuotta.",
           "Myynti kirjataan luokalla Käyttöomaisuuden myynti. Valitse myytävä investointi, niin se merkitään myydyksi.",
           "Poistot lasketaan verosuunnitelmassa.",
         ],
@@ -190,13 +192,16 @@ export const HELP_TOPICS: HelpTopic[] = [
     icon: "hammer",
     title: "Investoinnit ja poistot",
     summary: "Koneet, tiet ja ojat poistetaan vuosittain. Ohjelma laskee poistot ja jäljellä olevan arvon.",
-    highlights: ["Tasapoisto tai menojäännöspoisto", "Koneen myynti: myyntivoitto tai -tappio", "Poistot valitaan verosuunnitelmassa"],
+    highlights: ["Kone 25 %, tie tai oja 15 %, rakennus 10 %", "Koneen myynti: luovutusvoitto tai -tappio", "Poistot valitaan verosuunnitelmassa"],
     sections: [
       {
         title: "Poistotavat",
         bullets: [
-          "Menojäännöspoisto: enintään 25 prosenttia arvosta, joka on vuoden alussa vielä poistamatta. Poisto on vapaaehtoinen, joten voit tehdä pienemmän tai jättää sen tekemättä.",
-          "Tasapoisto: sama summa joka vuosi poistoajan loppuun. Poisto on pakollinen.",
+          "Poisto lasketaan arvosta, joka on vielä poistamatta. Ostovuonna se on koko hankintahinta.",
+          "Enintään: kone tai laite 25 prosenttia, metsätie tai ojitus 15 prosenttia, rakennus 10 prosenttia.",
+          "Poisto on vapaaehtoinen. Voit tehdä pienemmän tai jättää sen tekemättä.",
+          "Jos poistamatta on enintään 600 euroa, sen saa poistaa kerralla.",
+          "Metsätaloudessa ei ole tasapoistoa. Vanhasta ohjelmasta tuodut tasapoistot näkyvät vapaaehtoisina.",
         ],
       },
       {
@@ -204,9 +209,10 @@ export const HELP_TOPICS: HelpTopic[] = [
         steps: [
           "Kirjaa myynti kirjanpitoon luokalla Käyttöomaisuuden myynti ja valitse myytävä investointi.",
           "Myyntivuonna konetta ei poisteta.",
-          "Myyntihintaa ei lasketa tuloksi sellaisenaan. Verolaskelmaan tulee vain myyntivoitto tai myyntitappio.",
-          "Jos hinta on suurempi kuin poistamaton arvo, erotus on myyntivoittoa ja lisätään tuloihin.",
-          "Jos hinta on pienempi, erotus on myyntitappiota ja vähennetään.",
+          "Myyntihinta ei ole metsätalouden tuloa.",
+          "Jos hinta on suurempi kuin poistamaton arvo, erotus on luovutusvoittoa. Jos pienempi, erotus on luovutustappiota.",
+          "Voitto tai tappio ilmoitetaan erikseen lomakkeella 9. Laskelma näyttää sen omalla rivillään.",
+          "Jos vuoden myynnit ovat yhteensä enintään 1 000 euroa, voitto on verovapaa.",
         ],
       },
     ],
@@ -246,7 +252,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         steps: [
           "Avaa asiakas ja valitse välilehti Verosuunnitelma.",
           "Valitse vuosi.",
-          "Kirjoita jokaisen koneen poisto. Tasapoisto täyttyy itsestään.",
+          "Kirjoita jokaisen investoinnin poisto. Ohjelma ehdottaa enimmäismäärää.",
           "Kirjoita metsävähennys tai valitse Käytä enimmäismäärä.",
           "Laskelma oikealla päivittyy heti.",
           "Valitse Vahvista suunnitelma. Poistot ja metsävähennys tallentuvat.",
@@ -256,7 +262,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: "Metsävähennyksen rajat",
         bullets: [
           "Vähennys on vähintään 1 500 euroa tai ei lainkaan.",
-          "Vuodessa enintään 60 prosenttia puhtaasta pääomatulosta.",
+          "Vuodessa enintään 60 prosenttia metsätalouden tuloista ennen kuluja ja poistoja. Vuodesta 2026 raja on 75 prosenttia.",
+          "Oman hankintatyön arvo vähennetään tuloista ennen rajan laskemista.",
           "Yhteensä enintään tilojen käyttämätön pohja.",
         ],
       },
@@ -265,7 +272,11 @@ export const HELP_TOPICS: HelpTopic[] = [
         text: "Pääkäyttäjä voi valita Vahvista ja sulje vuosi. Suljetun vuoden suunnitelmaa ei voi muuttaa.",
       },
     ],
-    tips: ["Pääomatulon vero on 30 prosenttia 30 000 euroon asti ja 34 prosenttia sen yli."],
+    tips: [
+      "Pääomatulon vero on 30 prosenttia 30 000 euroon asti ja 34 prosenttia sen yli.",
+      "Yrittäjävähennys: 5 prosenttia metsätalouden tuloksesta metsävähennyksen jälkeen jää verottamatta. Laskelma tekee sen itse.",
+      "Vero on arvio. Asiakkaan muut pääomatulot ja aiempien vuosien tappiot eivät ole mukana.",
+    ],
     related: ["investoinnit", "metsatilat"],
   },
   {

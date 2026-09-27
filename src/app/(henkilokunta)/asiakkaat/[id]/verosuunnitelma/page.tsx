@@ -61,8 +61,8 @@ export default async function TaxPlanPage({
           ) : null}
           <PlanForm action={confirmPlanAction} clientId={id} year={year} data={plan} readOnly={closed} canClose={ctx.can("owner")} />
           <p className="mt-6 max-w-3xl text-xs text-ink/55">
-            Laskelma on arvio. Metsävähennyksen vuosiraja lasketaan puhtaasta pääomatulosta, ja menojäännöspoiston pohja on poistamaton arvo vuoden alussa.
-            Säännöt vahvistetaan Verohallinnon ohjeista.
+            Säännöt perustuvat Verohallinnon ohjeisiin (tarkistettu 27.9.2026): metsävähennys enintään 60 % tai vuodesta 2026 75 % metsätalouden tuloista,
+            poistot vapaaehtoisina menojäännöspoistoina ja koneiden myynnit luovutusvoittoina.
           </p>
         </>
       )}

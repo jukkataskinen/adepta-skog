@@ -85,7 +85,7 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 
 ### 5. Verolaskenta (`src/lib/tax`)
 - [x] Verosäännöt `rules.ts`: pääomatulon vero 30/34 % (raja 30 000 €), metsävähennys 60 % ja vähintään 1 500 €, menojäännöspoisto 25 % (26.9.2026)
-- [~] Sääntöjen vahvistus Verohallinnon ohjeista (BLOCKERS 4)
+- [x] Säännöt Verohallinnon ohjeiden mukaan (27.9.2026): metsävähennys 60/75 % bruttotulosta, menojäännöspoisto lajeittain (25/15/10 %) vapaaehtoisena, 600 euron raja, koneen myynti luovutusvoittona, yrittäjävähennys 5 %
 - [x] Arvonlisävero-välilehti: neljännekset, vuosi ja myynnit verokannoittain (26.9.2026)
 - [x] Poistot: tasapoisto (pakollinen), menojäännöspoisto (vapaaehtoinen), poistamaton arvo, myyntivoitto ja -tappio (26.9.2026)
 - [x] Metsävähennys: pohja, käytetty, vuoden enimmäismäärä, vähimmäismäärä, jako tiloille (26.9.2026)

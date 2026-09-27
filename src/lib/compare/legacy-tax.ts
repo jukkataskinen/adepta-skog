@@ -209,6 +209,9 @@ export function compareFigures(legacy: LegacyFigures, current: NewFigures): Comp
   if (partsOk) {
     if (d.has("taxable")) explained.add("taxable");
     if (d.has("tax")) explained.add("tax");
+    if (d.has("taxable") || d.has("tax")) {
+      explanations.push("Verotettava tulo: uusi tekee 5 %:n yrittäjävähennyksen ja laskee koneiden luovutusvoiton erikseen (verosäännöt 27.9.2026).");
+    }
   }
 
   return { rows, differing, explanations, unexplained: differing.map((r) => r.key).filter((k) => !explained.has(k)) };

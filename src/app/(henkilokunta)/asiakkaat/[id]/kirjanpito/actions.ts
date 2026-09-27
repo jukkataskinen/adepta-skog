@@ -9,7 +9,7 @@ import { emptyToNull, fail, parseForm } from "@/lib/forms";
 import { audit } from "@/lib/audit";
 import type { Sql } from "@/lib/db/types";
 import { category, defaultVatRate } from "@/lib/tax/rules";
-import { DECLINING_BALANCE_MAX_PCT } from "@/lib/tax/rules";
+import { ASSET_CLASS_PCTS, SMALL_ASSET_LIMIT } from "@/lib/tax/rules";
 import { documentPath, getStorage } from "@/lib/storage";
 
 const uuid = z.string().uuid();
@@ -29,9 +29,9 @@ const transactionSchema = z.object({
   vatRate: money(0).refine((v) => v === null || v < 100, "Tarkista verokanta."),
   withholding: money(0),
   reference: z.preprocess(emptyToNull, z.string().max(100).nullable()),
-  // Investoinnin hankinta: poistotapa uudelle investoinnille.
-  assetMethod: z.preprocess(emptyToNull, z.enum(["straight_line", "declining_balance"]).nullable()),
-  assetLife: z.preprocess(emptyToNull, z.coerce.number().int().min(1).max(50).nullable()),
+  // Investoinnin hankinta: hyödykelaji eli menojäännöspoiston enimmäisprosentti.
+  // Metsätaloudessa ei ole tasapoistoa (docs/verosaannot-selvitys-2026-09-27.md).
+  assetRatePct: z.preprocess(emptyToNull, z.coerce.number().refine((v) => ASSET_CLASS_PCTS.includes(v), "Valitse hyödykkeen laji.").nullable()),
   // Myynti: myytävä investointi.
   saleAssetId: z.preprocess(emptyToNull, uuid.nullable()),
   // Vapaaehtoinen: kaikki menot eivät kohdistu yhdelle tilalle.
@@ -79,14 +79,16 @@ export async function saveTransactionAction(formData: FormData) {
       }
       // Hankinta luo investoinnin, jota poistetaan vuosittain (vaihe 5).
       if (cat.code === "asset_purchase" && !assetId) {
-        if (!input.assetMethod) fail(back, "Valitse investoinnin poistotapa.");
-        if (input.assetMethod === "straight_line" && !input.assetLife) fail(back, "Anna tasapoiston poistoaika vuosina.");
+        // Pieni hankinta vähennetään vuosimenona eikä poistoina (TVL 115 § 3 mom.).
+        if (amount <= SMALL_ASSET_LIMIT) {
+          fail(back, `Enintään ${SMALL_ASSET_LIMIT} euron hankinta kirjataan vuosimenona. Valitse luokka Muut vuosimenot.`);
+        }
+        if (!input.assetRatePct) fail(back, "Valitse hyödykkeen laji: kone, tie tai oja, tai rakennus.");
         const [a] = await tx.query<{ id: string }>(
           `insert into sk_assets (organization_id, client_id, description, acquired_on, acquisition_cost, method, useful_life_years, declining_rate_pct,
                                   forest_property_id)
            values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning id`,
-          [ctx.org.organizationId, clientId, input.description || cat.label, input.bookedOn, amount, input.assetMethod,
-            input.assetMethod === "straight_line" ? input.assetLife : null, input.assetMethod === "declining_balance" ? DECLINING_BALANCE_MAX_PCT : null,
+          [ctx.org.organizationId, clientId, input.description || cat.label, input.bookedOn, amount, "declining_balance", null, input.assetRatePct,
             input.forestPropertyId],
         );
         assetId = a.id;

@@ -1,10 +1,13 @@
-import { FOREST_DEDUCTION_BASE_PCT } from "./rules";
+import { forestDeductionPct } from "./rules";
 
 /**
  * Metsävähennyksen pohja ja jäljellä oleva määrä metsätilalle. Pohja on
- * 60 prosenttia metsämaan hankintamenosta (hankintahinta × metsämaan osuus),
- * kuten vanhassa sovelluksessa (legacy/app/veroraportti). Vuosikohtainen
- * enimmäismäärä lasketaan verosuunnitelmassa (PLAN vaihe 5).
+ * vuoden prosentti (60 % tai vuodesta 2026 75 %) metsän hankintamenosta.
+ * Metsän hankintameno on metsämaan ja puuston yhteinen osuus hankintahinnasta
+ * (kenttä forestLandSharePct); rakennukset, pelto, tiet ja ojat eivät kuulu siihen.
+ *
+ * Verotuksessa kaikki metsävähennysmetsät ovat yksi kokonaisuus. Tilakohtainen
+ * luku on apu kirjanpitäjälle ja tallennukselle, ei verotuksen jako.
  */
 export interface ForestDeductionInput {
   acquisitionPrice: number | null;
@@ -15,7 +18,7 @@ export interface ForestDeductionInput {
 }
 
 export interface ForestDeductionBase {
-  /** null, jos hankintahinta tai metsämaan osuus puuttuu. */
+  /** null, jos hankintahinta tai metsän osuus puuttuu. */
   base: number | null;
   used: number;
   remaining: number | null;
@@ -23,9 +26,9 @@ export interface ForestDeductionBase {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-export function forestDeductionBase(input: ForestDeductionInput): ForestDeductionBase {
+export function forestDeductionBase(input: ForestDeductionInput, year: number): ForestDeductionBase {
   const used = round2(input.usedBefore + input.recorded.reduce((s, a) => s + a, 0));
   if (input.acquisitionPrice === null || input.forestLandSharePct === null) return { base: null, used, remaining: null };
-  const base = round2((input.acquisitionPrice * input.forestLandSharePct * FOREST_DEDUCTION_BASE_PCT) / 10000);
+  const base = round2((input.acquisitionPrice * input.forestLandSharePct * forestDeductionPct(year)) / 10000);
   return { base, used, remaining: round2(Math.max(0, base - used)) };
 }

@@ -141,15 +141,16 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
   w.text("Verolaskelma", { bold: true, size: 11, gap: 6 });
   const r = data.result;
   const dep = data.depreciation.reduce((s, d) => s + d.amount, 0);
-  const gain = data.depreciation.reduce((s, d) => s + d.saleGain, 0);
-  const loss = data.depreciation.reduce((s, d) => s + d.saleLoss, 0);
   w.row(["Tulot ilman arvonlisäveroa ja koneiden myyntejä", eur(data.plan.income)], two);
-  if (gain) w.row(["Myyntivoitot", eur(gain)], two);
   w.row(["Menot", eur(-data.plan.expense)], two);
-  if (loss) w.row(["Myyntitappiot", eur(-loss)], two);
   w.row(["Poistot", eur(-dep)], two, { line: true });
   w.row(["Metsätalouden puhdas pääomatulo", eur(r.netBeforeDeduction)], two, { bold: true });
-  w.row(["Metsävähennys", eur(-data.plan.recordedDeduction)], two, { line: true });
+  w.row(["Metsävähennys", eur(-data.plan.recordedDeduction)], two);
+  w.row(["Yrittäjävähennys 5 %", eur(-r.entrepreneurDeduction)], two, { line: true });
+  w.row(["Metsätalouden verotettava pääomatulo", eur(r.forestryTaxable)], two, { bold: true });
+  if (data.depreciation.some((d) => d.sold)) {
+    w.row([r.saleExempt ? "Koneiden myynti, verovapaa (enintään 1 000 €)" : "Koneiden luovutusvoitto tai -tappio (lomake 9)", eur(r.saleResult)], two, { line: true });
+  }
   w.row(["Verotettava pääomatulo", eur(r.taxable)], two, { bold: true });
   w.row(["Arvioitu vero 30 %", eur(r.tax.low)], two);
   if (r.tax.high) w.row(["Arvioitu vero 34 %", eur(r.tax.high)], two);
@@ -179,7 +180,7 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
     w.row(["Investointi", "Poistotapa", "Arvo alussa", "Poisto", "Arvo lopussa"], dep5, { bold: true, line: true });
     for (const d of data.depreciation) {
       w.row([d.description, d.sold ? "Myyty" : d.method, eur(d.bookValueStart), d.sold ? "–" : eur(d.amount), eur(d.bookValueEnd)], dep5);
-      if (d.sold) w.text(d.saleGain ? `Myyntivoitto ${eur(d.saleGain)}` : `Myyntitappio ${eur(d.saleLoss)}`, { size: 8, color: MUTED, x: LEFT + 4 });
+      if (d.sold) w.text(d.saleGain ? `Luovutusvoitto ${eur(d.saleGain)}` : `Luovutustappio ${eur(d.saleLoss)}`, { size: 8, color: MUTED, x: LEFT + 4 });
     }
   }
 

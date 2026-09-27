@@ -34,8 +34,9 @@ describe("verosuunnitelman lähtötiedot", () => {
     expect(plan.assets[0].year).toMatchObject({ sold: true, bookValueStart: 22500, saleGain: 2500 });
   });
 
-  it("veroraportin puhdas pääomatulo sisältää myyntivoiton kerran", async () => {
+  it("myyntivoitto on luovutusvoittoa metsätalouden tuloksen ulkopuolella, ja se lasketaan kerran", async () => {
     const r = await db.asUser(a.staff.sub, (tx) => loadReportData(tx, a.id, a.client, 2026));
-    expect(r?.result.netBeforeDeduction).toBe(3500);
+    // Metsätalous: 1 000 € tuloa, yrittäjävähennys 5 %. Luovutusvoitto 2 500 € erikseen.
+    expect(r?.result).toMatchObject({ netBeforeDeduction: 1000, entrepreneurDeduction: 50, forestryTaxable: 950, saleResult: 2500, taxable: 3450 });
   });
 });

@@ -82,6 +82,8 @@ export interface PropertyRow {
 }
 
 const n = (v: string | null) => (v === null ? null : Number(v));
+// Metsävähennyksen prosentti riippuu vuodesta, joten tilan pohja näytetään kuluvan vuoden säännöillä.
+const currentYear = () => Number(new Intl.DateTimeFormat("en", { timeZone: "Europe/Helsinki", year: "numeric" }).format(new Date()));
 
 export async function listProperties(tx: Sql, clientId: string): Promise<PropertyRow[]> {
   const rows = await tx.query<Omit<PropertyRow, "deduction"> & { recorded: string[] | null }>(
@@ -97,7 +99,7 @@ export async function listProperties(tx: Sql, clientId: string): Promise<Propert
       forestLandSharePct: n(p.forest_land_share_pct),
       usedBefore: Number(p.deduction_used_before),
       recorded: (recorded ?? []).map(Number),
-    }),
+    }, currentYear()),
   }));
 }
 

@@ -8,7 +8,7 @@ import { fail } from "@/lib/forms";
 import { audit } from "@/lib/audit";
 import { loadPlanData, planTotals } from "@/lib/tax/load";
 import { archiveReport } from "@/lib/reports/archive";
-import { allocateForestDeduction, computePlan, forestDeductionLimits, validateForestDeduction } from "@/lib/tax/plan";
+import { allocateForestDeduction, computePlan, forestDeductionIncome, forestDeductionLimits, validateForestDeduction } from "@/lib/tax/plan";
 
 const num = (v: FormDataEntryValue | null) => {
   const n = Number(String(v ?? "").replace(/\s/g, "").replace(",", "."));
@@ -41,12 +41,12 @@ export async function confirmPlanAction(formData: FormData) {
     const chosen: Record<string, number> = {};
     for (const a of data.assets) {
       const v = num(formData.get(`dep_${a.id}`));
-      if (!a.year.sold && !a.year.mandatory && (Number.isNaN(v) || v < 0 || v > a.year.max)) fail(back, `Tarkista investoinnin ${a.description} poisto.`);
+      if (!a.year.sold && (Number.isNaN(v) || v < 0 || v > a.year.max)) fail(back, `Tarkista investoinnin ${a.description} poisto.`);
       chosen[a.id] = Number.isNaN(v) ? 0 : v;
     }
     const totals = planTotals(data, chosen);
     const plan = computePlan({ year, income: data.income, expense: data.expense, ...totals, forestDeduction: deduction });
-    const limits = forestDeductionLimits(data.properties, plan.netBeforeDeduction);
+    const limits = forestDeductionLimits(data.properties, forestDeductionIncome(data.income, data.deliveryWork), year);
     const error = validateForestDeduction(deduction, limits);
     if (error) fail(back, error);
 
@@ -54,7 +54,7 @@ export async function confirmPlanAction(formData: FormData) {
     await tx.query("delete from sk_depreciations where tax_year = $2 and asset_id in (select id from sk_assets where client_id = $1)", [clientId, year]);
     for (const a of data.assets) {
       if (a.year.sold) continue;
-      const amount = a.year.mandatory ? a.year.max : Math.round(chosen[a.id] * 100) / 100;
+      const amount = Math.round(chosen[a.id] * 100) / 100;
       await tx.query("insert into sk_depreciations (organization_id, asset_id, tax_year, amount, book_value_end) values ($1,$2,$3,$4,$5)", [
         ctx.org.organizationId, a.id, year, amount, Math.max(0, Math.round((a.year.bookValueStart - amount) * 100) / 100),
       ]);

@@ -19,9 +19,9 @@ function sample(status: "open" | "closed", transactions = 3): ReportData {
     categories: [{ label: "Pystykauppa", kind: "income", net: 42000, vat: 10710, gross: 52710 }],
     transactions: tx,
     vat: vatSummary([{ bookedOn: "2025-06-15", kind: "income", amountNet: 42000, vatRate: 25.5 }]),
-    plan: { income: 42000, expense: 340, investment: 0, withholding: 0, assets: [], properties: [], recordedDeduction: 0, confirmed: false },
-    result: computePlan({ year: 2025, income: 42000, expense: 340, depreciation: 0, saleGain: 0, saleLoss: 0, forestDeduction: 0 }),
-    depreciation: [{ description: "Metsätraktori", method: "Menojäännöspoisto", bookValueStart: 22500, amount: 5625, bookValueEnd: 16875, sold: false, saleGain: 0, saleLoss: 0 }],
+    plan: { income: 42000, expense: 340, deliveryWork: 0, investment: 0, withholding: 0, assets: [], properties: [], recordedDeduction: 0, confirmed: false },
+    result: computePlan({ year: 2025, income: 42000, expense: 340, depreciation: 0, saleGain: 0, saleLoss: 0, salePrices: 0, forestDeduction: 0 }),
+    depreciation: [{ description: "Metsätraktori", method: "Menojäännöspoisto", bookValueStart: 22500, amount: 5625, bookValueEnd: 16875, sold: false, salePrice: 0, saleGain: 0, saleLoss: 0 }],
     properties: [{ name: "Kotimetsä", remainingBefore: 57600, deduction: 0 }],
     confirmed: false,
   };

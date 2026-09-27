@@ -41,7 +41,9 @@ export interface ReportData {
   vat: { quarters: VatPeriod[]; year: VatPeriod };
   plan: PlanData;
   result: PlanResult;
-  depreciation: { description: string; method: string; bookValueStart: number; amount: number; bookValueEnd: number; sold: boolean; saleGain: number; saleLoss: number }[];
+  depreciation: {
+    description: string; method: string; bookValueStart: number; amount: number; bookValueEnd: number; sold: boolean; salePrice: number; saleGain: number; saleLoss: number;
+  }[];
   properties: { name: string; remainingBefore: number | null; deduction: number }[];
   confirmed: boolean;
 }
@@ -93,11 +95,12 @@ export async function loadReportData(tx: Sql, orgId: string, clientId: string, y
     const amount = a.year.sold ? 0 : (a.recorded ?? 0);
     return {
       description: a.description,
-      method: a.method === "declining_balance" ? "Menojäännöspoisto" : "Tasapoisto",
+      method: a.method === "declining_balance" ? `Menojäännös ${a.decliningRatePct ?? ""} %`.replace("  ", " ") : "Tasapoisto (vanha)",
       bookValueStart: a.year.bookValueStart,
       amount,
       bookValueEnd: a.year.sold ? 0 : Math.max(0, Math.round((a.year.bookValueStart - amount) * 100) / 100),
       sold: a.year.sold,
+      salePrice: a.year.salePrice,
       saleGain: a.year.saleGain,
       saleLoss: a.year.saleLoss,
     };
@@ -109,6 +112,7 @@ export async function loadReportData(tx: Sql, orgId: string, clientId: string, y
     depreciation: depreciation.reduce((s, d) => s + d.amount, 0),
     saleGain: depreciation.reduce((s, d) => s + d.saleGain, 0),
     saleLoss: depreciation.reduce((s, d) => s + d.saleLoss, 0),
+    salePrices: depreciation.reduce((s, d) => s + d.salePrice, 0),
     forestDeduction: plan.recordedDeduction,
   });
 

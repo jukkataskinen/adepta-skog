@@ -1,16 +1,20 @@
+import { SMALL_ASSET_LIMIT } from "./rules";
+
 /**
  * Investoinnin poisto verovuodelle. Puhdas laskenta, ei kantakutsuja.
+ * Lähteet: docs/verosaannot-selvitys-2026-09-27.md.
  *
  * - Poistamaton arvo vuoden alussa: edellisen vuoden kirjattu loppuarvo, tai
  *   jos sitä ei ole, lähtöarvo (hankintameno tai tuotu poistamaton arvo)
- *   miinus aiemmat poistot. Hankintavuonna koko hankintameno.
- * - Menojäännöspoisto: vapaaehtoinen, enintään prosentti poistamattomasta arvosta.
- * - Tasapoisto: hankintameno jaettuna poistoajalla, kunnes arvo on nolla. Pakollinen.
- * - Myyntivuonna poistoa ei tehdä. Myyntihinta yli poistamattoman arvon on
- *   myyntivoittoa (tuloa), alle jäävä osa myyntitappiota (vähennys).
- *
- * Säännöt vahvistetaan (BLOCKERS 4). Vanha sovellus laski menojäännöspoiston
- * pohjaksi hankintahinnan miinus jäännösarvon joka vuosi.
+ *   miinus aiemmat poistot. Hankintavuonna koko hankintameno, joten poiston
+ *   voi tehdä jo ostovuonna.
+ * - Menojäännöspoisto hyödykekohtaisesti, enintään lajin prosentti (kone 25 %,
+ *   tie tai oja 15 %, rakennus 10 %). Poisto on aina vapaaehtoinen.
+ * - Enintään 600 euron menojäännös saa poistaa kerralla.
+ * - Tasapoistoa metsätaloudessa ei ole. Vanhasta sovelluksesta tuoduille
+ *   tasapoistoille lasketaan sama vuosiosuus kuin ennen, mutta vapaaehtoisena.
+ * - Myyntivuonna poistoa ei tehdä. Myyntihinta miinus poistamaton arvo on
+ *   luovutusvoitto tai -tappio, joka ei ole metsätalouden tuloa.
  */
 
 export interface AssetInput {
@@ -36,10 +40,14 @@ export interface AssetYear {
   bookValueStart: number;
   min: number;
   max: number;
+  /** Ei enää käytössä: metsätalouden poistot ovat vapaaehtoisia. Pidetään rajapinnassa aina false. */
   mandatory: boolean;
   sold: boolean;
+  salePrice: number;
   saleGain: number;
   saleLoss: number;
+  /** Enintään 600 euron jäännös, jonka saa poistaa kerralla. */
+  smallBalance: boolean;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -48,7 +56,9 @@ const yearOf = (d: string) => Number(d.slice(0, 4));
 export function assetYear(asset: AssetInput, recorded: RecordedDepreciation[], year: number): AssetYear {
   const acquiredYear = yearOf(asset.acquiredOn);
   const soldYear = asset.disposedOn ? yearOf(asset.disposedOn) : null;
-  const inactive: AssetYear = { active: false, bookValueStart: 0, min: 0, max: 0, mandatory: false, sold: false, saleGain: 0, saleLoss: 0 };
+  const inactive: AssetYear = {
+    active: false, bookValueStart: 0, min: 0, max: 0, mandatory: false, sold: false, salePrice: 0, saleGain: 0, saleLoss: 0, smallBalance: false,
+  };
   if (year < acquiredYear || (soldYear !== null && year > soldYear)) return inactive;
 
   const previous = recorded.filter((r) => r.taxYear < year).sort((a, b) => b.taxYear - a.taxYear);
@@ -60,16 +70,15 @@ export function assetYear(asset: AssetInput, recorded: RecordedDepreciation[], y
   if (soldYear === year) {
     const price = asset.salePrice ?? 0;
     return {
-      active: true, bookValueStart, min: 0, max: 0, mandatory: false, sold: true,
+      ...inactive, active: true, bookValueStart, sold: true, salePrice: price,
       saleGain: round2(Math.max(0, price - bookValueStart)), saleLoss: round2(Math.max(0, bookValueStart - price)),
     };
   }
 
-  if (asset.method === "declining_balance") {
-    const max = round2((bookValueStart * (asset.decliningRatePct ?? 0)) / 100);
-    return { active: true, bookValueStart, min: 0, max, mandatory: false, sold: false, saleGain: 0, saleLoss: 0 };
-  }
-  const annual = asset.usefulLifeYears ? asset.acquisitionCost / asset.usefulLifeYears : bookValueStart;
-  const amount = round2(Math.min(bookValueStart, annual));
-  return { active: true, bookValueStart, min: amount, max: amount, mandatory: true, sold: false, saleGain: 0, saleLoss: 0 };
+  const smallBalance = bookValueStart > 0 && bookValueStart <= SMALL_ASSET_LIMIT;
+  let max: number;
+  if (smallBalance) max = bookValueStart;
+  else if (asset.method === "declining_balance") max = round2((bookValueStart * (asset.decliningRatePct ?? 0)) / 100);
+  else max = round2(Math.min(bookValueStart, asset.usefulLifeYears ? asset.acquisitionCost / asset.usefulLifeYears : bookValueStart));
+  return { ...inactive, active: true, bookValueStart, max, smallBalance };
 }

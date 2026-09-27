@@ -14,6 +14,7 @@ export interface PlanAsset {
   id: string;
   description: string;
   method: "straight_line" | "declining_balance";
+  decliningRatePct: number | null;
   year: AssetYear;
   /** Tälle vuodelle jo kirjattu poisto (vahvistettu suunnitelma). */
   recorded: number | null;
@@ -30,6 +31,8 @@ export interface PlanProperty {
 export interface PlanData {
   income: number;
   expense: number;
+  /** Oman hankintatyön arvo: vähennetään metsävähennyksen vuosirajan tulosta. */
+  deliveryWork: number;
   investment: number;
   withholding: number;
   assets: PlanAsset[];
@@ -80,7 +83,7 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
       year,
     );
     if (!y.active) continue;
-    planAssets.push({ id: a.id, description: a.description, method: a.method, year: y, recorded: deps.find((d) => d.taxYear === year)?.amount ?? null });
+    planAssets.push({ id: a.id, description: a.description, method: a.method, decliningRatePct: a.declining_rate_pct === null ? null : Number(a.declining_rate_pct), year: y, recorded: deps.find((d) => d.taxYear === year)?.amount ?? null });
   }
 
   const props = await tx.query<{
@@ -99,7 +102,7 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
       forestLandSharePct: p.forest_land_share_pct === null ? null : Number(p.forest_land_share_pct),
       usedBefore: Number(p.deduction_used_before),
       recorded: ded.filter((d) => d.taxYear !== year).map((d) => d.amount),
-    });
+    }, year);
     return { id: p.id, name: p.name, remaining: base.remaining, recordedThisYear: ded.find((d) => d.taxYear === year)?.amount ?? 0 };
   });
 
@@ -107,6 +110,7 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
   return {
     income: sum.income.net,
     expense: sum.expense.net,
+    deliveryWork: Math.round(rows.filter((r) => r.category === "delivery_work").reduce((s, r) => s + Number(r.amount_net), 0) * 100) / 100,
     investment: sum.investment.net,
     withholding: sum.withholding,
     assets: planAssets,
@@ -116,15 +120,19 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
   };
 }
 
-/** Poistojen ja myyntien summat valituilla poistoilla. */
+/** Poistojen ja myyntien summat valituilla poistoilla. Poistot ovat vapaaehtoisia, enintään vuoden enimmäismäärä. */
 export function planTotals(data: PlanData, chosen: Record<string, number>) {
   let depreciation = 0;
   let saleGain = 0;
   let saleLoss = 0;
+  let salePrices = 0;
   for (const a of data.assets) {
-    saleGain += a.year.saleGain;
-    saleLoss += a.year.saleLoss;
-    if (!a.year.sold) depreciation += a.year.mandatory ? a.year.max : Math.min(Math.max(chosen[a.id] ?? 0, 0), a.year.max);
+    if (a.year.sold) {
+      saleGain += a.year.saleGain;
+      saleLoss += a.year.saleLoss;
+      salePrices += a.year.salePrice;
+    } else depreciation += Math.min(Math.max(chosen[a.id] ?? 0, 0), a.year.max);
   }
-  return { depreciation: Math.round(depreciation * 100) / 100, saleGain, saleLoss };
+  const r = (n: number) => Math.round(n * 100) / 100;
+  return { depreciation: r(depreciation), saleGain: r(saleGain), saleLoss: r(saleLoss), salePrices: r(salePrices) };
 }

@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import { Button, Field, Input, Panel, SectionTitle } from "@/components/ui";
 import { planTotals, type PlanData } from "@/lib/tax/load";
-import { computePlan, forestDeductionLimits, validateForestDeduction } from "@/lib/tax/plan";
+import { computePlan, forestDeductionIncome, forestDeductionLimits, validateForestDeduction } from "@/lib/tax/plan";
+import { assetClassLabel, ENTREPRENEUR_DEDUCTION_PCT } from "@/lib/tax/rules";
 
 // + 0 muuttaa miinusnollan nollaksi, ettei näytölle tule "−0,00 €".
 const eur = (n: number) => (n + 0).toLocaleString("fi-FI", { style: "currency", currency: "EUR" });
@@ -40,7 +41,10 @@ export function PlanForm({
   const totals = planTotals(data, chosen);
   const ded = parse(deduction);
   const plan = computePlan({ year, income: data.income, expense: data.expense, ...totals, forestDeduction: ded });
-  const limits = useMemo(() => forestDeductionLimits(data.properties, plan.netBeforeDeduction), [data.properties, plan.netBeforeDeduction]);
+  const limits = useMemo(
+    () => forestDeductionLimits(data.properties, forestDeductionIncome(data.income, data.deliveryWork), year),
+    [data.properties, data.income, data.deliveryWork, year],
+  );
   const error = validateForestDeduction(ded, limits);
 
   return (
@@ -59,10 +63,12 @@ export function PlanForm({
                     <p className="font-semibold">{a.description}</p>
                     <p className="text-sm text-ink/65">
                       {a.year.sold
-                        ? `Myyty tänä vuonna. ${a.year.saleGain ? `Myyntivoitto ${eur(a.year.saleGain)}.` : `Myyntitappio ${eur(a.year.saleLoss)}.`}`
-                        : a.year.mandatory
-                          ? `Tasapoisto ${eur(a.year.max)}, pakollinen. Arvo vuoden alussa ${eur(a.year.bookValueStart)}.`
-                          : `Menojäännöspoisto 0–${eur(a.year.max)}. Arvo vuoden alussa ${eur(a.year.bookValueStart)}.`}
+                        ? `Myyty tänä vuonna, joten poistoa ei tehdä. ${a.year.saleGain ? `Luovutusvoitto ${eur(a.year.saleGain)}.` : `Luovutustappio ${eur(a.year.saleLoss)}.`}`
+                        : a.year.smallBalance
+                          ? `Arvo vuoden alussa ${eur(a.year.bookValueStart)}. Enintään 600 euron arvon saa poistaa kerralla.`
+                          : a.method === "straight_line"
+                            ? `Vanha tasapoisto, nyt vapaaehtoinen: 0–${eur(a.year.max)}. Arvo vuoden alussa ${eur(a.year.bookValueStart)}.`
+                            : `${assetClassLabel(a.decliningRatePct)}: poisto 0–${eur(a.year.max)} (enintään ${a.decliningRatePct ?? 0} %). Arvo vuoden alussa ${eur(a.year.bookValueStart)}.`}
                     </p>
                   </div>
                   {!a.year.sold ? (
@@ -72,8 +78,7 @@ export function PlanForm({
                         name={`dep_${a.id}`}
                         inputMode="decimal"
                         className="text-right"
-                        value={a.year.mandatory ? String(a.year.max).replace(".", ",") : deps[a.id]}
-                        readOnly={a.year.mandatory}
+                        value={deps[a.id]}
                         onChange={(e) => setDeps({ ...deps, [a.id]: e.target.value })}
                       />
                     </Field>
@@ -89,7 +94,10 @@ export function PlanForm({
           <Panel>
             <ul className="mb-4 grid gap-1 text-sm text-ink/75">
               <li>Käyttämätöntä pohjaa tiloilla yhteensä {eur(limits.available)}.</li>
-              <li>Vuoden enimmäismäärä on 60 % puhtaasta pääomatulosta: {eur(limits.annualMax)}.</li>
+              <li>
+                Vuoden enimmäismäärä on {limits.annualPct} % metsätalouden tuloista ennen kuluja ja poistoja
+                {data.deliveryWork ? " (oman hankintatyön arvo vähennetty)" : ""}: {eur(limits.annualMax)}.
+              </li>
               <li>{limits.max ? `Voit vähentää ${eur(limits.min)}–${eur(limits.max)} tai jättää vähentämättä.` : "Tänä vuonna vähennystä ei voi tehdä, koska enimmäismäärä jää alle 1 500 euron."}</li>
             </ul>
             <div className="flex flex-wrap items-end gap-3">
@@ -109,22 +117,27 @@ export function PlanForm({
       <aside>
         <SectionTitle>Laskelma {year}</SectionTitle>
         <Panel className="grid gap-2 text-sm">
-          {[
-            ["Tulot ilman alv ja koneiden myyntejä", data.income],
-            ["Myyntivoitot", totals.saleGain],
-            ["Menot", -data.expense],
-            ["Myyntitappiot", -totals.saleLoss],
-            ["Poistot", -totals.depreciation],
-            ["Puhdas pääomatulo", plan.netBeforeDeduction],
-            ["Metsävähennys", -ded],
-          ].map(([label, value]) => (
-            <div key={label as string} className="flex justify-between gap-3">
-              <span className={label === "Puhdas pääomatulo" ? "font-semibold" : ""}>{label}</span>
-              <span className="tabular">{eur(value as number)}</span>
+          {(
+            [
+              ["Tulot ilman alv ja koneiden myyntejä", data.income],
+              ["Menot", -data.expense],
+              ["Poistot", -totals.depreciation],
+              ["Metsätalouden puhdas pääomatulo", plan.netBeforeDeduction],
+              ["Metsävähennys", -ded],
+              [`Yrittäjävähennys ${ENTREPRENEUR_DEDUCTION_PCT} %`, -plan.entrepreneurDeduction],
+              ["Metsätalouden verotettava tulo", plan.forestryTaxable],
+              ...(totals.salePrices
+                ? [[plan.saleExempt ? "Koneiden myynti, verovapaa (enintään 1 000 €)" : "Koneiden luovutusvoitto tai -tappio", plan.saleResult]]
+                : []),
+            ] as [string, number][]
+          ).map(([label, value]) => (
+            <div key={label} className="flex justify-between gap-3">
+              <span className={label.startsWith("Metsätalouden") ? "font-semibold" : ""}>{label}</span>
+              <span className="tabular">{eur(value)}</span>
             </div>
           ))}
           <div className="mt-2 flex justify-between gap-3 border-t border-line pt-2 font-bold">
-            <span>Verotettava tulo</span>
+            <span>Verotettava pääomatulo</span>
             <span className="tabular">{eur(plan.taxable)}</span>
           </div>
           <div className="flex justify-between gap-3">
@@ -161,6 +174,7 @@ export function PlanForm({
               </Button>
             ) : null}
             <p className="text-xs text-ink/55">Vahvistus tallentaa vuoden poistot ja metsävähennyksen. Voit vahvistaa uudelleen, kunnes vuosi suljetaan.</p>
+            <p className="text-xs text-ink/55">Vero on arvio. Se ei ota huomioon asiakkaan muita pääomatuloja eikä aiempien vuosien tappioita.</p>
           </div>
         ) : null}
       </aside>
