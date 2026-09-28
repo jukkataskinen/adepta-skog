@@ -49,6 +49,7 @@ Uusi sovellus rakennetaan `v2`-haaraan (DECISIONS 26.9.2026). `main` on vanha tu
 src/app/(henkilokunta)/     sivut (StaffShell, requireStaff)
 src/app/kirjaudu/           kirjautuminen
 src/app/api/                ping (cron), tiedostojen lataus
+src/app/tietosuoja/          julkinen tietosuojasivu (alikäsittelijät src/lib/privacy, asiakirjat docs/tietosuoja)
 src/lib/db/                 kantakerros (PGlite / Postgres), kopio Mittarilukemasta
 src/lib/auth/               istunto, käyttäjä ja roolit, kopio Mittarilukemasta
 src/lib/forms.ts            parseForm, FormError

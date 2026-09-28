@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Brand } from "@/components/Brand";
 import { Button, Notice, Panel } from "@/components/ui";
@@ -26,6 +27,7 @@ export default async function LoginPage() {
         <a href="/auth/login?ui_locales=fi" className={LOGIN_LINK}>
           Kirjaudu
         </a>
+        <PrivacyLink />
       </div>
     );
   }
@@ -91,6 +93,18 @@ export default async function LoginPage() {
           </Notice>
         </div>
       )}
+      <PrivacyLink />
     </div>
+  );
+}
+
+/** Tietosuojasivu on luettavissa ennen kirjautumista. */
+function PrivacyLink() {
+  return (
+    <p className="mt-8 text-sm text-ink/60">
+      <Link href="/tietosuoja" className="underline hover:text-ink">
+        Tietosuoja
+      </Link>
+    </p>
   );
 }
