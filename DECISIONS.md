@@ -231,3 +231,18 @@
 **Kustannusarvio osissa.** Skannattu sivu on noin 1 500–2 500 syötetokenia, ja ohje noin 1 500 tokenia palaa kohden. Tulostetta ajatteluineen noin 300–700 tokenia sivulta. Hinnalla 4 $ / 20 $ miljoonaa tokenia kohden sivu maksaa noin 0,02–0,03 $, limityksen (1/7 lisää) ja ohjeen kanssa. 40 sivun skannaus noin 0,8–1,2 $ ja 100 sivua noin 2–3 $. Ohjetta ei välimuisteta, koska se on alle mallin välimuistin vähimmäispituuden.
 
 **Testitila osissa.** Yli kahdeksan sivun PDF saa testitilassa esimerkkilaskun joka neljänneltä sivulta ja palojen rajasivulta. Rajasivun rivi tulee tahallaan molempiin paloihin, jotta yhdistämisen poisto näkyy selaimessa. Nimi "osavirhe" kaataa sivun 17 sisältävän palan kahdesti, jotta epäonnistuminen ja uusinta näkyvät. Testitilan pala odottaa kehityspalvelimella 2 s, jotta eteneminen ja keskeytys näkyvät (testeissä ei odoteta).
+
+**Tietosuoja-asiakirjat luonnoksina (`docs/tietosuoja`, BLOCKERS 8 b).** Tietosuojaseloste kahdessa osassa (A: malliteksti tilitoimistolle asiakkaidensa tiedoista, B: Adepta Oy:n seloste käyttäjistä), käsittelysopimus (GDPR 28 art.) liitteineen ja erillinen alikäsittelijäluettelo. Pohjana eSinetin ja Reilusopparin luonnokset. Kaikki on merkitty luonnokseksi, ja avoimet päätökset ovat hakasulkeissa; Jukka hyväksyy.
+
+**Rekisterinpitäjät.** Tilitoimisto on metsänomistajien tietojen rekisterinpitäjä ja Adepta Oy käsittelijä. Adepta Oy on rekisterinpitäjä käyttäjien kirjautumis- ja tunnustiedoille, palvelun teknisille lokeille ja kehitystoiveille, koska se päättää niiden käsittelystä itse ja käyttää niitä palvelun tarjoamiseen, suojaamiseen ja kehittämiseen. Muutosloki on osa tilitoimiston kirjanpitoaineistoa, joten se kuuluu käsittelysopimukseen.
+
+**Alikäsittelijät yhdessä luettelossa kahdesti.** Julkinen sivu /tietosuoja lukee luettelon tiedostosta `src/lib/privacy/subprocessors.ts`, ja sopimuksen liite on `docs/tietosuoja/alikasittelijat.md`. Testi `tests/unit/privacy.test.ts` varmistaa, että jokainen sovelluksen luettelon nimi on myös asiakirjassa. Resend on luettelossa merkinnällä Ei vielä käytössä, jotta käyttöönotto ei vaadi erillistä ilmoitusta.
+
+**Toimittajien ehdot tarkistettu julkisilta sivuilta 28.9.2026.** Anthropic: DPA sisältyy kaupallisiin ehtoihin, ei mallien koulutusta asiakkaan aineistolla, vakiolausekkeet, API-aineisto poistetaan 30 päivässä (rikkomukseksi merkitty enintään 2 v). Supabase ja Vercel: vakiolausekkeet. Auth0-tenantti on Yhdysvalloissa (`*.us.auth0.com`), joten siirto EU-tenanttiin on BLOCKERS 8 b. Tuntirajat ja muut yksityiskohdat ovat alikäsittelijäluettelon Tarkistettava-sarakkeessa.
+
+**Säilytysajat.** Metsänomistajan metsätalouden muistiinpanot ja tositteet vähintään 6 vuotta verovuoden päättymisestä (verotusmenettelylaki), kirjanpitovelvollisella kirjanpito 10 ja tositteet 6 vuotta (KPL 2:10). Tilitoimisto päättää säilytyksestä; palvelu arkistoi asiakkaan eikä poista sitä. Lopullinen poisto ja kokonaisvienti ovat sopimusluonnoksessa avoimina kohtina.
+
+**Julkisten sivujen kehys `PublicShell`.** Ohjeet ja tietosuoja käyttävät samaa ylä- ja alatunnistetta, ja alatunnisteessa on linkki tietosuojaan. Kirjautumissivulla on linkki tietosuojaan. /tietosuoja ei ole henkilökunnan sivu, joten se ei kuulu ohjekarttaan.
+
+**Tekoälytunnistus organisaatiokohtaisesti: ehdotus, ei toteutettu (BLOCKERS 10).** Nyt tunnistus on koko palvelun asetus. Käsittelysopimuksen liite 3 kuvaa ehdotetun pääkäyttäjän asetuksen hakasulkeissa.
+

@@ -322,7 +322,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Jos jotain osaa ei voitu lukea, näet esimerkiksi Sivuja 17–24 ei voitu lukea. Valitse Yritä uudelleen. Voit myös valita Tee ehdotus luetuista sivuista ja kirjata puuttuvat sivut käsin.",
           "Aloita alusta lukee koko tiedoston uudelleen.",
           "Jos tositetta ei voitu tunnistaa, kirjaa se käsin tavalliseen tapaan.",
-          "Tosite lähetetään tunnistuspalveluun (Anthropic). Palveluun ei lähetetä asiakkaan nimeä eikä muita tietoja ohjelmasta.",
+          "Tosite lähetetään tunnistuspalveluun (Anthropic) Yhdysvaltoihin. Palveluun ei lähetetä asiakkaan nimeä eikä muita tietoja ohjelmasta. Palvelu ei käytä tositetta tekoälyn kouluttamiseen, ja se poistaa tositteen 30 päivän kuluessa. Lisää tietoa on sivulla Tietosuoja (skog.adepta.fi/tietosuoja).",
           "Suljetun vuoden tositteita ei tunnisteta.",
           "Kun kokeilet ohjelmaa ilman tunnistuspalvelua, ehdotus tehdään tiedoston nimestä, eikä tositetta lähetetä minnekään. Nimi, jossa on sana kokooma, antaa esimerkin monen tositteen tiedostosta. Yli kahdeksan sivun tiedostosta tulee esimerkkilaskuja sivujen mukaan.",
         ],

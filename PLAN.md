@@ -105,6 +105,9 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [x] Sähköinen veroilmoitus 2C (tietovirta VSY02C, verovuodet 2025 ja 2026): puhdas muodostin `src/lib/filing/vsy02c.ts`, esikatselu ja lataus Veroraportti ja arkisto -välilehdellä, henkilötunnus vain tiedostoon, lataus Ilmoitin.fi:hin käsin (28.9.2026)
 
 ### 7. Käyttöönotto
+- [x] Tietosuoja-asiakirjat luonnoksina (`docs/tietosuoja`: seloste, käsittelysopimus, alikäsittelijät) ja julkinen sivu /tietosuoja, linkit kirjautumissivulle ja ohjeiden alatunnisteeseen (28.9.2026)
+- [ ] Tietosuoja-asiakirjojen hyväksyntä, käsittelysopimukset tilitoimistojen kanssa, alikäsittelijöiden ehdot ja Auth0 EU-tenanttiin (BLOCKERS 8 b)
+- [ ] Tositteen tunnistus organisaatiokohtaisesti päälle tai pois (BLOCKERS 10, odottaa Jukan päätöstä)
 - [ ] 2C-tiedosto Ilmoitin.fi:n Aineiston tarkastukseen oikealla asiakkaalla ja tuotantokäytön aloitusilmoitus Verohallinnolle (BLOCKERS 9)
 - [ ] Rinnakkaisajo: sama vuosi molemmissa, erot selitetty
 - [ ] Lopullinen tiedonsiirto, `v2` → `main`, skog.adepta.fi uuteen
