@@ -258,7 +258,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Tallenna.",
         ],
         bullets: [
-          "Esimerkki: Tiemaksu, Metsäyhtymä Heralahti: osuus 50 %, loput kuuluvat muulle toiminnalle.",
+          "Esimerkki: Tiemaksu tiekunnalle: osuus 50 %, loput kuuluvat muulle toiminnalle.",
           "Selite pysyy samana. Osuus näkyy omassa sarakkeessaan.",
           "Tuloihin, menoihin, verosuunnitelmaan, veroraporttiin ja veroilmoitukseen tulee vain metsätalouden osuus.",
           "Ostojen arvonlisäverosta vähennetään vain metsätalouden osuus. Loppu näkyy erikseen, eikä sitä vähennetä.",
