@@ -116,7 +116,7 @@ export async function saveLedgerGrid(
         v.id,
         {
           bookedOn: v.bookedOn, category: v.category, kind: v.kind, description: v.description, amountGross: v.amountGross, vatRate: v.vatRate,
-          withholding: v.withholding, reference: v.reference, forestPropertyId: v.forestPropertyId, assetRatePct: v.assetRatePct, saleAssetId: v.saleAssetId,
+          withholding: v.withholding, businessSharePct: v.businessSharePct, reference: v.reference, forestPropertyId: v.forestPropertyId, assetRatePct: v.assetRatePct, saleAssetId: v.saleAssetId,
         },
         details,
       );

@@ -43,6 +43,7 @@ describe("vertailu", () => {
   const current: NewFigures = {
     income: 40000, expense: 2000, depreciation: 5000, forestDeduction: 3000, taxable: 30000, tax: 9000, withholding: 1000,
     vatOutput: 10200, vatInput: 5610, saleGain: 0, saleLoss: 0, linkedAssetSales: 0, transactionCount: 3, confirmed: true,
+    partialShareCount: 0, incomeFull: 40000, expenseFull: 2000,
   };
 
   it("investointien alv on tunnettu ero", () => {
@@ -62,5 +63,16 @@ describe("vertailu", () => {
     const c = compareFigures(base, { ...current, income: 39000, taxable: 29000, tax: 8700, transactionCount: 2 });
     expect(c.unexplained).toEqual(["income", "taxable", "tax"]);
     expect(c.explanations[0]).toContain("eri määrä");
+  });
+
+  it("vanhassa ei ole osuutta: tuodut rivit täsmäävät ennallaan", () => {
+    const c = compareFigures(base, current);
+    expect(c.explanations.join(" ")).not.toContain("Osuus");
+  });
+
+  it("uudessa 50 %:n osuus selittää menojen eron, kun koko summat täsmäävät", () => {
+    const c = compareFigures(base, { ...current, expense: 1900, taxable: 30100, tax: 9030, partialShareCount: 1 });
+    expect(c.explanations.join(" ")).toContain("Osuus");
+    expect(c.unexplained).toEqual([]);
   });
 });

@@ -10,6 +10,8 @@ import {
   planGridChanges,
   rowFromStored,
   rowNet,
+  rowShare,
+  rowSharePct,
   sameRow,
   selectCategory,
   toggleKind,
@@ -31,20 +33,35 @@ describe("näppäimet", () => {
   const key = (over: Partial<KeyInput>): KeyInput => ({ key: "Enter", shift: false, ctrl: false, row: 0, col: 0, rowCount: 3, columns, menuOpen: false, ...over });
 
   it("sarakkeet vanhan järjestyksessä, metsätila vain jos tiloja on", () => {
-    expect(columns).toEqual(["bookedOn", "description", "category", "amountGross", "vatRate", "kind"]);
-    expect(gridColumns(true)).toEqual(["bookedOn", "description", "category", "amountGross", "vatRate", "forestPropertyId", "kind"]);
+    expect(columns).toEqual(["bookedOn", "description", "category", "amountGross", "vatRate", "businessSharePct", "kind"]);
+    expect(gridColumns(true)).toEqual(["bookedOn", "description", "category", "amountGross", "vatRate", "businessSharePct", "forestPropertyId", "kind"]);
   });
 
   it("Enter ja Tab eteenpäin, rivin lopussa rivin loppu", () => {
     expect(gridKeyAction(key({ col: 0 }))).toEqual({ type: "focus", row: 0, col: 1 });
     expect(gridKeyAction(key({ key: "Tab", col: 4 }))).toEqual({ type: "focus", row: 0, col: 5 });
-    expect(gridKeyAction(key({ col: 5, row: 1 }))).toEqual({ type: "rowEnd", row: 1 });
-    expect(gridKeyAction(key({ key: "Tab", col: 5, row: 2 }))).toEqual({ type: "rowEnd", row: 2 });
+    expect(gridKeyAction(key({ col: 6, row: 1 }))).toEqual({ type: "rowEnd", row: 1 });
+    expect(gridKeyAction(key({ key: "Tab", col: 6, row: 2 }))).toEqual({ type: "rowEnd", row: 2 });
+  });
+
+  it("Enter ohittaa osuuden, Tab vie siihen", () => {
+    // alv % (4) → Enter tyyppiin (6), Tab osuuteen (5).
+    expect(gridKeyAction(key({ col: 4 }))).toEqual({ type: "focus", row: 0, col: 6 });
+    expect(gridKeyAction(key({ key: "Tab", col: 4 }))).toEqual({ type: "focus", row: 0, col: 5 });
+    // Osuudesta Enter jatkaa eteenpäin kuten muualla.
+    expect(gridKeyAction(key({ col: 5 }))).toEqual({ type: "focus", row: 0, col: 6 });
+    // Shift + Enter tyypistä takaisin alv %:iin, Shift + Tab osuuteen.
+    expect(gridKeyAction(key({ shift: true, col: 6 }))).toEqual({ type: "focus", row: 0, col: 4 });
+    expect(gridKeyAction(key({ key: "Tab", shift: true, col: 6 }))).toEqual({ type: "focus", row: 0, col: 5 });
+    // Metsätilan kanssa: alv % → Enter metsätilaan.
+    const withProps = gridColumns(true);
+    expect(gridKeyAction(key({ col: 4, columns: withProps }))).toEqual({ type: "focus", row: 0, col: 6 });
+    expect(withProps[6]).toBe("forestPropertyId");
   });
 
   it("Shift takaisin rivien yli, ensimmäisestä kentästä selaimen oletus", () => {
     expect(gridKeyAction(key({ key: "Tab", shift: true, col: 2 }))).toEqual({ type: "focus", row: 0, col: 1 });
-    expect(gridKeyAction(key({ key: "Tab", shift: true, col: 0, row: 2 }))).toEqual({ type: "focus", row: 1, col: 5 });
+    expect(gridKeyAction(key({ key: "Tab", shift: true, col: 0, row: 2 }))).toEqual({ type: "focus", row: 1, col: 6 });
     expect(gridKeyAction(key({ key: "Tab", shift: true, col: 0, row: 0 }))).toBeNull();
     expect(gridKeyAction(key({ key: "Enter", shift: true, col: 1 }))).toEqual({ type: "focus", row: 0, col: 0 });
   });
@@ -72,9 +89,10 @@ describe("näppäimet", () => {
 
   it("T vaihtaa tyypin muualla kuin tekstissä, Delete poistaa rivin viimeisessä sarakkeessa", () => {
     expect(gridKeyAction(key({ key: "t", col: 3 }))).toEqual({ type: "toggleKind", row: 0 });
+    expect(gridKeyAction(key({ key: "T", col: 6 }))).toEqual({ type: "toggleKind", row: 0 });
     expect(gridKeyAction(key({ key: "T", col: 5 }))).toEqual({ type: "toggleKind", row: 0 });
     expect(gridKeyAction(key({ key: "t", col: 1 }))).toBeNull();
-    expect(gridKeyAction(key({ key: "Delete", col: 5, row: 1 }))).toEqual({ type: "deleteRow", row: 1 });
+    expect(gridKeyAction(key({ key: "Delete", col: 6, row: 1 }))).toEqual({ type: "deleteRow", row: 1 });
     expect(gridKeyAction(key({ key: "Delete", col: 3 }))).toBeNull();
     expect(gridKeyAction(key({ key: "s", ctrl: true }))).toBeNull();
   });
@@ -245,10 +263,63 @@ describe("liittäminen Excelistä", () => {
     expect(out[2]).toEqual(saved);
   });
 
+  it("metsätalouden osuus on valinnainen viimeinen sarake viitteen jälkeen", () => {
+    const text = ["1.5.2025", "Tiemaksu, Metsäyhtymä Heralahti", "Muut vuosimenot", "251,00", "25,5", "", "Kotimetsä", "TM-1", "50"].join("	");
+    const out = applyGridPaste([emptyGridRow("r0", "1.1.2025")], 0, "bookedOn", parseClipboard(text), pasteOpts);
+    expect(out[0]).toMatchObject({ reference: "TM-1", businessSharePct: "50" });
+    const v = validateGridRow(out[0], opts);
+    expect(v.ok && v.value.businessSharePct).toBe(50);
+  });
+
   it("liitos keskelle alkaa valitusta kentästä", () => {
     const rows = [emptyGridRow("r0", "1.1.2025"), emptyGridRow("r1", "1.1.2025")];
     const out = applyGridPaste(rows, 1, "category", parseClipboard("Tuntematon\t50"), pasteOpts);
     expect(out[0]).toEqual(rows[0]);
     expect(out[1]).toMatchObject({ category: "Tuntematon", amountGross: "50" });
+  });
+});
+
+describe("metsätalouden osuus taulukossa", () => {
+  const stored = {
+    id: ID, booked_on: "2025-05-01", kind: "expense" as const, category: "other_expense", description: "Tiemaksu", amount_gross: "251.00", vat_rate: "25.50",
+    withholding: "0.00", reference: null, asset_id: null, forest_property_id: null,
+  };
+
+  it("tallennettu 100 % näkyy tyhjänä, muu osuus suomalaisittain", () => {
+    expect(rowFromStored({ ...stored, business_share_pct: "100.00" }).businessSharePct).toBe("");
+    expect(rowFromStored(stored).businessSharePct).toBe("");
+    expect(rowFromStored({ ...stored, business_share_pct: "33.33" }).businessSharePct).toBe("33,33");
+  });
+
+  it("rivin jako: metsätaloudelle ja muulle", () => {
+    const r = rowFromStored({ ...stored, business_share_pct: "50.00" });
+    expect(rowSharePct(r)).toBe(50);
+    expect(rowShare(r, 2025, registered)).toMatchObject({ gross: 125.5, otherGross: 125.5, nonDeductibleVat: 25.5 });
+    expect(rowSharePct({ ...r, businessSharePct: "" })).toBe(100);
+    expect(rowSharePct({ ...r, businessSharePct: "0" })).toBeNull();
+  });
+
+  it("osuuden muutos on muutos, 50 ja 50,00 sama arvo, tyhjä ja 100 sama arvo", () => {
+    const r = rowFromStored({ ...stored, business_share_pct: "50.00" });
+    expect(sameRow(r, { ...r, businessSharePct: "50,00" }, 2025)).toBe(true);
+    expect(sameRow(r, { ...r, businessSharePct: "40" }, 2025)).toBe(false);
+    const full = rowFromStored(stored);
+    expect(sameRow(full, { ...full, businessSharePct: "100" }, 2025)).toBe(true);
+    const plan = planGridChanges([r], [{ ...r, businessSharePct: "25" }], [], 2025);
+    expect(plan.updated).toHaveLength(1);
+  });
+
+  it("tarkistus: kelvoton osuus on rivin virhe, investoinnin 600 euron raja koskee osuutta", () => {
+    const bad = validateGridRow(row({ category: "travel", amountGross: "10", businessSharePct: "0" }), opts);
+    expect(!bad.ok && bad.errors.businessSharePct).toMatch(/metsätalouden osuus/);
+    const small = validateGridRow(row({ category: "asset_purchase", amountGross: "1 255,00", businessSharePct: "50", assetRatePct: "25" }), opts);
+    expect(!small.ok && small.errors.category).toMatch(/600/);
+    const big = validateGridRow(row({ category: "asset_purchase", amountGross: "1 255,00", assetRatePct: "25" }), opts);
+    expect(big.ok && big.value.businessSharePct).toBe(100);
+  });
+
+  it("uusi rivi on tyhjä, vaikka osuus puuttuu; pelkkä osuus tekee siitä täytetyn", () => {
+    const plan = planGridChanges([], [row(), row({ key: "k2", businessSharePct: "50" })], [], 2025);
+    expect(plan.created.map((r) => r.key)).toEqual(["k2"]);
   });
 });

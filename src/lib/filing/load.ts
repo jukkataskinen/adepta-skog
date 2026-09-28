@@ -1,5 +1,6 @@
 import type { Sql } from "@/lib/db/types";
 import { loadPlanData } from "@/lib/tax/load";
+import { forestryShare } from "@/lib/tax/share";
 import type { TransactionKind } from "@/lib/tax/rules";
 import type { Filing2cData } from "./vsy02c";
 
@@ -60,17 +61,25 @@ export async function loadFilingSource(tx: Sql, orgId: string, clientId: string,
   const [org] = await tx.query<{ contact_email: string | null; contact_phone: string | null }>("select contact_email, contact_phone from sk_organizations where id = $1", [orgId]);
   if (!c || !y || !org) return null;
 
-  const rows = await tx.query<{ kind: TransactionKind; category: string; asset_id: string | null; description: string; amount_net: string; amount_gross: string }>(
-    "select kind, category, asset_id, description, amount_net, amount_gross from sk_transactions where client_id = $1 and tax_year = $2 order by booked_on, created_at",
+  const stored = await tx.query<{
+    kind: TransactionKind; category: string; asset_id: string | null; description: string; amount_net: string; amount_gross: string; business_share_pct: string;
+  }>(
+    `select kind, category, asset_id, description, amount_net, amount_gross, business_share_pct from sk_transactions
+      where client_id = $1 and tax_year = $2 order by booked_on, created_at`,
     [clientId, year],
   );
+  // 2C:hen vain metsätalouden osuus (src/lib/tax/share.ts): loppu kuuluu muulle toiminnalle.
+  const rows = stored.map((r) => ({
+    ...r,
+    share: forestryShare({ kind: r.kind, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), businessSharePct: Number(r.business_share_pct) }),
+  }));
   const categories: Filing2cData["categories"] = {};
   for (const r of rows) {
     // Investointiin liitetty myynti on luovutusvoittoa (lomake 9), ei metsätalouden tuloa.
     if (r.category === "asset_sale" && r.asset_id) continue;
     const e = categories[r.category] ?? { net: 0, gross: 0 };
-    e.net = Math.round((e.net + Number(r.amount_net)) * 100) / 100;
-    e.gross = Math.round((e.gross + Number(r.amount_gross)) * 100) / 100;
+    e.net = Math.round((e.net + r.share.net) * 100) / 100;
+    e.gross = Math.round((e.gross + r.share.gross) * 100) / 100;
     categories[r.category] = e;
   }
 
@@ -99,6 +108,6 @@ export async function loadFilingSource(tx: Sql, orgId: string, clientId: string,
     data,
     client: { name: `${c.first_name} ${c.last_name}`.trim(), lastName: c.last_name, businessId: c.business_id },
     office: { email: org.contact_email, phone: org.contact_phone },
-    workers: defaultWorkers(rows.filter((r) => r.category === "delivery_work").map((r) => ({ description: r.description, amount: Number(r.amount_net) }))),
+    workers: defaultWorkers(rows.filter((r) => r.category === "delivery_work").map((r) => ({ description: r.description, amount: r.share.net }))),
   };
 }

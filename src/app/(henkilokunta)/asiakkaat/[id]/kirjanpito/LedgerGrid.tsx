@@ -25,6 +25,8 @@ import {
   planGridChanges,
   rowKind,
   rowNet,
+  rowShare,
+  rowSharePct,
   sameRow,
   selectCategory,
   suggestionDateWarning,
@@ -37,6 +39,7 @@ import {
   type RowErrors,
 } from "@/lib/ledger/grid";
 import type { AssetOption, PropertyOption } from "@/lib/ledger/queries";
+import { formatSharePct } from "@/lib/tax/share";
 import { GridDialog } from "./GridDialog";
 import { DeliveryWorkInputs, useDeliveryWork } from "./DeliveryWorkCalculator";
 import { dismissSuggestionAction } from "./receipt-actions";
@@ -487,7 +490,7 @@ export function LedgerGrid({
       .filter((r) => r.id || !isBlankGridRow(r))
       .map((r) => ({
         key: r.key, id: r.id, bookedOn: r.bookedOn, description: r.description, category: r.category, amountGross: r.amountGross, vatRate: r.vatRate,
-        withholding: r.withholding, forestPropertyId: r.forestPropertyId, kind: r.kind, reference: r.reference, assetRatePct: r.assetRatePct, saleAssetId: r.saleAssetId,
+        businessSharePct: r.businessSharePct, withholding: r.withholding, forestPropertyId: r.forestPropertyId, kind: r.kind, reference: r.reference, assetRatePct: r.assetRatePct, saleAssetId: r.saleAssetId,
         suggestionId: r.id ? null : (r.suggestionId ?? null),
         suggestionLine: r.id || !r.suggestionId ? null : (r.suggestionLine ?? null),
       }));
@@ -638,6 +641,9 @@ export function LedgerGrid({
               <th className="px-2 py-2">Luokka</th>
               <th className="px-2 py-2 text-right">Summa (sis. alv)</th>
               <th className="px-2 py-2 text-right">Alv %</th>
+              <th className="px-2 py-2 text-right" title="Metsätalouden osuus prosentteina. Tyhjä = 100 %. Enter ohittaa sarakkeen, Tab vie siihen.">
+                Osuus %
+              </th>
               <th className="px-2 py-2 text-right">Veroton</th>
               <th className="px-2 py-2">Ennakko</th>
               {properties.length ? <th className="px-2 py-2">Metsätila</th> : null}
@@ -653,6 +659,9 @@ export function LedgerGrid({
               const err = errors[r.key] ?? {};
               const kind = rowKind(r);
               const net = rowNet(r, year, client);
+              // Osuus alle 100 %: rivin alle näytetään, paljonko kuuluu metsätaloudelle ja paljonko muulle.
+              const sharePct = rowSharePct(r);
+              const share = sharePct !== null && sharePct < 100 ? rowShare(r, year, client) : null;
               const cat = category(r.category);
               const withholding = parseAmount(r.withholding);
               const messages = [...new Set(Object.values(err))];
@@ -771,6 +780,25 @@ export function LedgerGrid({
                       autoComplete="off"
                       onFocus={(e) => e.currentTarget.select()}
                       onChange={(e) => patchRow(r.key, { vatRate: e.target.value })}
+                    />
+                  </td>
+                  <td className="px-1 py-1 min-w-[4.5rem]">
+                    <input
+                      {...common("businessSharePct")}
+                      aria-label={`Metsätalouden osuus prosentteina, rivi ${i + 1}`}
+                      className={cellClass(Boolean(err.businessSharePct), "text-right tabular")}
+                      value={r.businessSharePct}
+                      inputMode="decimal"
+                      placeholder="100"
+                      autoComplete="off"
+                      onFocus={(e) => e.currentTarget.select()}
+                      onBlur={(e) => {
+                        // 100 % näytetään tyhjänä, jotta poikkeava osuus erottuu taulukossa.
+                        const n = parseAmount(e.currentTarget.value);
+                        const shown = n === 100 ? "" : n !== null && Number.isFinite(n) && n > 0 && n <= 100 ? formatSharePct(n) : e.currentTarget.value;
+                        if (shown !== r.businessSharePct) patchRow(r.key, { businessSharePct: shown });
+                      }}
+                      onChange={(e) => patchRow(r.key, { businessSharePct: e.target.value })}
                     />
                   </td>
                   <td className="whitespace-nowrap px-2 py-2.5 text-right tabular text-ink/70">{net === null ? "–" : num2(net)}</td>
@@ -898,6 +926,15 @@ export function LedgerGrid({
                     </td>
                   </tr>
                 ) : null,
+                share ? (
+                  <tr key={`${r.key}-o`}>
+                    <td />
+                    <td colSpan={columns.length + 5} className="px-2 pb-2 text-xs text-ink/70">
+                      Metsätalouden osuus {formatSharePct(share.sharePct)} %: metsätaloudelle {formatEur(share.gross)}, muulle {formatEur(share.otherGross)}.
+                      {share.nonDeductibleVat ? ` Alv:sta ${formatEur(share.nonDeductibleVat)} ei vähennetä.` : ""}
+                    </td>
+                  </tr>
+                ) : null,
                 messages.length ? (
                   <tr key={`${r.key}-e`}>
                     <td />
@@ -938,8 +975,9 @@ export function LedgerGrid({
               </td>
               <td className="px-2 py-2 text-right tabular">{formatEur(totals.gross)}</td>
               <td />
+              <td />
               <td className="px-2 py-2 text-right tabular">{formatEur(totals.net)}</td>
-              <td colSpan={columns.length - 2} />
+              <td colSpan={columns.length - 3} />
             </tr>
           </tfoot>
         </table>
@@ -1000,7 +1038,7 @@ export function LedgerGrid({
       <div className="rounded-xl border border-line bg-cloud/40 px-4 py-3 text-xs leading-relaxed text-ink/70">
         <p className="mb-1 font-semibold text-ink/80">Näppäimet</p>
         <p>
-          <b>Enter</b> tai <b>Tab</b> seuraavaan kenttään, rivin lopussa seuraavalle tai uudelle riville. <b>Shift</b> takaisin. <b>Nuolet ylös ja alas</b> samaan
+          <b>Enter</b> tai <b>Tab</b> seuraavaan kenttään, rivin lopussa seuraavalle tai uudelle riville. Enter ohittaa Osuus %:n, Tab vie siihen. <b>Shift</b> takaisin. <b>Nuolet ylös ja alas</b> samaan
           sarakkeeseen toisella rivillä (ei selitteessä). Luokka: <b>numero</b> valitsee suoraan (1–12), nuolet ja Enter valikossa, Esc sulkee. <b>T</b> vaihtaa tulon
           ja menon. <b>Delete</b> tyyppisarakkeessa poistaa rivin, <b>Ctrl + Z</b> palauttaa sen. <b>Ctrl + S</b> tallentaa. <b>Ctrl + N</b> tai Lisää rivi lisää rivin. Voit liittää
           rivejä Excelistä (summat arvonlisäveron kanssa).

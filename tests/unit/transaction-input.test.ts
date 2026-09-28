@@ -38,6 +38,20 @@ describe("yhteinen skeema", () => {
     expect(r).toMatchObject({ bookedOn: "2025-06-15", amountGross: 1000.5, vatRate: null, withholding: null, reference: null, description: "", kind: null });
   });
 
+  it("metsätalouden osuus: tyhjä on 100, pilkku ja prosenttimerkki käyvät, 0 < x ≤ 100 ja enintään kaksi desimaalia", () => {
+    const base = { bookedOn: "15.6.2025", category: "other_expense", amountGross: "251" };
+    expect(transactionFieldsSchema.parse(base).businessSharePct).toBe(100);
+    expect(transactionFieldsSchema.parse({ ...base, businessSharePct: "" }).businessSharePct).toBe(100);
+    expect(transactionFieldsSchema.parse({ ...base, businessSharePct: "50" }).businessSharePct).toBe(50);
+    expect(transactionFieldsSchema.parse({ ...base, businessSharePct: "33,33" }).businessSharePct).toBe(33.33);
+    expect(transactionFieldsSchema.parse({ ...base, businessSharePct: "50 %" }).businessSharePct).toBe(50);
+    expect(transactionFieldsSchema.parse({ ...base, businessSharePct: "100" }).businessSharePct).toBe(100);
+    for (const bad of ["0", "-5", "100,01", "33,333", "puolet"]) {
+      const r = transactionFieldsSchema.safeParse({ ...base, businessSharePct: bad });
+      expect(!r.success && r.error.issues[0].message).toMatch(/metsätalouden osuus/);
+    }
+  });
+
   it("puuttuva summa", () => {
     const r = transactionFieldsSchema.safeParse({ bookedOn: "15.6.2025", category: "travel", amountGross: "" });
     expect(!r.success && r.error.issues[0].message).toBe("Anna summa (sis. alv).");

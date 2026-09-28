@@ -1,5 +1,5 @@
 import type { Sql } from "@/lib/db/types";
-import { vatOf } from "@/lib/tax/amounts";
+import { forestryShare } from "@/lib/tax/share";
 import { category, type TransactionKind } from "@/lib/tax/rules";
 import { loadPlanData, type PlanData } from "@/lib/tax/load";
 import { computePlan, type PlanResult } from "@/lib/tax/plan";
@@ -13,6 +13,7 @@ import { listAttachmentDocuments } from "./attachments";
  * vahvistettu, poistot ja vähennys ovat nollia ja raportissa on huomautus.
  */
 
+/** Luokkasummat ovat metsätalouden osuuksia (src/lib/tax/share.ts). */
 export interface ReportCategoryRow {
   label: string;
   kind: TransactionKind;
@@ -26,10 +27,14 @@ export interface ReportTransaction {
   kind: TransactionKind;
   category: string;
   description: string;
+  /** Koko tositteen summat. */
   net: number;
   vatRate: number;
   gross: number;
   withholding: number;
+  /** Metsätalouden osuus prosentteina ja sen veroton summa. */
+  sharePct: number;
+  shareNet: number;
   /** Viittaus raportin liitteeseen, esimerkiksi "3" tai "3, s. 2". null, jos tositetta ei ole tai liitteitä ei tulosteta. */
   attachment: string | null;
 }
@@ -79,9 +84,9 @@ export async function loadReportData(
 
   const rows = await tx.query<{
     booked_on: string; kind: TransactionKind; category: string; description: string; amount_net: string; amount_gross: string; vat_rate: string; withholding: string;
-    own_document_id: string | null; source_document_id: string | null; source_pages: string | null;
+    business_share_pct: string; own_document_id: string | null; source_document_id: string | null; source_pages: string | null;
   }>(
-    `select t.booked_on::text, t.kind, t.category, t.description, t.amount_net, t.amount_gross, t.vat_rate, t.withholding,
+    `select t.booked_on::text, t.kind, t.category, t.description, t.amount_net, t.amount_gross, t.vat_rate, t.withholding, t.business_share_pct,
             (select d.id from sk_documents d where d.transaction_id = t.id and d.kind = 'receipt' order by d.created_at, d.id limit 1) as own_document_id,
             t.source_document_id, t.source_pages::text as source_pages
        from sk_transactions t where t.client_id = $1 and t.tax_year = $2 order by t.booked_on, t.created_at`,
@@ -98,23 +103,26 @@ export async function loadReportData(
     }
     return null;
   };
+  const shareOf = (r: (typeof rows)[number]) =>
+    forestryShare({ kind: r.kind, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), businessSharePct: Number(r.business_share_pct) });
   const transactions: ReportTransaction[] = rows.map((r) => {
     const net = Number(r.amount_net);
     const rate = Number(r.vat_rate);
+    const share = shareOf(r);
     return {
       bookedOn: r.booked_on, kind: r.kind, category: category(r.category)?.label ?? r.category, description: r.description, net, vatRate: rate,
-      gross: Number(r.amount_gross), withholding: Number(r.withholding), attachment: attachmentRef(r),
+      gross: Number(r.amount_gross), withholding: Number(r.withholding), sharePct: share.sharePct, shareNet: share.net, attachment: attachmentRef(r),
     };
   });
+  // Luokkasummiin vain metsätalouden osuus: loppu kuuluu muulle toiminnalle.
   const byCat = new Map<string, ReportCategoryRow>();
   for (const r of rows) {
     const label = category(r.category)?.label ?? r.category;
     const e = byCat.get(label) ?? { label, kind: r.kind, net: 0, vat: 0, gross: 0 };
-    const net = Number(r.amount_net);
-    const gross = Number(r.amount_gross);
-    e.net += net;
-    e.vat += vatOf(net, gross);
-    e.gross += gross;
+    const s = shareOf(r);
+    e.net = Math.round((e.net + s.net) * 100) / 100;
+    e.vat = Math.round((e.vat + s.vat) * 100) / 100;
+    e.gross = Math.round((e.gross + s.gross) * 100) / 100;
     byCat.set(label, e);
   }
 
@@ -161,7 +169,12 @@ export async function loadReportData(
     },
     categories: [...byCat.values()],
     transactions,
-    vat: vatSummary(rows.map((r) => ({ bookedOn: r.booked_on, kind: r.kind, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), vatRate: Number(r.vat_rate) }))),
+    vat: vatSummary(
+      rows.map((r) => ({
+        bookedOn: r.booked_on, kind: r.kind, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), vatRate: Number(r.vat_rate),
+        businessSharePct: Number(r.business_share_pct),
+      })),
+    ),
     plan,
     result,
     depreciation,

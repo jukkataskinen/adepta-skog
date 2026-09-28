@@ -181,6 +181,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Valitse luokka. Valikko aukeaa itse. Voit kirjoittaa luokan numeron, esimerkiksi 1 Pystykauppa tai 10 Käyttöomaisuuden hankinta.",
           "Kirjoita summa niin kuin se on kuitissa, eli arvonlisäveron kanssa.",
           "Alv % tulee luokasta. Voit vaihtaa sen. Veroton summa näkyy sen vieressä.",
+          "Osuus % jää yleensä tyhjäksi. Tyhjä tarkoittaa, että koko summa kuuluu metsätaloudelle.",
           "Tallenna, kun olet valmis: Ctrl + S tai painike taulukon alla.",
         ],
         bullets: [
@@ -194,6 +195,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: "Näppäimet taulukossa",
         bullets: [
           "Enter tai Tab: seuraava kenttä. Rivin lopussa seuraava rivi tai uusi rivi.",
+          "Enter hyppää Osuus %:n yli, koska se on harvoin tarpeen. Tab tai hiiren napsautus vie siihen.",
           "Shift + Tab tai Shift + Enter: edellinen kenttä.",
           "Nuoli ylös tai alas: sama kenttä edellisellä tai seuraavalla rivillä. Selitteessä nuolet liikkuvat tekstissä.",
           "Luokassa: numero valitsee suoraan. Numerot 10, 11 ja 12 kirjoitetaan peräkkäin. Nuolet liikkuvat valikossa, Enter valitsee ja Esc sulkee.",
@@ -246,9 +248,30 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        title: "Osittain vähennettävä kulu",
+        text: "Joskus vain osa kuitista kuuluu metsätaloudelle. Esimerkiksi tiekunnan maksusta puolet voi kuulua metsälle ja puolet muulle toiminnalle. Silloin kirjoitat koko kuitin ja kerrot, kuinka monta prosenttia siitä on metsätaloutta.",
+        steps: [
+          "Kirjoita rivi tavalliseen tapaan. Summa on koko kuitin summa arvonlisäveron kanssa.",
+          "Siirry Osuus %-kenttään Tabilla tai napsauttamalla sitä.",
+          "Kirjoita metsätalouden osuus, esimerkiksi 50. Desimaalit kirjoitetaan pilkulla, esimerkiksi 33,33.",
+          "Rivin alle tulee teksti, jossa näkyy, paljonko menee metsätaloudelle ja paljonko muulle.",
+          "Tallenna.",
+        ],
+        bullets: [
+          "Esimerkki: Tiemaksu, Metsäyhtymä Heralahti: osuus 50 %, loput kuuluvat muulle toiminnalle.",
+          "Selite pysyy samana. Osuus näkyy omassa sarakkeessaan.",
+          "Tuloihin, menoihin, verosuunnitelmaan, veroraporttiin ja veroilmoitukseen tulee vain metsätalouden osuus.",
+          "Ostojen arvonlisäverosta vähennetään vain metsätalouden osuus. Loppu näkyy erikseen, eikä sitä vähennetä.",
+          "Myynnin arvonlisävero lasketaan aina koko myynnistä.",
+          "Investoinnissa hankintahinnaksi tulee metsätalouden osuus. Myös myyntihinta lasketaan osuudesta.",
+          "Lomakkeella sama kenttä on kohdassa Lisätiedot: vain osa kuuluu metsätaloudelle.",
+          "Tyhjä osuus on 100 %. Osuuden on oltava yli 0 ja enintään 100.",
+        ],
+      },
+      {
         title: "Rivit Excelistä",
         steps: [
-          "Järjestä Excelin sarakkeet näin: päivä, selite, luokka, summa arvonlisäveron kanssa, alv %, ennakonpidätys, metsätila ja viite. Metsätila jätetään pois, jos asiakkaalla ei ole tiloja.",
+          "Järjestä Excelin sarakkeet näin: päivä, selite, luokka, summa arvonlisäveron kanssa, alv %, ennakonpidätys, metsätila ja viite. Metsätila jätetään pois, jos asiakkaalla ei ole tiloja. Viimeiseksi voit lisätä metsätalouden osuuden prosentteina. Sen voi myös jättää pois.",
           "Valitse rivit Excelissä ja kopioi ne.",
           "Napsauta uuden rivin päiväkenttää ja liitä (Ctrl + V).",
           "Tarkista rivit ja tallenna.",
@@ -276,6 +299,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Valitse taulukon yläpuolelta Lomake, jos haluat kirjata yhden rivin kerrallaan.",
           "Täytä päivä, luokka, selite ja summa arvonlisäveron kanssa.",
           "Jätä Alv % tyhjäksi, niin ohjelma käyttää oletusta.",
+          "Jos vain osa kuuluu metsätaloudelle, avaa Lisätiedot ja kirjoita metsätalouden osuus prosentteina.",
           "Valitse Lisää kirjaus.",
         ],
       },
@@ -438,6 +462,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Myynnin vero lasketaan tuloista, esimerkiksi puukaupasta.",
           "Ostojen vero lasketaan menoista ja investoinneista.",
           "Maksettava on myynnin vero miinus ostojen vero. Jos luku on miinuksella, veroa palautetaan.",
+          "Jos kirjauksesta vain osa kuuluu metsätaloudelle, ostojen verosta on mukana vain se osa. Loppu näkyy korttien alla, eikä sitä vähennetä.",
           "Neljännekset auttavat, jos asiakas ilmoittaa useammin kuin kerran vuodessa.",
         ],
       },
@@ -519,6 +544,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Investoinnit ja poistot.",
           "Metsävähennys tiloittain.",
           "Kaikki vuoden kirjaukset.",
+          "Jos kirjauksesta vain osa kuuluu metsätaloudelle, kirjausluettelossa on sarake Osuus. Summa on koko kuitin, mutta tuloissa, menoissa ja verolaskelmassa on vain metsätalouden osuus.",
         ],
       },
       {

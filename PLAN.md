@@ -85,6 +85,7 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [x] Luokat ja oletusverokanta päivän mukaan, Hankintatyö-luokka vanhasta sovelluksesta (26.9.2026)
 - [x] Investoinnin hankinta kirjauksesta luo investoinnin, myynti merkitsee sen myydyksi (26.9.2026)
 - [x] Myyntivoitto (vaihe 5). Korjattu 27.9.2026: myyntihinta ei enää tule laskelmaan tulona myyntivoiton lisäksi
+- [x] Osittain vähennettävä kulu: metsätalouden osuus % kirjaukselle (migraatio 0013), osuus kaikkeen verolaskentaan, alv-yhteenvetoon, raporttiin ja 2C:hen, investoinnin hankintameno osuudesta; taulukon Osuus %-sarake, lomake ja Excel (28.9.2026). Alv-tulkinta odottaa kirjanpitäjän vahvistusta (BLOCKERS 11)
 
 ### 5. Verolaskenta (`src/lib/tax`)
 - [x] Verosäännöt `rules.ts`: pääomatulon vero 30/34 % (raja 30 000 €), metsävähennys 60 % ja vähintään 1 500 €, menojäännöspoisto 25 % (26.9.2026)

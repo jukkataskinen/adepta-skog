@@ -1,6 +1,7 @@
 import { degrees, PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } from "pdf-lib";
 import { forestSaleLines } from "@/lib/tax/forest-sale";
 import { ADDITIONAL_PREPAYMENT_MIN, additionalPrepaymentDueDate, annualVatDueDate } from "@/lib/tax/rules";
+import { formatSharePct } from "@/lib/tax/share";
 import type { ReportData } from "./data";
 
 /**
@@ -399,6 +400,10 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
   w.head(["Jakso", "Myynnin vero", "Ostojen vero", "Maksettava"], vat4);
   for (const q of data.vat.quarters) w.row([q.label, eur(q.output), eur(q.input), eur(q.payable)], vat4);
   w.row([data.vat.year.label, eur(data.vat.year.output), eur(data.vat.year.input), eur(data.vat.year.payable)], vat4, { tone: "total" });
+  if (data.vat.year.nonDeductible) {
+    w.space(3);
+    w.text(`Ostojen verosta ${eur(data.vat.year.nonDeductible)} kuuluu muulle toiminnalle, joten sitä ei vähennetä tässä.`, { size: 8, color: MUTED });
+  }
   if (data.vat.year.byRate.length) {
     w.space(4);
     w.subheading("Myynnit verokannoittain");
@@ -443,17 +448,30 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
   section(5);
   // Liite-sarake vain, kun raportin loppuun tulee tositteet: viittaus on liitteen numero ja sivu tiedostossa.
   const refs = data.transactions.some((t) => t.attachment);
-  const t6: Col[] = refs
-    ? [{ width: 22 }, { width: 34 }, { width: 40 }, { width: 25, align: "right" }, { width: 12, align: "right" }, { width: 23, align: "right" }, { width: 14, align: "right" }]
-    : [{ width: 22 }, { width: 38 }, { width: 50 }, { width: 25, align: "right" }, { width: 12, align: "right" }, { width: 23, align: "right" }];
-  w.head(["Päivä", "Luokka", "Selite", "Ilman alv", "Alv %", "Yhteensä", ...(refs ? ["Liite"] : [])], t6, 7);
+  // Osuus-sarake vain, kun jokin kirjaus kuuluu metsätaloudelle vain osittain. Summat ovat koko tositteen,
+  // ja osuus kertoo, paljonko niistä on luokkasummissa ja verolaskelmassa.
+  const shares = data.transactions.some((t) => t.sharePct < 100);
+  const descWidth = (refs ? 40 : 50) - (shares ? 14 : 0);
+  const t6: Col[] = [
+    { width: 22 }, { width: refs ? 34 : 38 }, { width: descWidth }, { width: 25, align: "right" }, { width: 12, align: "right" }, { width: 23, align: "right" },
+    ...(shares ? [{ width: 14, align: "right" } as Col] : []),
+    ...(refs ? [{ width: 14, align: "right" } as Col] : []),
+  ];
+  w.head(["Päivä", "Luokka", "Selite", "Ilman alv", "Alv %", "Yhteensä", ...(shares ? ["Osuus"] : []), ...(refs ? ["Liite"] : [])], t6, 7);
   for (const t of data.transactions) {
     const cells = [date(t.bookedOn), t.category, t.description, eur(t.net), t.vatRate.toLocaleString("fi-FI"), eur(t.gross)];
+    if (shares) cells.push(t.sharePct < 100 ? `${formatSharePct(t.sharePct)} %` : "");
     w.row(refs ? [...cells, t.attachment ?? "–"] : cells, t6, {
       size: 8, tone: t.kind === "income" ? "income" : t.kind === "expense" ? "expense" : undefined,
     });
   }
   if (!data.transactions.length) w.text("Ei kirjauksia.", { size: 9, color: MUTED });
+  if (shares) {
+    w.space(3);
+    w.text("Osuus on metsätalouden osuus kirjauksesta. Summat ovat koko tositteen, mutta tuloissa, menoissa ja verolaskelmassa on vain metsätalouden osuus.", {
+      size: 8, color: MUTED,
+    });
+  }
 
   // Kansilehti ja sisällysluettelo viimeisenä, kun sivunumerot tiedetään.
   drawCover(doc.insertPage(0, [W, H]), f, data, draft);

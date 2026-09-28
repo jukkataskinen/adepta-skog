@@ -69,6 +69,7 @@ export async function saveTransactionAction(formData: FormData) {
         amountGross: input.amountGross!,
         vatRate: effectiveVatRate(input, { vatRegistered: client.vat_registered }),
         withholding: input.withholding ?? 0,
+        businessSharePct: input.businessSharePct,
         reference: input.reference,
         forestPropertyId: input.forestPropertyId,
         assetRatePct: input.assetRatePct,
@@ -93,6 +94,8 @@ const gridRowSchema = z.object({
   category: z.string().max(100),
   amountGross: z.string().max(40),
   vatRate: z.string().max(40),
+  // Vanha selainversio ei lähetä osuutta: tyhjä = 100 %.
+  businessSharePct: z.string().max(40).default(""),
   withholding: z.string().max(40),
   forestPropertyId: z.string().max(400),
   kind: z.enum(["", "income", "expense", "investment"]),

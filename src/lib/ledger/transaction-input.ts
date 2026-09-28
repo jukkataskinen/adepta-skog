@@ -59,6 +59,20 @@ export function toFinnishDate(iso: string): string {
   return `${d}.${m}.${y}`;
 }
 
+export const SHARE_MESSAGE = "Anna metsätalouden osuus prosentteina: yli 0 ja enintään 100, enintään kaksi desimaalia.";
+
+/**
+ * Metsätalouden osuus prosentteina (0013). Tyhjä = 100 %. Hyväksyy pilkun ja
+ * prosenttimerkin (50 %, 33,33). Enintään kaksi desimaalia, koska kanta on numeric(5,2).
+ */
+export const businessShareSchema = z.preprocess(
+  (v) => parseAmount(v) ?? 100,
+  z
+    .number({ message: SHARE_MESSAGE })
+    .refine((n) => Number.isFinite(n) && n > 0 && n <= 100, SHARE_MESSAGE)
+    .refine((n) => Math.abs(Math.round(n * 100) - n * 100) < 1e-6, SHARE_MESSAGE),
+);
+
 const amount = (min: number, message: string) =>
   z.preprocess((v) => parseAmount(v), z.number({ message }).min(min, message).max(1e10, message).nullable());
 
@@ -71,6 +85,8 @@ export const transactionFieldsSchema = z.object({
   amountGross: amount(-1e10, "Tarkista summa.").refine((v) => v !== null, "Anna summa (sis. alv)."),
   vatRate: amount(0, "Tarkista verokanta.").refine((v) => v === null || v < 100, "Tarkista verokanta."),
   withholding: amount(0, "Tarkista ennakonpidätys."),
+  // Osittain vähennettävä kulu: vain osuus kuuluu metsätaloudelle (src/lib/tax/share.ts).
+  businessSharePct: businessShareSchema.default(100),
   reference: z.preprocess(blank, z.string().max(100, "Viite on liian pitkä.").nullable()),
   // Vapaaehtoinen: kaikki menot eivät kohdistu yhdelle tilalle.
   forestPropertyId: z.preprocess(blank, z.string().uuid("Valitse metsätila.").nullable()),

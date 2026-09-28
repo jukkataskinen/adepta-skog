@@ -215,6 +215,11 @@ describe("ehdotus taulukon riveiksi", () => {
     ]);
   });
 
+  it("ehdotuksen metsätalouden osuus on aina 100 % (tyhjä), kirjanpitäjä muuttaa tarvittaessa", () => {
+    const rows = rowsFromSuggestion(suggestion, { vatRegistered: true, defaultDate: "1.1.2025" });
+    expect(rows.map((r) => r.businessSharePct)).toEqual(["", ""]);
+  });
+
   it("alv 0 %, jos asiakas ei ole arvonlisäverorekisterissä", () => {
     const rows = rowsFromSuggestion(suggestion, { vatRegistered: false, defaultDate: "1.1.2025" });
     expect(rows.map((r) => r.vatRate)).toEqual(["0", "0"]);

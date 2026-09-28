@@ -4,6 +4,7 @@ import { assetYear, type AssetYear } from "./depreciation";
 import { forestDeductionBase } from "./forest-deduction";
 import { disposalFractions, forestDeductionPool, forestDeductionTracking, forestSales, soldSharePct, type ForestPropertyInput, type ForestSale } from "./forest-sale";
 import { isRoadOrDitch, type TransactionKind } from "./rules";
+import { forestryShare } from "./share";
 
 /**
  * Verosuunnitelman lähtötiedot yhdelle asiakkaalle ja vuodelle. Käyttäjän
@@ -59,8 +60,10 @@ export interface PlanData {
 }
 
 export async function loadPlanData(tx: Sql, clientId: string, year: number): Promise<PlanData> {
-  const rows = await tx.query<{ kind: TransactionKind; category: string; asset_id: string | null; amount_net: string; amount_gross: string; withholding: string }>(
-    "select kind, category, asset_id, amount_net, amount_gross, withholding from sk_transactions where client_id = $1 and tax_year = $2",
+  const rows = await tx.query<{
+    kind: TransactionKind; category: string; asset_id: string | null; amount_net: string; amount_gross: string; withholding: string; business_share_pct: string;
+  }>(
+    "select kind, category, asset_id, amount_net, amount_gross, withholding, business_share_pct from sk_transactions where client_id = $1 and tax_year = $2",
     [clientId, year],
   );
   // Investointiin liitetyn myynnin hinta ei ole tuloa sellaisenaan: verotettavaa on vain
@@ -72,6 +75,8 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
       amountNet: r.category === "asset_sale" && r.asset_id ? 0 : Number(r.amount_net),
       amountGross: r.category === "asset_sale" && r.asset_id ? 0 : Number(r.amount_gross),
       withholding: Number(r.withholding),
+      // Tuloihin, menoihin ja hankintatyöhön vain metsätalouden osuus (src/lib/tax/share.ts).
+      businessSharePct: Number(r.business_share_pct),
     })),
   );
 
@@ -182,7 +187,12 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
   return {
     income: sum.income.net,
     expense: sum.expense.net,
-    deliveryWork: Math.round(rows.filter((r) => r.category === "delivery_work").reduce((s, r) => s + Number(r.amount_net), 0) * 100) / 100,
+    deliveryWork:
+      Math.round(
+        rows
+          .filter((r) => r.category === "delivery_work")
+          .reduce((s, r) => s + forestryShare({ kind: r.kind, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), businessSharePct: Number(r.business_share_pct) }).net, 0) * 100,
+      ) / 100,
     investment: sum.investment.net,
     withholding: sum.withholding,
     assets: planAssets,

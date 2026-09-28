@@ -7,6 +7,7 @@ import { getClient } from "@/lib/clients/queries";
 import { defaultYear, listAssets, listPropertyOptions, listTransactions, listYears } from "@/lib/ledger/queries";
 import { summarize } from "@/lib/ledger/summary";
 import { vatOf } from "@/lib/tax/amounts";
+import { formatSharePct, isPartialShare } from "@/lib/tax/share";
 import { rowFromStored, rowsFromSuggestion, withDuplicateWarnings } from "@/lib/ledger/grid";
 import { listPendingSuggestions } from "@/lib/documents/receipt-suggestions";
 import { receiptRecognizer } from "@/lib/ai/receipts";
@@ -61,7 +62,13 @@ export default async function LedgerPage({
   const { client: c, years, year, rows } = data;
   const status = years.find((y) => y.year === year)?.status;
   const closed = status === "closed";
-  const sum = summarize(rows.map((r) => ({ kind: r.kind, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), withholding: Number(r.withholding) })));
+  // Kortit ja summat ovat metsätalouden osuuksia (src/lib/tax/share.ts).
+  const sum = summarize(
+    rows.map((r) => ({
+      kind: r.kind, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), withholding: Number(r.withholding),
+      businessSharePct: Number(r.business_share_pct),
+    })),
+  );
   const today = new Date().toISOString().slice(0, 10);
   const defaultDate = year && today.startsWith(String(year)) ? today : `${year}-01-01`;
   // Avoimen vuoden oletusnäkymä on taulukko, jossa kaikki vuoden rivit ovat muokattavina
@@ -100,6 +107,12 @@ export default async function LedgerPage({
             <Stat label="Investoinnit ilman alv" value={formatEur(sum.investment.net)} />
             <Stat label="Tulos ennen poistoja" value={formatEur(sum.netResult)} tone={sum.netResult < 0 ? "alert" : undefined} />
           </div>
+          {sum.partialCount ? (
+            <p className="-mt-3 mb-6 text-sm text-ink/70">
+              {sum.partialCount === 1 ? "Yhdestä kirjauksesta" : `${sum.partialCount} kirjauksesta`} vain osa kuuluu metsätaloudelle. Luvuissa on vain
+              metsätalouden osuus.{sum.nonDeductibleVat ? ` Ostojen verosta ${formatEur(sum.nonDeductibleVat)} kuuluu muulle toiminnalle.` : ""}
+            </p>
+          ) : null}
 
           <YearReceipts
             clientId={id}
@@ -172,6 +185,9 @@ export default async function LedgerPage({
                       <Td>
                         {r.description || "–"}
                         {r.asset_description ? <span className="block text-xs text-ink/55">Investointi: {r.asset_description}</span> : null}
+                        {isPartialShare(r.business_share_pct) ? (
+                          <span className="block text-xs text-ink/55">Metsätalouden osuus {formatSharePct(Number(r.business_share_pct))} %</span>
+                        ) : null}
                       </Td>
                       <Td numeric className="font-semibold">
                         {formatEur(gross)}

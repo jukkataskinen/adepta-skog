@@ -25,7 +25,13 @@ export default async function VatPage({ params, searchParams }: { params: Promis
   });
   if (!data) notFound();
   const { client: c, years, year } = data;
-  const s = vatSummary(data.rows.map((r) => ({ bookedOn: r.booked_on, kind: r.kind, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), vatRate: Number(r.vat_rate) })));
+  // Ostojen verosta vain metsätalouden osuus, myynnin vero kokonaan (src/lib/tax/share.ts).
+  const s = vatSummary(
+    data.rows.map((r) => ({
+      bookedOn: r.booked_on, kind: r.kind, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), vatRate: Number(r.vat_rate),
+      businessSharePct: Number(r.business_share_pct),
+    })),
+  );
 
   return (
     <>
@@ -48,6 +54,11 @@ export default async function VatPage({ params, searchParams }: { params: Promis
             <Stat label="Ostojen vero" value={formatEur(s.year.input)} />
             <Stat label={s.year.payable < 0 ? "Palautettavaa" : "Maksettavaa"} value={formatEur(Math.abs(s.year.payable))} tone={s.year.payable < 0 ? "ok" : undefined} />
           </div>
+          {s.year.nonDeductible ? (
+            <p className="-mt-3 mb-6 text-sm text-ink/70">
+              Ostojen verosta {formatEur(s.year.nonDeductible)} kuuluu muulle toiminnalle, koska kirjauksesta vain osa on metsätaloutta. Sitä ei vähennetä tässä.
+            </p>
+          ) : null}
 
           <SectionTitle>Neljännekset</SectionTitle>
           <Table>

@@ -109,6 +109,14 @@ export interface NewFigures extends TaxFigures {
   linkedAssetSales: number;
   transactionCount: number;
   confirmed: boolean;
+  /**
+   * Kirjaukset, joista vain osa kuuluu metsätaloudelle (0013). Vanhassa
+   * sovelluksessa osuutta ei ole, joten tuodut rivit ovat 100 %. Tulot ja menot
+   * koko summina kertovat, selittääkö osuus eron.
+   */
+  partialShareCount: number;
+  incomeFull: number;
+  expenseFull: number;
 }
 
 /** Uuden veroraportin samat luvut. Tulot ja menot kirjanpidon tasolla, kuten vanhassa. */
@@ -132,6 +140,9 @@ export function newFigures(r: ReportData): NewFigures {
     linkedAssetSales: round2(income - r.plan.income),
     transactionCount: r.transactions.length,
     confirmed: r.confirmed,
+    partialShareCount: r.transactions.filter((t) => t.sharePct < 100).length,
+    incomeFull: round2(r.transactions.filter((t) => t.kind === "income").reduce((s, t) => s + t.net, 0)),
+    expenseFull: round2(r.transactions.filter((t) => t.kind === "expense").reduce((s, t) => s + t.net, 0)),
   };
 }
 
@@ -167,6 +178,15 @@ export function compareFigures(legacy: LegacyFigures, current: NewFigures): Comp
     if (legacy.transactionCount !== current.transactionCount) {
       explanations.push(`Kirjauksia on eri määrä: vanhassa ${legacy.transactionCount}, uudessa ${current.transactionCount}. Tarkista tuonnista pois jätetyt rivit.`);
     }
+  }
+
+  // Metsätalouden osuus on vain uudessa: jos koko summat täsmäävät, ero johtuu osuudesta.
+  if (current.partialShareCount) {
+    explanations.push(
+      `Osuus: uudessa ${current.partialShareCount} kirjauksesta vain osa kuuluu metsätaloudelle. Vanhassa sovelluksessa osuutta ei ollut, joten siellä summat ovat kokonaan metsätaloutta.`,
+    );
+    if (d.has("income") && same(legacy.income, current.incomeFull)) explained.add("income");
+    if (d.has("expense") && same(legacy.expense, current.expenseFull)) explained.add("expense");
   }
 
   if (d.has("vatInput") && same(round2(legacy.vatInput + legacy.investmentVat), current.vatInput)) {

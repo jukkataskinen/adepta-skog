@@ -1,6 +1,7 @@
 import { Button, Field, Input, Select } from "@/components/ui";
 import { ASSET_CLASSES, CATEGORIES, CATEGORY_GROUPS } from "@/lib/tax/rules";
 import type { AssetOption, PropertyOption, TransactionRow } from "@/lib/ledger/queries";
+import { isPartialShare } from "@/lib/tax/share";
 import { DeliveryWorkCalculator } from "./DeliveryWorkCalculator";
 
 const fi = (v: string | null | undefined) => (v === null || v === undefined ? "" : String(Number(v)).replace(".", ","));
@@ -32,6 +33,7 @@ export function TransactionForm({
   vatRegistered: boolean;
 }) {
   const saleOptions = assets.filter((a) => !a.disposed_on || a.id === transaction?.asset_id);
+  const partial = transaction ? isPartialShare(transaction.business_share_pct) : false;
   return (
     <form action={action} className="grid gap-4">
       <input type="hidden" name="clientId" value={clientId} />
@@ -86,6 +88,25 @@ export function TransactionForm({
           </Field>
         ) : null}
       </div>
+      <details className="rounded-xl border border-line bg-cloud/40 px-4 py-3 text-sm" open={partial}>
+        <summary className="cursor-pointer font-semibold">Lisätiedot: vain osa kuuluu metsätaloudelle{partial ? ` (${fi(transaction?.business_share_pct)} %)` : ""}</summary>
+        <div className="mt-3 grid gap-4 sm:grid-cols-[10rem_minmax(0,1fr)]">
+          <Field label="Metsätalouden osuus %" htmlFor="businessSharePct" hint="Tyhjä = 100 %.">
+            <Input
+              id="businessSharePct"
+              name="businessSharePct"
+              inputMode="decimal"
+              defaultValue={partial ? fi(transaction?.business_share_pct) : ""}
+              placeholder="100"
+              className="text-right"
+            />
+          </Field>
+          <p className="self-center text-ink/70">
+            Kirjoita summa koko kuitin mukaan. Jos esimerkiksi tiemaksusta vain puolet kuuluu metsätaloudelle, kirjoita 50. Silloin tuloihin, menoihin ja
+            vähennettävään arvonlisäveroon tulee vain puolet. Myynnin arvonlisävero on aina koko myynnistä.
+          </p>
+        </div>
+      </details>
       <DeliveryWorkCalculator year={Number((transaction?.booked_on ?? defaultDate).slice(0, 4))} />
       <details className="rounded-xl border border-line bg-cloud/40 px-4 py-3 text-sm" open={Boolean(transaction?.asset_id)}>
         <summary className="cursor-pointer font-semibold">Investointi (hankinta tai myynti)</summary>

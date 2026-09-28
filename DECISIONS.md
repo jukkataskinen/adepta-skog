@@ -246,3 +246,15 @@
 
 **Tekoälytunnistus organisaatiokohtaisesti: ehdotus, ei toteutettu (BLOCKERS 10).** Nyt tunnistus on koko palvelun asetus. Käsittelysopimuksen liite 3 kuvaa ehdotetun pääkäyttäjän asetuksen hakasulkeissa.
 
+
+**Metsätalouden osuus kirjauksesta (0013, Jukan pyyntö 28.9.2026).** `sk_transactions.business_share_pct` numeric(5,2), oletus 100, 0 < x ≤ 100. Kirjauksen `amount_gross` ja `amount_net` ovat aina koko tositteen summat (0009:n trigger ei muutu), jotta kuitti täsmää ja osuuden voi muuttaa jälkikäteen. Oletus ei kirjoita vanhoja rivejä, joten suljettujen vuosien lukitus ei laukea migraatiossa; osuuden muutos suljetulle vuodelle estyy kuten muukin muutos. Käyttöliittymässä "Metsätalouden osuus %", taulukossa "Osuus %".
+
+**Osuuden laskentasääntö yhdessä paikassa (`src/lib/tax/share.ts`).** Veroton osuus = pyöristys(veroton × osuus/100, 2), ostojen vähennettävä alv = pyöristys((brutto − veroton) × osuus/100, 2), ei-vähennettävä alv = koko vero − vähennettävä. Pyöristetään erikseen verottomasta ja verosta sentteinä kuten amounts.ts, jotta osat täsmäävät kuittiin. Kirjanpidon kortit, alv-yhteenveto, verosuunnitelma (tulot, menot, hankintatyö), veroraportin luokkasummat ja 2C käyttävät tätä. Kirjausluettelossa näytetään koko summa ja sarake Osuus, kun jokin rivi on alle 100 %.
+
+**Osuus sallitaan kaikille luokille.** Myös tulo voi kuulua osittain muulle toiminnalle (esimerkiksi korvaus usealle toiminnalle). Tulosta verotettavaksi tulee osuus, mutta myynnin arvonlisävero on koko myynnistä, koska myyjä tilittää veron koko laskuttamastaan myynnistä. Tämä on tulkinta, joka on vahvistettava kirjanpitäjältä (BLOCKERS 11).
+
+**Investoinnin hankintameno ja myyntihinta osuudesta.** `sk_assets.acquisition_cost` = metsätalouden osuus verottomasta hankintahinnasta, ja myynnissä `sale_price` samoin, jotta poistot ja luovutusvoitto koskevat vain metsätalouden osaa. 600 euron pienhankintarajaa verrataan osuuteen, koska vain se on metsätalouden hankintamenoa. Osuuden muutos päivittää investoinnin kuten summan muutos.
+
+**Osuus-sarake taulukossa alv %:n jälkeen, Enter ohittaa sen.** Osuus on harvoin muu kuin 100 %, joten Enter-siirto (tavallinen syöttö) hyppää sen yli, ja siihen pääsee Tabilla tai napsauttamalla. 100 % näkyy tyhjänä, jotta poikkeava osuus erottuu, ja rivin alle tulee "Metsätaloudelle X €, muulle Y €". Excel-liitoksessa osuus on valinnainen viimeinen sarake viitteen jälkeen, jotta vanhat Excel-pohjat toimivat ennallaan. Lomakkeella kenttä on Lisätiedot-kohdassa.
+
+**Tunnistuksen ehdotus on aina 100 %.** Tositteesta ei voi päätellä, kuuluuko osa muulle toiminnalle; kirjanpitäjä muuttaa osuuden taulukossa. Tuonti vanhasta sovelluksesta ei tunne osuutta: uudet rivit saavat 100 %, eikä uusintatuonti muuta uudessa asetettua osuutta. Vertailu (`vertaa:vero`) kertoo osuudellisista kirjauksista ja pitää tulojen tai menojen eron selitettynä, jos koko summat täsmäävät vanhaan.

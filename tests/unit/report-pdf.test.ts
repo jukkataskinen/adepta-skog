@@ -7,7 +7,8 @@ import { vatSummary } from "@/lib/tax/vat";
 
 function sample(status: "open" | "closed", transactions = 3): ReportData {
   const tx = Array.from({ length: transactions }, (_, i) => ({
-    bookedOn: `2025-0${(i % 9) + 1}-15`, kind: "income" as const, category: "Pystykauppa", description: `Leimikko ${i} – kuusikko`, net: 1000 + i, vatRate: 25.5, gross: 1255 + i, withholding: 0, attachment: i % 3 ? null : `${i + 1}, s. 2`,
+    bookedOn: `2025-0${(i % 9) + 1}-15`, kind: "income" as const, category: "Pystykauppa", description: `Leimikko ${i} – kuusikko`, net: 1000 + i, vatRate: 25.5, gross: 1255 + i, withholding: 0, sharePct: 100, shareNet: 1000 + i,
+    attachment: i % 3 ? null : `${i + 1}, s. 2`,
   }));
   return {
     year: 2025,
@@ -50,6 +51,18 @@ describe("veroraportti PDF:nä", () => {
       },
     ];
     s.depreciation = [{ ...s.depreciation[0], description: "Metsätie", transferred: 2125 }];
+    const doc = await PDFDocument.load(await renderTaxReport(s));
+    expect(doc.getPageCount()).toBe(8);
+  });
+
+  it("osittain metsätalouden kirjaus: Osuus-sarake ja huomautus alv:sta", async () => {
+    const s = sample("open", 4);
+    s.transactions[1] = { ...s.transactions[1], kind: "expense", category: "Tiemaksut", description: "Tiemaksu, Metsäyhtymä Heralahti", sharePct: 50, shareNet: 500.5 };
+    s.vat = vatSummary([
+      { bookedOn: "2025-06-15", kind: "income", amountNet: 42000, amountGross: 52710, vatRate: 25.5 },
+      { bookedOn: "2025-05-01", kind: "expense", amountNet: 200, amountGross: 251, vatRate: 25.5, businessSharePct: 50 },
+    ]);
+    expect(s.vat.year.nonDeductible).toBe(25.5);
     const doc = await PDFDocument.load(await renderTaxReport(s));
     expect(doc.getPageCount()).toBe(8);
   });

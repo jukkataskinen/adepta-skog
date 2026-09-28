@@ -1,6 +1,7 @@
 import type { Sql } from "@/lib/db/types";
 import { audit } from "@/lib/audit";
-import { netFromGross } from "@/lib/tax/amounts";
+import { netFromGross, percentOf } from "@/lib/tax/amounts";
+import { sharePct } from "@/lib/tax/share";
 import { ASSET_CLASS_PCTS, category, SMALL_ASSET_LIMIT, type TransactionKind } from "@/lib/tax/rules";
 import { ASSET_CLASS_MESSAGE, DEPRECIATED_MESSAGE, effectiveKind, SALE_ASSET_MESSAGE, SMALL_ASSET_MESSAGE } from "@/lib/ledger/transaction-input";
 
@@ -29,6 +30,8 @@ export interface TransactionWrite {
   /** Tehokas verokanta (oletus jo ratkaistu). */
   vatRate: number;
   withholding: number;
+  /** Metsätalouden osuus prosentteina (0 < x ≤ 100). Summat ovat silti koko tositteen. */
+  businessSharePct: number;
   /** undefined = muokatessa ennallaan (taulukossa ei ole viitesaraketta). */
   reference?: string | null;
   forestPropertyId: string | null;
@@ -68,8 +71,10 @@ async function restoreSoldAsset(tx: Sql, assetId: string) {
  *
  * Investoinnit:
  * - Hankinta luo investoinnin verottomalla summalla, ja muutos päivittää sen.
+ *   Jos vain osa kuuluu metsätaloudelle, hankintameno on metsätalouden osuus.
  * - Enintään 600 euron hankinta ohjataan vuosimenoksi (TVL 115 § 3 mom.).
- * - Myynti merkitsee investoinnin myydyksi verottomalla hinnalla.
+ *   Rajaa verrataan metsätalouden osuuteen, koska vain se on metsätalouden hankintamenoa.
+ * - Myynti merkitsee investoinnin myydyksi verottomalla hinnalla (metsätalouden osuus).
  * - Jos hankinnan luokka vaihtuu, investointi poistetaan samoin säännöin kuin
  *   hankinnan poistossa. Jos myynnin luokka tai kohde vaihtuu, entinen kohde palautetaan.
  */
@@ -84,7 +89,9 @@ export async function saveTransaction(
   const cat = category(w.category);
   if (!cat) throw new LedgerError("Valitse luokka.");
   const prev = id ? await previous(tx, clientId, id) : null;
-  const net = netFromGross(w.amountGross, w.vatRate);
+  const share = sharePct(w.businessSharePct);
+  // Investoinnin hankintameno ja myyntihinta ovat metsätalouden osuus verottomasta summasta (src/lib/tax/share.ts).
+  const net = percentOf(netFromGross(w.amountGross, w.vatRate), share);
   const kind = effectiveKind(cat.code, w.kind ?? (prev && prev.category === cat.code ? prev.kind : null));
 
   let assetId = prev?.asset_id ?? null;
@@ -128,19 +135,19 @@ export async function saveTransaction(
   }
   if (cat.code !== "asset_purchase" && cat.code !== "asset_sale") assetId = null;
 
-  const values = [w.bookedOn, kind, cat.code, w.description, w.amountGross, w.vatRate, w.withholding, assetId, w.forestPropertyId];
+  const values = [w.bookedOn, kind, cat.code, w.description, w.amountGross, w.vatRate, w.withholding, assetId, w.forestPropertyId, share];
   if (id) {
     const keepReference = w.reference === undefined;
     await tx.query(
       `update sk_transactions set booked_on = $3, kind = $4, category = $5, description = $6, amount_gross = $7, vat_rate = $8, withholding = $9,
-              asset_id = $10, forest_property_id = $11${keepReference ? "" : ", reference = $12"} where id = $1 and client_id = $2`,
+              asset_id = $10, forest_property_id = $11, business_share_pct = $12${keepReference ? "" : ", reference = $13"} where id = $1 and client_id = $2`,
       keepReference ? [id, clientId, ...values] : [id, clientId, ...values, w.reference],
     );
   } else {
     const [row] = await tx.query<{ id: string }>(
       `insert into sk_transactions (organization_id, client_id, booked_on, kind, category, description, amount_gross, vat_rate, withholding, asset_id,
-                                    forest_property_id, reference, created_by)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning id`,
+                                    forest_property_id, business_share_pct, reference, created_by)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning id`,
       [actor.organizationId, clientId, ...values, w.reference ?? null, actor.userId],
     );
     id = row.id;

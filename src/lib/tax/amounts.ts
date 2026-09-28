@@ -68,3 +68,12 @@ export function splitGross(gross: number, vatRate: number): { net: number; vat: 
   const net = netFromGross(gross, vatRate);
   return { net, vat: vatOf(net, gross), gross: round2(gross) };
 }
+
+/**
+ * Prosenttiosuus summasta senteiksi pyöristettynä: pyöristys(summa × osuus/100, 2),
+ * puolikas pois nollasta. Osuudessa on enintään kaksi desimaalia (numeric(5,2)).
+ * Käytetään metsätalouden osuuteen (src/lib/tax/share.ts).
+ */
+export function percentOf(amount: number, pct: number): number {
+  return Number(divRound(cents(amount) * cents(pct), 10000n)) / 100;
+}
