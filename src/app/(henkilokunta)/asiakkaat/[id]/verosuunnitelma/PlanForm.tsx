@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Button, Field, Input, Panel, SectionTitle, Stat } from "@/components/ui";
-import { planTotals, type PlanData } from "@/lib/tax/load";
+import { planTotals, priorOpeningText, type PlanData } from "@/lib/tax/load";
 import { computePlan, forestDeductionIncome, forestDeductionLimits, validateForestDeduction } from "@/lib/tax/plan";
 import { assetClassLabel, ENTREPRENEUR_DEDUCTION_PCT } from "@/lib/tax/rules";
 import { forestSaleLines } from "@/lib/tax/forest-sale";
@@ -128,12 +129,21 @@ export function PlanForm({
             Poistot
           </SectionTitle>
           <Panel>
-            {data.assets.length === 0 ? <p className="text-sm text-ink/65">Ei investointeja tälle vuodelle.</p> : null}
+            {data.assets.length === 0 ? (
+              <p className="text-sm text-ink/65">
+                Ei investointeja tälle vuodelle. Jos asiakkaalla on ennen tätä vuotta hankittu tie, oja tai kone, lisää se{" "}
+                <Link href={`/asiakkaat/${clientId}/investoinnit/uusi`} className="font-semibold text-sky">
+                  Investoinnit-sivulla
+                </Link>
+                .
+              </p>
+            ) : null}
             <ul className="grid gap-5">
               {data.assets.map((a) => (
                 <li key={a.id} className="grid gap-3">
                   <div>
                     <p className="font-semibold">{a.description}</p>
+                    {a.opening ? <p className="text-xs text-ink/55">{priorOpeningText(a.acquisitionCost, a.opening)}</p> : null}
                     <p className="text-sm text-ink/65">
                       {a.year.sold
                         ? `Myyty tänä vuonna, joten poistoa ei tehdä. ${a.year.saleGain ? `Luovutusvoitto ${eur(a.year.saleGain)}.` : `Luovutustappio ${eur(a.year.saleLoss)}.`}`

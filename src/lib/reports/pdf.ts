@@ -2,6 +2,7 @@ import { degrees, PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } 
 import { forestSaleLines } from "@/lib/tax/forest-sale";
 import { ADDITIONAL_PREPAYMENT_MIN, additionalPrepaymentDueDate, annualVatDueDate } from "@/lib/tax/rules";
 import { formatSharePct } from "@/lib/tax/share";
+import { priorOpeningText } from "@/lib/tax/load";
 import type { ReportData } from "./data";
 
 /**
@@ -422,6 +423,8 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
       w.row([d.description, d.sold ? "Myyty" : d.method, eur(d.bookValueStart), d.sold ? "–" : eur(d.amount), eur(d.bookValueEnd)], dep5);
       if (d.sold) w.text(d.saleGain ? `Luovutusvoitto ${eur(d.saleGain)}` : `Luovutustappio ${eur(d.saleLoss)}`, { size: 8, color: MUTED, x: LEFT + 4 });
       if (d.transferred) w.text(`Metsätilan myynnissä hankintamenoon siirtyi ${eur(d.transferred)}`, { size: 8, color: MUTED, x: LEFT + 4 });
+      const prior = priorOpeningText(d.acquisitionCost, d.opening);
+      if (prior) w.text(prior, { size: 8, color: MUTED, x: LEFT + 4 });
     }
     w.row(["Poistot yhteensä", "", "", eur(dep), ""], dep5, { tone: "total" });
   }

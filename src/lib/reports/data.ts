@@ -1,7 +1,7 @@
 import type { Sql } from "@/lib/db/types";
 import { forestryShare } from "@/lib/tax/share";
 import { category, type TransactionKind } from "@/lib/tax/rules";
-import { loadPlanData, type PlanData } from "@/lib/tax/load";
+import { loadPlanData, type PlanData, type PriorOpening } from "@/lib/tax/load";
 import { computePlan, type PlanResult } from "@/lib/tax/plan";
 import { vatSummary, type VatPeriod } from "@/lib/tax/vat";
 import { pageLabel, parsePagesColumn } from "@/lib/ai/receipts/schema";
@@ -53,6 +53,9 @@ export interface ReportData {
   result: PlanResult;
   depreciation: {
     description: string; method: string; bookValueStart: number; amount: number; bookValueEnd: number; transferred: number; sold: boolean; salePrice: number; saleGain: number; saleLoss: number;
+    /** Hankintahinta sekä kertynyt poisto ja menojäännös ennen Skogia (aiempi investointi tai tuonti). */
+    acquisitionCost: number;
+    opening: PriorOpening | null;
   }[];
   properties: { name: string; remainingBefore: number | null; deduction: number }[];
   confirmed: boolean;
@@ -141,6 +144,8 @@ export async function loadReportData(
       salePrice: a.year.salePrice,
       saleGain: a.year.saleGain,
       saleLoss: a.year.saleLoss,
+      acquisitionCost: a.acquisitionCost,
+      opening: a.opening,
     };
   });
   const result = computePlan({

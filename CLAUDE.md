@@ -62,6 +62,7 @@ src/lib/accounts/           Auth0-tunnusten luonti kutsussa (mock / Management A
 src/lib/clients/            asiakkaat ja vastuukirjanpitäjä
 src/lib/properties/         metsätilat
 src/lib/ledger/             kirjaukset ja tositteet
+src/lib/assets/             aiemmin hankitut investoinnit (prior.ts: menojäännös, lisäys, muutos, poisto)
 src/lib/tax/                verolaskenta: alv, poistot, metsävähennys, verosuunnitelma, säännöt
 src/lib/reports/            veroraportti PDF:nä, arkistointi
 src/lib/filing/             sähköiset veroilmoitukset: 2C-tiedosto (vsy02c.ts puhtaana funktiona, load, download)

@@ -59,7 +59,7 @@ describe("migraatio 0013", () => {
       const o = await seedOrg(old, "Vanha toimisto");
       await old.asService((tx) => tx.query("update sk_tax_years set status = 'closed', closed_at = now() where client_id = $1 and year = 2025", [o.client]));
       const before = await old.asService((tx) => tx.query<{ updated_at: string }>("select updated_at::text from sk_transactions where id = $1", [o.transaction]));
-      expect(await migrateLocal(old)).toEqual(["0013_business_share.sql"]);
+      expect(await migrateLocal(old, undefined, "0013_business_share.sql")).toEqual(["0013_business_share.sql"]);
       const [t] = await old.asService((tx) =>
         tx.query<{ business_share_pct: string; amount_net: string; updated_at: string }>(
           "select business_share_pct, amount_net, updated_at::text from sk_transactions where id = $1",

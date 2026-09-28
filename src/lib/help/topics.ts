@@ -421,8 +421,43 @@ export const HELP_TOPICS: HelpTopic[] = [
     icon: "hammer",
     title: "Investoinnit ja poistot",
     summary: "Koneet, tiet ja ojat poistetaan vuosittain. Ohjelma laskee poistot ja jäljellä olevan arvon.",
-    highlights: ["Kone 25 %, tie tai oja 15 %, rakennus 10 %", "Koneen myynti: luovutusvoitto tai -tappio", "Poistot valitaan verosuunnitelmassa"],
+    highlights: [
+      "Kone 25 %, tie tai oja 15 %, rakennus 10 %",
+      "Ennen Skogia hankittu tie tai kone menojäännöksineen",
+      "Koneen myynti: luovutusvoitto tai -tappio",
+      "Poistot valitaan verosuunnitelmassa",
+    ],
     sections: [
+      {
+        title: "Investoinnit-sivu",
+        text: "Avaa asiakas ja valitse välilehti Investoinnit. Näet kaikki asiakkaan investoinnit: hankintahinnan ja aiemmille investoinneille myös kertyneen poiston ja menojäännöksen. Uusi investointi syntyy, kun kirjaat hankinnan kirjanpitoon.",
+      },
+      {
+        title: "Aiemmin hankittu investointi ja menojäännös",
+        text: "Jos asiakkaalla on tie, oja, kone tai rakennus, joka on hankittu ennen Skogia, lisää se tästä. Tarvitset hankintahinnan ja tähän mennessä tehdyt poistot. Ne löytyvät yleensä edellisen vuoden veroilmoituksen poistolaskelmasta. Esimerkki: metsäautotien menojäännös 31.12.2024 on 3 265,60 euroa.",
+        steps: [
+          "Avaa asiakas ja valitse välilehti Investoinnit.",
+          "Valitse Lisää aiempi investointi.",
+          "Kirjoita kuvaukseksi Metsäautotie.",
+          "Valitse lajiksi Metsätie tai ojitus. Silloin vuodessa saa poistaa enintään 15 prosenttia.",
+          "Menojäännöksen vuosi on 2024. Ohjelma ehdottaa vuotta valmiiksi.",
+          "Hankintavuoden voit jättää tyhjäksi, jos et tiedä sitä.",
+          "Valitse metsätila, jolla tie on. Jos tila myydään, tien arvo siirtyy kauppaan oikein.",
+          "Kirjoita tien alkuperäinen hankintahinta.",
+          "Kirjoita kertynyt poisto 31.12.2024 eli kaikki tähän mennessä tehdyt poistot. Jos poistoja ei ole tehty, kirjoita 0.",
+          "Tarkista laskettu menojäännös. Sen pitää olla 3 265,60 euroa. Hankintahinta miinus kertynyt poisto on menojäännös.",
+          "Valitse Lisää investointi.",
+          "Avaa Verosuunnitelma ja vuosi 2025. Tie näkyy poistoissa. Poisto on enintään 489,84 euroa eli 15 prosenttia menojäännöksestä.",
+        ],
+        bullets: [
+          "Kalusto lisätään samalla tavalla. Valitse lajiksi Kone tai laite, jolloin poisto on enintään 25 prosenttia.",
+          "Investointi näkyy vasta menojäännöksen vuotta seuraavana vuonna. Aiemmille vuosille ei tule poistoa.",
+          "Jos menojäännös on enintään 600 euroa, sen saa poistaa kerralla.",
+          "Veroraportissa investoinnin alla lukee hankintahinta, kertynyt poisto ja menojäännös.",
+          "Voit muuttaa tai poistaa aiemman investoinnin, kunnes sen ensimmäinen poistovuosi on suljettu.",
+          "Jos muutat hinnan, poiston, lajin tai vuoden, jo vahvistetut poistot poistetaan. Vahvista verosuunnitelma silloin uudelleen.",
+        ],
+      },
       {
         title: "Poistotavat",
         bullets: [

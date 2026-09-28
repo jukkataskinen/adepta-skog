@@ -18,10 +18,49 @@ export interface PlanAsset {
   method: "straight_line" | "declining_balance";
   decliningRatePct: number | null;
   acquiredOn: string;
+  acquisitionCost: number;
+  /**
+   * Poistamaton arvo ennen Skogia: aiempi investointi (year = ensimmäinen
+   * poistovuosi, arvo on vuoden year − 1 lopussa) tai vanhasta sovelluksesta
+   * tuotu poistamaton arvo (year null). null, jos kohde on hankittu Skogissa.
+   */
+  opening: PriorOpening | null;
   year: AssetYear;
   /** Tälle vuodelle jo kirjattu poisto (vahvistettu suunnitelma). */
   recorded: number | null;
 }
+
+export interface PriorOpening {
+  year: number | null;
+  accumulated: number;
+  bookValue: number;
+}
+
+/**
+ * Hankintahinta, kertynyt poisto ja menojäännös ennen Skogia. Jos kertynyttä
+ * poistoa ei ole tallennettu (vanhan sovelluksen tuonti), se lasketaan
+ * hankintahinnasta ja poistamattomasta arvosta.
+ */
+export function priorOpening(a: { acquisitionCost: number; openingBookValue: number | null; openingYear: number | null; openingAccumulated: number | null }): PriorOpening | null {
+  if (a.openingBookValue === null) return null;
+  const accumulated = a.openingAccumulated ?? Math.max(0, Math.round((a.acquisitionCost - a.openingBookValue) * 100) / 100);
+  return { year: a.openingYear, accumulated, bookValue: a.openingBookValue };
+}
+
+/**
+ * Aiemman investoinnin tai vanhasta ohjelmasta tuodun kohteen lähtötiedot:
+ * hankintahinta, kertynyt poisto ja menojäännös ennen Skogia.
+ */
+export function priorOpeningText(acquisitionCost: number, opening: PriorOpening | null): string | null {
+  if (!opening) return null;
+  if (opening.year === null) {
+    return `Tuotu vanhasta ohjelmasta: hankintahinta ${euro(acquisitionCost)}, kertynyt poisto ${euro(opening.accumulated)}, poistamaton arvo ${euro(opening.bookValue)}`;
+  }
+  const end = `31.12.${opening.year - 1}`;
+  return `Aiempi investointi: hankintahinta ${euro(acquisitionCost)}, kertynyt poisto ${end} ${euro(opening.accumulated)}, menojäännös ${end} ${euro(opening.bookValue)}`;
+}
+
+const euro = (n: number) => (n + 0).toLocaleString("fi-FI", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 
 export interface PlanProperty {
   id: string;
@@ -102,11 +141,12 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
   const assets = await tx.query<{
     id: string; description: string; acquired_on: string; acquisition_cost: string; method: "straight_line" | "declining_balance";
     useful_life_years: number | null; declining_rate_pct: string | null; opening_book_value: string | null; disposed_on: string | null; sale_price: string | null;
+    opening_year: number | null; opening_accumulated_depreciation: string | null;
     forest_property_id: string | null;
     deps: { taxYear: number; amount: string; bookValueEnd: string }[] | null;
   }>(
     `select a.id, a.description, a.acquired_on::text, a.acquisition_cost, a.method, a.useful_life_years, a.declining_rate_pct, a.opening_book_value,
-            a.disposed_on::text, a.sale_price, a.forest_property_id,
+            a.disposed_on::text, a.sale_price, a.forest_property_id, a.opening_year, a.opening_accumulated_depreciation,
             (select json_agg(json_build_object('taxYear', d.tax_year, 'amount', d.amount, 'bookValueEnd', d.book_value_end)) from sk_depreciations d where d.asset_id = a.id) as deps
        from sk_assets a where a.client_id = $1 order by a.acquired_on`,
     [clientId],
@@ -123,6 +163,7 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
       acquiredOn: a.acquired_on, acquisitionCost: Number(a.acquisition_cost), method: a.method, usefulLifeYears: a.useful_life_years,
       decliningRatePct: rate,
       openingBookValue: a.opening_book_value === null ? null : Number(a.opening_book_value),
+      openingYear: a.opening_year === null ? null : Number(a.opening_year),
       disposedOn: a.disposed_on, salePrice: a.sale_price === null ? null : Number(a.sale_price),
       transferFractions: transfers,
     };
@@ -138,7 +179,14 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
       if (y.transferred > 0) transfersOut.push({ method: a.method, decliningRatePct: rate, acquiredOn: a.acquired_on, amount: y.transferred });
       continue;
     }
-    planAssets.push({ id: a.id, description: a.description, method: a.method, decliningRatePct: rate, acquiredOn: a.acquired_on, year: y, recorded: deps.find((d) => d.taxYear === year)?.amount ?? null });
+    const opening = priorOpening({
+      acquisitionCost: input.acquisitionCost, openingBookValue: input.openingBookValue, openingYear: input.openingYear,
+      openingAccumulated: a.opening_accumulated_depreciation === null ? null : Number(a.opening_accumulated_depreciation),
+    });
+    planAssets.push({
+      id: a.id, description: a.description, method: a.method, decliningRatePct: rate, acquiredOn: a.acquired_on, acquisitionCost: input.acquisitionCost, opening, year: y,
+      recorded: deps.find((d) => d.taxYear === year)?.amount ?? null,
+    });
   }
 
   const num = (v: string | null) => (v === null ? null : Number(v));

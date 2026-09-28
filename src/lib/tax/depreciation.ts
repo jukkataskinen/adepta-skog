@@ -19,6 +19,11 @@ import { SMALL_ASSET_LIMIT } from "./rules";
  *   poistamaton arvo vuoden alussa lisätään metsän hankintamenoon
  *   (transferred), ja vuoden poisto lasketaan jäljelle jäävästä arvosta. Kun
  *   koko tila on myyty, investointia ei enää poisteta.
+ * - Aiemmin hankittu investointi (openingYear): openingBookValue on
+ *   menojäännös vuoden openingYear alussa eli edellisen vuoden lopussa.
+ *   Laskenta alkaa siitä vuodesta, ja aiemmat vuodet ovat inaktiivisia, jotta
+ *   niille ei näy poistoa. Ilman openingYearia (vanhan sovelluksen tuonti)
+ *   openingBookValue on arvo hankintavuoden alussa kuten ennen.
  */
 
 export interface AssetInput {
@@ -28,6 +33,8 @@ export interface AssetInput {
   usefulLifeYears: number | null;
   decliningRatePct: number | null;
   openingBookValue: number | null;
+  /** Vuosi, jonka alun arvo openingBookValue on (aiempi investointi). Tyhjä vanhoilla riveillä. */
+  openingYear?: number | null;
   disposedOn: string | null;
   salePrice: number | null;
   /** Metsätilan luovutukset: vuosi ja osa vuoden alun arvosta, joka siirtyy (1 = kaikki). */
@@ -65,25 +72,28 @@ const yearOf = (d: string) => Number(d.slice(0, 4));
 
 /** Poistamaton arvo vuoden alussa ilman luovutuksia (kirjatut loppuarvot tai poistot). */
 function valueAtStart(asset: AssetInput, recorded: RecordedDepreciation[], year: number): number {
-  const previous = recorded.filter((r) => r.taxYear < year).sort((a, b) => b.taxYear - a.taxYear);
+  // Aiemman investoinnin menojäännöksessä on jo kaikki ennen openingYearia tehdyt poistot.
+  const from = asset.openingYear ?? -Infinity;
+  const previous = recorded.filter((r) => r.taxYear >= from && r.taxYear < year).sort((a, b) => b.taxYear - a.taxYear);
   const start = asset.openingBookValue ?? asset.acquisitionCost;
   return round2(previous.length && previous[0].taxYear === year - 1 ? previous[0].bookValueEnd : Math.max(0, start - previous.reduce((s, r) => s + r.amount, 0)));
 }
 
 export function assetYear(asset: AssetInput, recorded: RecordedDepreciation[], year: number): AssetYear {
-  const acquiredYear = yearOf(asset.acquiredOn);
+  // Ensimmäinen vuosi, jonka poisto lasketaan: hankintavuosi tai aiemman investoinnin avausvuosi.
+  const firstYear = Math.max(yearOf(asset.acquiredOn), asset.openingYear ?? -Infinity);
   const soldYear = asset.disposedOn ? yearOf(asset.disposedOn) : null;
   const inactive: AssetYear = {
     active: false, bookValueStart: 0, min: 0, max: 0, mandatory: false, sold: false, salePrice: 0, saleGain: 0, saleLoss: 0, smallBalance: false,
     transferred: 0, bookValueBase: 0,
   };
-  if (year < acquiredYear || (soldYear !== null && year > soldYear)) return inactive;
+  if (year < firstYear || (soldYear !== null && year > soldYear)) return inactive;
 
   // Luovutusten jälkeen arvo lasketaan ketjuna ensimmäisestä luovutusvuodesta:
   // siirretty osuus pois ja kirjattu poisto pois vuosittain. Kirjattuun
   // loppuarvoon ei luoteta, koska luovutus on voitu kirjata vahvistuksen jälkeen.
   const fraction = (y: number) => (asset.transferFractions ?? []).filter((t) => t.year === y).reduce((s, t) => s + t.fraction, 0);
-  const transfers = (asset.transferFractions ?? []).filter((t) => t.year >= acquiredYear && t.year < year && t.fraction > 0);
+  const transfers = (asset.transferFractions ?? []).filter((t) => t.year >= firstYear && t.year < year && t.fraction > 0);
   let bookValueStart: number;
   if (!transfers.length) bookValueStart = valueAtStart(asset, recorded, year);
   else {

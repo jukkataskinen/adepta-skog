@@ -22,7 +22,7 @@ function sample(status: "open" | "closed", transactions = 3): ReportData {
     vat: vatSummary([{ bookedOn: "2025-06-15", kind: "income", amountNet: 42000, amountGross: 52710, vatRate: 25.5 }]),
     plan: { income: 42000, expense: 340, deliveryWork: 0, investment: 0, withholding: 0, assets: [], properties: [], deductionPool: null, forestSales: [], recordedDeduction: 0, confirmed: false, transfersOut: [], deductionTracking: null },
     result: computePlan({ year: 2025, income: 42000, expense: 340, depreciation: 0, saleGain: 0, saleLoss: 0, salePrices: 0, forestDeduction: 0 }),
-    depreciation: [{ description: "Metsätraktori", method: "Menojäännöspoisto", bookValueStart: 22500, amount: 5625, bookValueEnd: 16875, transferred: 0, sold: false, salePrice: 0, saleGain: 0, saleLoss: 0 }],
+    depreciation: [{ description: "Metsätraktori", method: "Menojäännöspoisto", bookValueStart: 22500, amount: 5625, bookValueEnd: 16875, transferred: 0, sold: false, salePrice: 0, saleGain: 0, saleLoss: 0, acquisitionCost: 30000, opening: null }],
     properties: [{ name: "Kotimetsä", remainingBefore: 57600, deduction: 0 }],
     confirmed: false,
   };
@@ -51,6 +51,18 @@ describe("veroraportti PDF:nä", () => {
       },
     ];
     s.depreciation = [{ ...s.depreciation[0], description: "Metsätie", transferred: 2125 }];
+    const doc = await PDFDocument.load(await renderTaxReport(s));
+    expect(doc.getPageCount()).toBe(8);
+  });
+
+  it("aiempi investointi: hankintahinta, kertynyt poisto ja menojäännös mahtuvat raporttiin", async () => {
+    const s = sample("open");
+    s.depreciation = [
+      {
+        ...s.depreciation[0], description: "Metsäautotie", method: "Menojäännös 15 %", bookValueStart: 3265.6, amount: 489.84, bookValueEnd: 2775.76,
+        acquisitionCost: 5000, opening: { year: 2025, accumulated: 1734.4, bookValue: 3265.6 },
+      },
+    ];
     const doc = await PDFDocument.load(await renderTaxReport(s));
     expect(doc.getPageCount()).toBe(8);
   });
