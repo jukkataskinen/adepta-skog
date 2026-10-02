@@ -3,8 +3,9 @@ import { EmptyState, Notice, PageHeader, SectionTitle, Stat, Table, Td, Th } fro
 import { requireStaff } from "@/lib/auth/current-user";
 import { getClient } from "@/lib/clients/queries";
 import { defaultYear, listTransactions, listYears } from "@/lib/ledger/queries";
-import { vatSummary } from "@/lib/tax/vat";
+import { vatRowsFrom, vatSummary } from "@/lib/tax/vat";
 import { formatEur } from "@/lib/format";
+import { ACTIVITY_LABEL } from "@/lib/tax/rules";
 import { ClientTabs } from "../../ClientTabs";
 import { YearNav } from "../../YearNav";
 
@@ -25,13 +26,9 @@ export default async function VatPage({ params, searchParams }: { params: Promis
   });
   if (!data) notFound();
   const { client: c, years, year } = data;
-  // Ostojen verosta vain metsätalouden osuus, myynnin vero kokonaan (src/lib/tax/share.ts).
-  const s = vatSummary(
-    data.rows.map((r) => ({
-      bookedOn: r.booked_on, kind: r.kind, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), vatRate: Number(r.vat_rate),
-      businessSharePct: Number(r.business_share_pct),
-    })),
-  );
+  // Ostojen verosta metsän ja maatalouden osuudet, myynnin vero kokonaan (src/lib/tax/share.ts).
+  // Yksi laskelma kaikista kirjauksista, koska metsä ja maatalous ilmoitetaan samalla alv-ilmoituksella.
+  const s = vatSummary(vatRowsFrom(data.rows));
 
   return (
     <>
@@ -56,8 +53,45 @@ export default async function VatPage({ params, searchParams }: { params: Promis
           </div>
           {s.year.nonDeductible ? (
             <p className="-mt-3 mb-6 text-sm text-ink/70">
-              Ostojen verosta {formatEur(s.year.nonDeductible)} kuuluu muulle toiminnalle, koska kirjauksesta vain osa on metsätaloutta. Sitä ei vähennetä tässä.
+              {c.has_agriculture
+                ? `Ostojen verosta ${formatEur(s.year.nonDeductible)} on yksityistä, koska kirjauksesta vain osa kuuluu metsä- tai maataloudelle. Sitä ei vähennetä.`
+                : `Ostojen verosta ${formatEur(s.year.nonDeductible)} kuuluu muulle toiminnalle, koska kirjauksesta vain osa on metsätaloutta. Sitä ei vähennetä tässä.`}
             </p>
+          ) : null}
+
+          {c.has_agriculture ? (
+            <section className="mb-8">
+              <SectionTitle>Metsä ja maatalous</SectionTitle>
+              <p className="mb-3 max-w-3xl text-sm text-ink/70">
+                Metsätalous ja maatalous ilmoitetaan samalla arvonlisäveroilmoituksella. Erittely näyttää, mistä toiminnosta vero tulee.
+              </p>
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>Toiminto</Th>
+                    <Th numeric>Myynnin vero</Th>
+                    <Th numeric>Ostojen vero</Th>
+                    <Th numeric>Maksettava</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(["forestry", "agriculture"] as const).map((a) => (
+                    <tr key={a}>
+                      <Td>{ACTIVITY_LABEL[a]}</Td>
+                      <Td numeric>{formatEur(s.year.byActivity[a].output)}</Td>
+                      <Td numeric>{formatEur(s.year.byActivity[a].input)}</Td>
+                      <Td numeric>{formatEur(s.year.byActivity[a].output - s.year.byActivity[a].input)}</Td>
+                    </tr>
+                  ))}
+                  <tr className="border-t-2 border-line font-semibold">
+                    <Td>Yhteensä</Td>
+                    <Td numeric>{formatEur(s.year.output)}</Td>
+                    <Td numeric>{formatEur(s.year.input)}</Td>
+                    <Td numeric>{formatEur(s.year.payable)}</Td>
+                  </tr>
+                </tbody>
+              </Table>
+            </section>
           ) : null}
 
           <SectionTitle>Neljännekset</SectionTitle>
@@ -106,6 +140,30 @@ export default async function VatPage({ params, searchParams }: { params: Promis
                 </tbody>
               </Table>
             )}
+          </section>
+
+          <section className="mt-8">
+            <SectionTitle>Arvonlisäveroilmoituksen kentät</SectionTitle>
+            <p className="mb-3 max-w-3xl text-sm text-ink/70">
+              Näillä luvuilla täytät vuoden arvonlisäveroilmoituksen OmaVerossa (verokausi kalenterivuosi). Tarkista luvut ennen lähettämistä.
+            </p>
+            <Table>
+              <tbody>
+                {[
+                  ["301", "Vero 25,5 %", s.year.form.general],
+                  ["302", "Vero 14 % tai 13,5 %", s.year.form.reduced],
+                  ["303", "Vero 10 %", s.year.form.ten],
+                  ["307", "Verokauden vähennettävä vero", s.year.form.deductible],
+                  ["308", s.year.form.payable < 0 ? "Palautettava vero" : "Maksettava vero", Math.abs(s.year.form.payable)],
+                ].map(([code, label, value]) => (
+                  <tr key={code as string}>
+                    <Td className="w-16 tabular text-ink/55">{code}</Td>
+                    <Td>{label}</Td>
+                    <Td numeric>{formatEur(value as number)}</Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
           </section>
         </>
       )}

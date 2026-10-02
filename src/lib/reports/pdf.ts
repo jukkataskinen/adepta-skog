@@ -403,7 +403,36 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
   w.row([data.vat.year.label, eur(data.vat.year.output), eur(data.vat.year.input), eur(data.vat.year.payable)], vat4, { tone: "total" });
   if (data.vat.year.nonDeductible) {
     w.space(3);
-    w.text(`Ostojen verosta ${eur(data.vat.year.nonDeductible)} kuuluu muulle toiminnalle, joten sitä ei vähennetä tässä.`, { size: 8, color: MUTED });
+    w.text(
+      data.client.hasAgriculture
+        ? `Ostojen verosta ${eur(data.vat.year.nonDeductible)} on yksityistä, joten sitä ei vähennetä.`
+        : `Ostojen verosta ${eur(data.vat.year.nonDeductible)} kuuluu muulle toiminnalle, joten sitä ei vähennetä tässä.`,
+      { size: 8, color: MUTED },
+    );
+  }
+  if (data.client.hasAgriculture) {
+    // Metsä ja maatalous ilmoitetaan samalla alv-ilmoituksella; erittely kertoo, mistä vero tulee.
+    w.space(4);
+    w.subheading("Metsä ja maatalous");
+    w.head(["Toiminto", "Myynnin vero", "Ostojen vero", "Maksettava"], vat4);
+    for (const [key, label] of [["forestry", "Metsätalous"], ["agriculture", "Maatalous"]] as const) {
+      const a = data.vat.year.byActivity[key];
+      w.row([label, eur(a.output), eur(a.input), eur(Math.round((a.output - a.input) * 100) / 100)], vat4);
+    }
+    w.row(["Yhteensä", eur(data.vat.year.output), eur(data.vat.year.input), eur(data.vat.year.payable)], vat4, { tone: "total" });
+  }
+  w.space(4);
+  w.subheading("Arvonlisäveroilmoituksen kentät");
+  const f3: Col[] = [{ width: 20 }, { width: 100 }, { width: 50, align: "right" }];
+  const form = data.vat.year.form;
+  for (const [code, label, value] of [
+    ["301", "Vero 25,5 %", form.general],
+    ["302", "Vero 14 % tai 13,5 %", form.reduced],
+    ["303", "Vero 10 %", form.ten],
+    ["307", "Verokauden vähennettävä vero", form.deductible],
+    ["308", form.payable < 0 ? "Palautettava vero" : "Maksettava vero", Math.abs(form.payable)],
+  ] as const) {
+    w.row([code, label, eur(value)], f3);
   }
   if (data.vat.year.byRate.length) {
     w.space(4);

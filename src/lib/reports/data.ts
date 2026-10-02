@@ -3,7 +3,7 @@ import { activityRows, forestryShare } from "@/lib/tax/share";
 import { category, type Activity, type TransactionKind } from "@/lib/tax/rules";
 import { loadPlanData, type PlanData, type PriorOpening } from "@/lib/tax/load";
 import { computePlan, type PlanResult } from "@/lib/tax/plan";
-import { vatSummary, type VatPeriod } from "@/lib/tax/vat";
+import { vatRowsFrom, vatSummary, type VatPeriod } from "@/lib/tax/vat";
 import { pageLabel, parsePagesColumn } from "@/lib/ai/receipts/schema";
 import { listAttachmentDocuments } from "./attachments";
 
@@ -45,7 +45,11 @@ export interface ReportData {
   closedAt: string | null;
   generatedAt: string;
   office: { name: string; businessId: string | null; email: string | null; phone: string | null; address: string | null };
-  client: { name: string; businessId: string | null; address: string | null; municipality: string | null; vatRegistered: boolean; taxAccountReference: string | null };
+  client: {
+    name: string; businessId: string | null; address: string | null; municipality: string | null; vatRegistered: boolean; taxAccountReference: string | null;
+    /** Toiminnot (0015): maatalousasiakkaan raportissa on maatalousosa ja alv-erittely. */
+    hasForestry: boolean; hasAgriculture: boolean;
+  };
   categories: ReportCategoryRow[];
   transactions: ReportTransaction[];
   vat: { quarters: VatPeriod[]; year: VatPeriod };
@@ -75,8 +79,12 @@ export async function loadReportData(
     "select name, business_id, contact_email, contact_phone, postal_street, postal_code, postal_city from sk_organizations where id = $1",
     [orgId],
   );
-  const [c] = await tx.query<{ first_name: string; last_name: string; business_id: string | null; street: string | null; postal_code: string | null; city: string | null; municipality: string | null; vat_registered: boolean; tax_account_reference: string | null }>(
-    "select first_name, last_name, business_id, street, postal_code, city, municipality, vat_registered, tax_account_reference from sk_clients where id = $1 and organization_id = $2",
+  const [c] = await tx.query<{
+    first_name: string; last_name: string; business_id: string | null; street: string | null; postal_code: string | null; city: string | null; municipality: string | null;
+    vat_registered: boolean; tax_account_reference: string | null; has_forestry: boolean; has_agriculture: boolean;
+  }>(
+    `select first_name, last_name, business_id, street, postal_code, city, municipality, vat_registered, tax_account_reference, has_forestry, has_agriculture
+       from sk_clients where id = $1 and organization_id = $2`,
     [clientId, orgId],
   );
   const [y] = await tx.query<{ status: "open" | "closed"; closed_at: string | null }>("select status, closed_at::text from sk_tax_years where client_id = $1 and year = $2", [
@@ -178,15 +186,11 @@ export async function loadReportData(
     client: {
       name: `${c.first_name} ${c.last_name}`.trim(), businessId: c.business_id, address: joinAddress(c.street, c.postal_code, c.city),
       municipality: c.municipality, vatRegistered: c.vat_registered, taxAccountReference: c.tax_account_reference,
+      hasForestry: c.has_forestry, hasAgriculture: c.has_agriculture,
     },
     categories: [...byCat.values()],
     transactions,
-    vat: vatSummary(
-      rows.map((r) => ({
-        bookedOn: r.booked_on, kind: r.kind, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), vatRate: Number(r.vat_rate),
-        businessSharePct: Number(r.business_share_pct),
-      })),
-    ),
+    vat: vatSummary(vatRowsFrom(rows)),
     plan,
     result,
     depreciation,

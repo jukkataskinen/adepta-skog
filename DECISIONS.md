@@ -323,3 +323,7 @@
 **Kirjanpidon kortit toiminnoittain.** Maatalousasiakkaalle kortit (tulot, menot, investoinnit, tulos ennen poistoja) näytetään erikseen metsälle ja maataloudelle kummankin osuuksilla. Pelkälle metsäasiakkaalle kortit ovat ennallaan.
 
 **Suodatin Kaikki / Metsä / Maatalous jätettiin pois MVP:stä.** Suodatus muokattavassa taulukossa vaikeuttaisi näppäinsiirtoja ja tallennusta (piilotetut rivit). Luokkaryhmät ja kortit erottavat toiminnot riittävästi; suodatin on PLANissa.
+
+**Yksi alv-laskelma metsälle ja maataloudelle (tehtävä 4).** Alv-välilehti ja raportti laskevat kaikki asiakkaan kirjaukset kuten ennen. Uutta: taulukko Metsä ja maatalous (myynnin ja vähennettävän veron erittely toiminnoittain, vain maatalousasiakkaalle) ja kaikille asiakkaille ilmoituksen kentät 301 (yleinen kanta), 302 (14 % / 13,5 %), 303 (10 %), 307 (vähennettävä vero) ja 308 (maksettava tai palautettava). Kenttä tulee rivin verokannasta. Ilmoitusta ei muodosteta tiedostoksi (PLAN, myöhemmin).
+
+**Kirjauspäivä ratkaisee myös alv-vuoden.** MVP ei erota suoritepäivää: vuodenvaihteen tilitykset kirjataan alv:n kannalta oikealle päivälle, tai asiakas käyttää maksuperusteista alv:tä. Erillinen alv-päivä on mahdollinen myöhemmin (suunnitelman avoin kysymys 4).

@@ -121,7 +121,7 @@ Suunnitelma: `docs/maatalous-suunnitelma-2026-10-02.md`. Verovuodet 2025 ja 2026
 - [x] 1. Migraatio 0015: asiakkaan toiminnot, kirjauksen toiminto ja toisen toiminnon osuus, investoinnin toiminto ja poistoryhmä, maatilat, vuoden tiedot, ryhmäpoistot, investointituet, varaukset ja niiden käyttö, kotieläinten jaksotukset, harvinaiset kentät; RLS, triggerit, lukitus, testit (2.10.2026)
 - [x] 2. Säännöt ja luokat: maatalouden luokat (21–59) lomakkeen 2 kenttiin, alennettu alv aikasarjana (14 → 13,5 %), maatalouden poistoryhmät ja rajat, 2025:n korotettu poisto, toiminnon osuudet; metsätalouden laskelmiin vain metsätalouden osa (2.10.2026)
 - [x] 3. Syöttö: asiakkaan toiminnot (metsätalous, maatalous), taulukko, lomake ja Excel maatalouden luokilla, toisen toiminnon osuus, maatalouden investoinnin poistoryhmä ja myynti, kortit toiminnoittain; ohjeet (2.10.2026)
-- [ ] 4. Yhteinen arvonlisävero metsälle ja maataloudelle, erittely toiminnoittain
+- [x] 4. Yhteinen arvonlisävero metsälle ja maataloudelle: vähennettävä vero oman ja toisen toiminnon osuudesta, erittely toiminnoittain alv-sivulla ja raportissa, ilmoituksen kentät 301–308 (2.10.2026)
 - [ ] 5. Maatalouden investoinnit, aiemmat investoinnit ja ryhmäpoistot
 - [ ] 6. Maatalouden vuoden tiedot -sivu
 - [ ] 7. Lomakkeen 2 laskenta

@@ -16,7 +16,7 @@ function sample(status: "open" | "closed", transactions = 3): ReportData {
     closedAt: status === "closed" ? "2026-02-01T10:00:00Z" : null,
     generatedAt: "2026-02-01T10:00:00Z",
     office: { name: "Demometsä Tilitoimisto Oy", businessId: "1234567-1", email: "toimisto@example.test", phone: null, address: "Tie 1, 99990 Demola" },
-    client: { name: "Aino Esimerkki", businessId: null, address: "Metsätie 2, 99990 Demola", municipality: "Demola", vatRegistered: true, taxAccountReference: "1234567890" },
+    client: { name: "Aino Esimerkki", businessId: null, address: "Metsätie 2, 99990 Demola", municipality: "Demola", vatRegistered: true, taxAccountReference: "1234567890", hasForestry: true, hasAgriculture: false },
     categories: [{ label: "Pystykauppa", kind: "income", net: 42000, vat: 10710, gross: 52710 }],
     transactions: tx,
     vat: vatSummary([{ bookedOn: "2025-06-15", kind: "income", amountNet: 42000, amountGross: 52710, vatRate: 25.5 }]),

@@ -509,7 +509,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     icon: "stamp",
     title: "Arvonlisävero",
     summary: "Arvonlisävero lasketaan kirjauksista neljänneksittäin ja koko vuodelta.",
-    highlights: ["Myynnin ja ostojen vero", "Maksettava tai palautettava", "Myynnit verokannoittain"],
+    highlights: ["Myynnin ja ostojen vero", "Maksettava tai palautettava", "Myynnit verokannoittain", "Metsä ja maatalous samalla ilmoituksella"],
     sections: [
       {
         title: "Näin luet yhteenvedon",
@@ -519,6 +519,25 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Maksettava on myynnin vero miinus ostojen vero. Jos luku on miinuksella, veroa palautetaan.",
           "Jos kirjauksesta vain osa kuuluu metsätaloudelle, ostojen verosta on mukana vain se osa. Loppu näkyy korttien alla, eikä sitä vähennetä.",
           "Neljännekset auttavat, jos asiakas ilmoittaa useammin kuin kerran vuodessa.",
+        ],
+      },
+      {
+        title: "Metsä ja maatalous",
+        text: "Kun asiakas harjoittaa metsä- ja maataloutta, molemmat ilmoitetaan samalla arvonlisäveroilmoituksella. Skog laskee yhden yhteenvedon kaikista kirjauksista.",
+        bullets: [
+          "Taulukko Metsä ja maatalous näyttää, paljonko veroa tulee kummastakin toiminnosta.",
+          "Ostojen verosta vähennetään metsän ja maatalouden osuus. Vain yksityinen osuus jää vähentämättä.",
+          "Maidon, viljan ja rehun alennettu verokanta on 14 % vuonna 2025 ja 13,5 % vuodesta 2026.",
+          "Verokausi on yleensä kalenterivuosi. Ilmoita ja maksa vero viimeistään seuraavan helmikuun lopussa.",
+        ],
+      },
+      {
+        title: "Arvonlisäveroilmoituksen kentät",
+        steps: [
+          "Avaa Arvonlisävero-välilehti ja valitse vuosi.",
+          "Katso sivun alaosasta taulukko Arvonlisäveroilmoituksen kentät.",
+          "Kirjoita luvut OmaVeron ilmoitukseen samoihin kohtiin: 301, 302, 303, 307 ja 308.",
+          "Tarkista luvut ennen kuin lähetät ilmoituksen.",
         ],
       },
     ],
