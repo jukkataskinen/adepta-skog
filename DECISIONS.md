@@ -343,3 +343,15 @@
 **Varaukset ja jaksotukset käsin.** Tasaus- ja jälleenhankintavaraus kirjoitetaan tekovuodelle, ja käyttö (investointiin tai tuloutus) lisätään varauksen kohdalle sivun vuodelle. Kanta estää käyttämästä enemmän kuin varausta on ja ennen tekovuotta. Aiempien vuosien kotieläinten jaksotukset kirjoitetaan käsin; tyhjät vuosiosat jaetaan tasan senteissä, ja ensimmäinen vuosi saa pyöristyksen erotuksen.
 
 **Harvinaiset kentät luettelosta.** Ajoneuvot (281–288, 516, 518, 519, 534), työmatkat (401–411, 423–429, 532, 533, 286), käyttöön ottamattomat (278–280) ja arvopapereiden luovutusvoitot (409) valitaan luettelosta (`src/lib/filing/vsy002-fields.ts`, nimet tietuekuvauksesta 2026), ja arvo tarkistetaan lajin mukaan (rahamäärä, kokonaisluku tai 1/2). Lokiin kirjataan kenttä, ei arvoa.
+
+**Lomakkeen 2 laskenta (tehtävä 7, `computeForm2`).** Kentät lasketaan tietuekuvauksen 2025 ja 2026 kaavoilla: 332 = 210 + 212 + … + 328 (#1987/#2045, 211 ei ole summassa), 357 = 225 + 226 + 228 + 229 + 230 + 231 + 232 + 465 + 464 (#1988/#2046), tulos tai tappio (#1450, #880), poistotaulukon loppuarvot kaavasta (#1424, #1417–#1419, #1451, #1887, #1453) ja 231 ryhmien poistoista (#1886). Laskenta ei rajaa summia, joten tarkistukset täsmäävät aina; virheiksi jäävät syötön ristiriidat (#392 tappio pääomatuloista, #826 ja #827 ajoneuvot, negatiivinen kenttä).
+
+**Menot alv-kannan mukaan.** Rekisteröidyllä rivin kanta ratkaisee kentän (yleinen → 226, alennettu ja 10 % → 229, 0 % → 230), ja summa on veroton. Rekisteröimättömällä kenttä tulee luokan oletuskannasta ja summa on verollinen (ohje lomakkeeseen 2); tämä on suunnitelman avoin kysymys 9 ja tarkistettava kirjanpitäjältä. Palkat, jaksotettava hankinta, vakuutukset, MYEL, kiinteistövero, korot ja muut vähennykset menevät aina omiin kenttiinsä.
+
+**Osingot ja osuuskunnan ylijäämä.** Pörssiyhtiöiden osingoista veronalaista on 85 % (223/224) ja muiden 75 % (321/322). Muiden osuuskuntien ylijäämästä (327/328) veronalaista on 25 % 5 000 euroon asti ja 75 % sen yli, asiakkaan kaikista osuuskunnista yhteensä. Julkisesti noteerattuja osuuskuntia (325/326) ei käytetä, koska niitä ei tietuekuvauksen mukaan ollut 2025–2026.
+
+**Kotieläinten jaksotus.** Verovuodelle kuuluva osa (212 ja 228) lasketaan tämän ja kahden edellisen vuoden jaksotettavista kirjauksista (luokat 22 ja 50, tasan kolmeen osaan senteissä) ja käsin syötetyistä aiempien vuosien jaksotuksista. Jos sama vuosi on sekä kirjanpidossa että käsin, molemmat lasketaan; ohje neuvoo kirjaamaan käsin vain vuodet, joita ei ole Skogissa.
+
+**Varallisuuslaskelma.** 466 = rakennusryhmien loppuarvot + käyttöön ottamattomat rakennukset (279); 467 = koneiden menojäännös + käyttöön ottamattomat koneet (278) − niihin käytetty tasausvaraus (280); 469 = syötetty muu varallisuus + siltojen ja salaojien menojäännös. Muut erät (432, 431, 468, 732, 470) syötetään. 280:n vähentäminen vain koneista on tulkinta, joka on tarkistettava.
+
+**Purkamattomat varaukset 170–175.** Tekovuoden mukaan: vuodelle Y kentät ovat vuosien Y − 2, Y − 1 ja Y varaukset. Vanhempi purkamaton varaus antaa varoituksen, koska se pitäisi tulouttaa viimeistään kolmantena vuonna.

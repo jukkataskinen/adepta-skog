@@ -124,7 +124,7 @@ Suunnitelma: `docs/maatalous-suunnitelma-2026-10-02.md`. Verovuodet 2025 ja 2026
 - [x] 4. Yhteinen arvonlisävero metsälle ja maataloudelle: vähennettävä vero oman ja toisen toiminnon osuudesta, erittely toiminnoittain alv-sivulla ja raportissa, ilmoituksen kentät 301–308 (2.10.2026)
 - [x] 5. Maatalouden investoinnit, aiemmat investoinnit (myös koneet yhtenä menojäännöksenä) ja ryhmäpoistot: menojäännös ketjuna vuodesta toiseen, tuet, käytetty tasausvaraus, myynti menojäännöksestä, pieni menojäännös, 2025:n korotettu poisto omana ryhmänä (2.10.2026)
 - [x] 6. Maatalous-välilehti: ryhmäpoistojen valinta, vuoden tiedot (varallisuus, puoliso-osuudet 413–416, vaatimus 418, tappio 420, palkat 437), tasaus- ja jälleenhankintavaraukset käyttöineen, kotieläinten jaksotukset, investointituet, harvinaiset kentät ja maatilat; ohje Maatalous (2.10.2026)
-- [ ] 7. Lomakkeen 2 laskenta
+- [x] 7. Lomakkeen 2 laskenta puhtaana funktiona (`src/lib/tax/agriculture.ts`): tulot ja menot kentittäin alv-kannan mukaan, osingot ja osuuskunnan ylijäämä, kotieläinten jaksotukset kolmelta vuodelta, varaukset, ryhmäpoistot ja 2025:n erittely, varallisuuslaskelma, puoliso-osuudet ja tarkistukset; tulos Maatalous-välilehdellä ja tiedoksi verosuunnitelmassa (2.10.2026)
 - [ ] 8. Veroraportin maatalousosa
 - [ ] 9. VSY002-tiedosto samaan tiedostoon 2C:n kanssa
 

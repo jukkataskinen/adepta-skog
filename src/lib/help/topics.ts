@@ -566,6 +566,17 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        title: "Maatalouden tulos",
+        text: "Maatalous-välilehden yläosassa on maatalouden tulos lomakkeen 2 mukaan: tulot, menot ja poistot sekä tulos tai tappio.",
+        bullets: [
+          "Tulot ovat ilman arvonlisäveroa. Menot ovat ilman veroa, jos asiakas on arvonlisäverorekisterissä. Muuten menot ovat verollisina.",
+          "Ostot jaetaan veroilmoituksella verokannan mukaan: 25,5 %, alennettu kanta ja 0 %.",
+          "Avaa Lomakkeen 2 kentät, niin näet jokaisen kentän ja sen summan.",
+          "Punainen huomautus kertoo virheestä, joka pitää korjata ennen veroilmoitusta. Keltainen huomautus kannattaa tarkistaa.",
+          "Verosuunnitelma koskee metsätaloutta. Siellä näkyy maatalouden tulos tiedoksi.",
+        ],
+      },
+      {
         title: "Poistot ryhmittäin",
         text: "Maatalouden investoinnit poistetaan ryhmittäin. Maatalous-välilehdellä näet jokaisen ryhmän menojäännöksen ja enimmäispoiston.",
         steps: [

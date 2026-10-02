@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Button, EmptyState, Field, Input, LinkButton, Notice, PageHeader, Panel, SectionTitle, Select, Table, Td, Th } from "@/components/ui";
+import { Button, EmptyState, Field, Input, LinkButton, Notice, PageHeader, Panel, SectionTitle, Select, Stat, Table, Td, Th } from "@/components/ui";
 import { FormError } from "@/components/FormError";
 import { requireStaff } from "@/lib/auth/current-user";
 import { getClient } from "@/lib/clients/queries";
@@ -8,7 +8,8 @@ import { defaultYear, listYears } from "@/lib/ledger/queries";
 import { formatEur } from "@/lib/format";
 import { loadAgriDepreciation } from "@/lib/tax/agri-load";
 import { getAgriYear, listDeferrals, listExtras, listFarms, listGrants, listReserves } from "@/lib/agriculture/year";
-import { AGRI_EXTRA_FIELDS, extraField } from "@/lib/filing/vsy002-fields";
+import { AGRI_EXTRA_FIELDS, extraField, FORM2_ORDER, form2Label } from "@/lib/filing/vsy002-fields";
+import { loadForm2 } from "@/lib/tax/agri-form-load";
 import { ClientTabs } from "../../ClientTabs";
 import { YearNav } from "../../YearNav";
 import {
@@ -69,6 +70,7 @@ export default async function AgriculturePage({
         deferrals: await listDeferrals(tx, id, year),
         grants: await listGrants(tx, id, year),
         extras: await listExtras(tx, id, year),
+        form2: await loadForm2(tx, id, year),
         assets,
       },
     };
@@ -113,6 +115,54 @@ export default async function AgriculturePage({
             Tällä sivulla ovat maatalouden veroilmoituksen (lomake 2) tiedot, joita ei saa kirjauksista: poistot, varaukset, kotieläinten jaksotukset,
             varallisuus ja puolison osuudet. Tulot ja menot tulevat kirjanpidosta.
           </p>
+
+          {d.form2 ? (
+            <section id="lomake2" className="mb-10 scroll-mt-6">
+              <SectionTitle>Maatalouden tulos (lomake 2)</SectionTitle>
+              <div className="mb-4 grid gap-4 sm:grid-cols-3">
+                <Stat label="Tulot yhteensä" value={formatEur(d.form2.income)} />
+                <Stat label="Menot ja poistot yhteensä" value={formatEur(d.form2.expense)} />
+                <Stat label={d.form2.result < 0 ? "Maatalouden tappio" : "Maatalouden tulos"} value={formatEur(Math.abs(d.form2.result))} tone={d.form2.result < 0 ? "alert" : undefined} />
+              </div>
+              {d.form2.errors.length ? (
+                <div className="mb-3">
+                  <Notice tone="alert" title="Korjaa ennen veroilmoitusta">
+                    {d.form2.errors.join(" ")}
+                  </Notice>
+                </div>
+              ) : null}
+              {d.form2.warnings.length ? (
+                <div className="mb-3">
+                  <Notice tone="warn" title="Tarkista">
+                    {d.form2.warnings.join(" ")}
+                  </Notice>
+                </div>
+              ) : null}
+              <details className="rounded-xl border border-line bg-paper px-4 py-3 text-sm">
+                <summary className="cursor-pointer font-semibold">Lomakkeen 2 kentät</summary>
+                <Table className="mt-3">
+                  <tbody>
+                    {FORM2_ORDER.filter((code) => d.form2!.fields[code] !== undefined).map((code) => (
+                      <tr key={code}>
+                        <Td className="w-16 tabular text-ink/55">{code}</Td>
+                        <Td>{form2Label(code, year)}</Td>
+                        <Td numeric>
+                          {["413", "414", "415", "416"].includes(code)
+                            ? `${d.form2!.fields[code].toLocaleString("fi-FI")} %`
+                            : ["418", "281", "534", "516", "287", "288", "401", "406", "411"].includes(code)
+                              ? d.form2!.fields[code].toLocaleString("fi-FI")
+                              : formatEur(d.form2!.fields[code])}
+                        </Td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </details>
+              <p className="mt-2 text-xs text-ink/55">
+                Tulot ja menot tulevat kirjanpidosta maatalouden osuuksina. Poistot tulevat alla tallennetuista ryhmäpoistoista.
+              </p>
+            </section>
+          ) : null}
 
           <section id="poistot" className="mb-10 scroll-mt-6">
             <SectionTitle>Poistot ryhmittäin</SectionTitle>

@@ -5,6 +5,9 @@ import { requireStaff } from "@/lib/auth/current-user";
 import { getClient } from "@/lib/clients/queries";
 import { defaultYear, listYears } from "@/lib/ledger/queries";
 import { loadPlanData } from "@/lib/tax/load";
+import { loadForm2 } from "@/lib/tax/agri-form-load";
+import Link from "next/link";
+import { formatEur } from "@/lib/format";
 import { ClientTabs } from "../../ClientTabs";
 import { YearNav } from "../../YearNav";
 import { PlanForm } from "./PlanForm";
@@ -29,7 +32,11 @@ export default async function TaxPlanPage({
     const years = await listYears(tx, id);
     const requested = Number(sp.vuosi);
     const year = years.some((y) => y.year === requested) ? requested : defaultYear(years);
-    return { client, years, year, plan: year ? await loadPlanData(tx, id, year) : null };
+    return {
+      client, years, year, plan: year ? await loadPlanData(tx, id, year) : null,
+      // Maatalousasiakkaalle näytetään maatalouden tulos tiedoksi (lomake 2). Yritystulon jako on myöhemmin.
+      form2: year && client.has_agriculture ? await loadForm2(tx, id, year) : null,
+    };
   });
   if (!data) notFound();
   const { client: c, years, year, plan } = data;
@@ -48,6 +55,17 @@ export default async function TaxPlanPage({
           {sp.vahvistettu ? (
             <div className="mb-5">
               <Notice tone="ok" title={sp.vahvistettu === "suljettu" ? `Suunnitelma vahvistettu ja vuosi ${year} suljettu.` : "Suunnitelma vahvistettu."} />
+            </div>
+          ) : null}
+          {data.form2 ? (
+            <div className="mb-5">
+              <Notice tone="info" title={`Maatalouden ${data.form2.result < 0 ? "tappio" : "tulos"} ${year}: ${formatEur(Math.abs(data.form2.result))}`}>
+                Tämä suunnitelma koskee metsätaloutta. Maatalouden tulos lasketaan lomakkeen 2 mukaan, ja sen poistot valitaan{" "}
+                <Link href={`/asiakkaat/${id}/maatalous?vuosi=${year}#poistot`} className="font-semibold text-sky">
+                  Maatalous-välilehdellä
+                </Link>
+                . Yritystulon jako pääoma- ja ansiotuloon tulee myöhemmin.
+              </Notice>
             </div>
           ) : null}
           {closed ? (
