@@ -201,6 +201,16 @@ export const COOP_SURPLUS_THRESHOLD = 5000;
 export const EQUALIZATION_RESERVE = { pct: 40, min: 800, max: 25000, round: 100 } as const;
 
 /**
+ * Jälleenhankintavaraus (MVL 17 §, vero.fi Maatalouden tasausvaraus ja
+ * jälleenhankintavaraus, luettu 2.10.2026): rakennuksen tai rakennelman
+ * luovutushinnasta tai vahingon-, vakuutus- tai muusta korvauksesta, enintään
+ * poistamatta olevan hankintamenon ylittävä osa. Käytettävä viimeistään
+ * kolmantena verovuonna luovutuksesta tai vahingosta (sama tulkinta kuin
+ * tasausvarauksen reserveDeadline: tekovuosi + 3).
+ */
+export const REPLACEMENT_RESERVE = { useYears: 3 } as const;
+
+/**
  * Kotieläinten jaksotus: verovuosi ja kaksi seuraavaa vuotta yhtä suurina erinä
  * (lomake 2: 211/212 ja 227/228). Myynti MVL 5 § 1 mom. 1 k., hankinta MVL 6 § 2 mom.
  * (Verohallinto, Maatilan sukupolvenvaihdos verotuksessa). Vapaata jakoa laki ei salli.

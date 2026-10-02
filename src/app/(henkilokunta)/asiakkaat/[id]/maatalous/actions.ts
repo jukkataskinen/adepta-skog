@@ -25,6 +25,8 @@ import {
   setExtra,
 } from "@/lib/agriculture/year";
 import { saveVehicleReport } from "@/lib/agriculture/vehicle";
+import { REPLACEMENT_EVENT_LABEL, replacementReserveMax, validateReplacementReserve } from "@/lib/tax/replacement-reserve";
+import { formatEur } from "@/lib/format";
 
 /**
  * Maatalous-välilehden lomakkeet. Jokainen lomake lähettää asiakkaan ja
@@ -142,6 +144,33 @@ export async function addReserveAction(formData: FormData) {
   });
   await run(formData, schema, "varaukset", (tx, actor, i) =>
     addReserve(tx, actor, i.clientId, { kind: i.kind, madeYear: i.madeYear, amount: i.amount, farmId: i.farmId, note: i.note }),
+  );
+}
+
+/**
+ * Jälleenhankintavaraus laskurilla: enimmäismäärä lasketaan samalla säännöllä
+ * kuin laskurissa, ja tyhjä määrä tarkoittaa enimmäismäärää. Laskun pohja
+ * tallentuu varauksen lisätietoon, jotta varauksen peruste näkyy myöhemmin.
+ */
+export async function addReplacementReserveAction(formData: FormData) {
+  const schema = base.extend({
+    madeYear: z.coerce.number({ message: "Tarkista varauksen vuosi." }).int().min(2000).max(2100),
+    event: z.enum(["sale", "damage"], { message: "Valitse, myytiinkö rakennus vai vahingoittuiko se." }),
+    target: z.preprocess(emptyToNull, z.string({ message: "Kirjoita rakennuksen tai rakennelman nimi." }).min(1).max(120)),
+    proceeds: positive("Anna luovutushinta tai korvaus."),
+    undepreciated: amount("Tarkista poistamatta oleva hankintameno."),
+    amount: optionalAmount("Tarkista varauksen määrä."),
+    farmId: z.preprocess(emptyToNull, uuid.nullable()),
+  });
+  const back = `/asiakkaat/${uuid.parse(formData.get("clientId"))}/maatalous?vuosi=${yearSchema.parse(formData.get("year"))}`;
+  const i = parseForm(schema, formData, back);
+  const basis = { proceeds: i.proceeds, undepreciated: i.undepreciated };
+  const reserve = i.amount ?? replacementReserveMax(basis);
+  const error = validateReplacementReserve(reserve, basis);
+  if (error) fail(back, error);
+  const note = `${i.target}: ${REPLACEMENT_EVENT_LABEL[i.event].toLowerCase()} ${formatEur(i.proceeds)}, poistamatta ${formatEur(i.undepreciated)}`.slice(0, 500);
+  await run(formData, base, "varaukset", (tx, actor, x) =>
+    addReserve(tx, actor, x.clientId, { kind: "replacement", madeYear: i.madeYear, amount: reserve, farmId: i.farmId, note }),
   );
 }
 

@@ -15,11 +15,13 @@ import { computeVehicleReport, EMPTY_VEHICLE_REPORT, hasVehicleReport, VEHICLE_C
 import { travelRates } from "@/lib/tax/rules";
 import { ClientTabs } from "../../ClientTabs";
 import { YearNav } from "../../YearNav";
+import { ReplacementReserveForm } from "./ReplacementReserveForm";
 import {
   addDeferralAction,
   addFarmAction,
   addGrantAction,
   addReserveAction,
+  addReplacementReserveAction,
   addReserveUseAction,
   deleteDeferralAction,
   deleteExtraAction,
@@ -424,6 +426,9 @@ export default async function AgriculturePage({
                 </Field>
                 <Button variant="secondary">Lisää varaus</Button>
               </form>
+            ) : null}
+            {!closed ? (
+              <ReplacementReserveForm action={addReplacementReserveAction} hidden={hidden} year={year} farms={d.farms.map((f) => ({ id: f.id, name: f.name }))} />
             ) : null}
           </section>
 

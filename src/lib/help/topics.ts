@@ -807,6 +807,24 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        title: "Jälleenhankintavarauksen laskuri",
+        steps: [
+          "Avaa Lomake 2 ja mene kohtaan Tasausvaraus ja jälleenhankintavaraus.",
+          "Kirjoita laskuriin rakennuksen tai rakennelman nimi ja valitse, myytiinkö se vai vahingoittuiko se.",
+          "Kirjoita hinta tai korvaus ja hankintamenon osa, jota ei ole vielä poistettu.",
+          "Laskuri näyttää, paljonko varausta voi enintään tehdä ja mihin vuoteen mennessä se on käytettävä.",
+          "Jätä Varaus tyhjäksi, jos haluat enimmäismäärän. Voit myös kirjoittaa pienemmän summan.",
+          "Valitse Tee jälleenhankintavaraus.",
+        ],
+        bullets: [
+          "Varaus koskee vain rakennuksia ja rakennelmia, ei koneita.",
+          "Varaus on enintään se osa hinnasta tai korvauksesta, joka ylittää poistamatta olevan hankintamenon.",
+          "Varaus on käytettävä uuteen rakennukseen tai korjaukseen tai tuloutettava viimeistään kolmantena vuonna.",
+          "Laskun pohja tallentuu varauksen lisätietoon.",
+          "Skog ei vielä vähennä varausta lomakkeen 2 tuloksesta. Lomake 2 muistuttaa tästä. Tarkista, miten hinta tai korvaus on kirjattu.",
+        ],
+      },
+      {
         title: "Kotieläinten jaksotukset",
         bullets: [
           "Jaksotus syntyy kirjanpidossa, kun valitset kirjaukselle Jaksota. Sellaisen rivin kohdalla on linkki kirjaukseen.",

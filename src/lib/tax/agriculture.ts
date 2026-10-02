@@ -245,6 +245,11 @@ export function computeForm2(input: Form2Input): Form2Result {
   for (const r of input.reserves) {
     if (r.incomeThisYear) add(r.kind === "equalization" ? "219" : "220", r.incomeThisYear);
     if (r.kind === "equalization" && r.madeYear === year) add("232", r.amount);
+    // Jälleenhankintavarauksen vähennyksen kenttää ei ole mallinnettu (BLOCKERS 14 v): varaus näkyy
+    // purkamattomana (175), mutta tulos ei muutu. Kirjanpitäjä tarkistaa luovutushinnan tuloutuksen.
+    if (r.kind === "replacement" && r.madeYear === year && r.amount > 0) {
+      warnings.push(`Jälleenhankintavaraus ${eur(r.amount)} näkyy purkamattomana, mutta Skog ei vähennä sitä tuloksesta. Tarkista, miten luovutushinta tai korvaus on viety tuloksi.`);
+    }
     const remaining = round2(r.amount - r.usedThroughYear);
     if (remaining > 0 && r.madeYear >= year - 2 && r.madeYear <= year) {
       const code = (r.kind === "equalization" ? 170 : 173) + (r.madeYear - (year - 2));
