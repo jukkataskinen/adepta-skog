@@ -541,9 +541,9 @@ export function LedgerGrid({
     const text = e.clipboardData.getData("text/plain");
     // Yksittäinen arvo liitetään kenttään tavalliseen tapaan.
     if (!/[\t\n]/.test(text.replace(/\r?\n$/, ""))) return;
-    if (!pasteFields(properties.length > 0).includes(field as PasteField)) return;
+    if (!pasteFields(properties.length > 0, hasFarms).includes(field as PasteField)) return;
     e.preventDefault();
-    setRows((rs) => applyGridPaste(rs, index, field as PasteField, parseClipboard(text), { year, properties, newKey }));
+    setRows((rs) => applyGridPaste(rs, index, field as PasteField, parseClipboard(text), { year, properties, farms, newKey }));
     setErrors({});
     setResult({ status: "idle" });
   }

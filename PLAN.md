@@ -141,6 +141,7 @@ Suunnitelma: `docs/maatalous-suunnitelma-2026-10-02.md`. Verovuodet 2025 ja 2026
 - [ ] Tositteiden tunnistus: lainan vuosi-ilmoitus (korot ja lyhennykset) ja investointituen tunnistus suoraan investoinnille; oikea koe maatilan aineistolla (Jukka: anonymisoitu vuosiaineisto, myös Vipun maksetut tuet PDF:nä)
 - [x] Ajoneuvo- ja matkaselvitys laskettuna (281–288, 401–425, 516–534): kaluston ajoneuvon yksityis- ja metsäosuus kilometreistä, oman auton kilometrikorvaus ja päivärahat vuoden korvauksilla (`TRAVEL_RATES`), tuloutus 221 ja lisävähennys 464; metsätalouden ajot 2C:n kohtaan 630 ja verosuunnitelman metsämenoihin (0018, 2.10.2026)
 - [x] Kirjauksen maatila (`farm_id`): taulukon sarake ja lomakkeen valinta, kun tiloja on useampi; tilan poisto estyy suljetun vuoden kirjauksilla (0018, 2.10.2026)
+- [x] Maatila Excel-liitokseen valinnaisena viimeisenä sarakkeena (usean tilan asiakas); investoinnille ei tilaa, koska varauksen käyttö on jo tilakohtainen varauksen kautta (2.10.2026)
 - [x] Kirjanpidon suodatin ja haku: luokka, kuukausi ja teksti (selite, viite, luokka, summa) taulukossa ja luettelossa, summat näkyvistä riveistä (2.10.2026)
 - [ ] Rakennusten pieni menojäännös rakennuksittain (nyt ryhmän summasta)
 - [ ] Alv-ilmoitus tiedostona (VSRALVKV) tai Vero API:lla, ja erillinen alv-päivä vuodenvaihteen tilityksille

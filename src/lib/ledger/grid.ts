@@ -949,17 +949,19 @@ export function changeCount(c: GridChanges): number {
 // ---------------------------------------------------------------------------
 
 export type PasteField =
-  | "bookedOn" | "description" | "category" | "amountGross" | "vatRate" | "withholding" | "forestPropertyId" | "reference" | "businessSharePct" | "otherSharePct";
+  | "bookedOn" | "description" | "category" | "amountGross" | "vatRate" | "withholding" | "forestPropertyId" | "reference" | "businessSharePct" | "otherSharePct" | "farmId";
 
 /**
  * Liitettävät sarakkeet järjestyksessä: taulukon järjestys, sitten ennakonpidätys, metsätila ja viite.
  * Osuus on valinnainen sarake viitteen jälkeen, jotta vanhat Excel-pohjat toimivat ennallaan, ja
- * toisen toiminnon osuus on sen jälkeen viimeisenä.
+ * toisen toiminnon osuus on sen jälkeen. Maatila on viimeisenä ja vain, kun tiloja on useampi
+ * (sama ehto kuin taulukon sarakkeella), jotta vanhat pohjat eivät muutu.
  */
-export function pasteFields(hasProperties: boolean): PasteField[] {
-  return hasProperties
+export function pasteFields(hasProperties: boolean, hasFarms = false): PasteField[] {
+  const base: PasteField[] = hasProperties
     ? ["bookedOn", "description", "category", "amountGross", "vatRate", "withholding", "forestPropertyId", "reference", "businessSharePct", "otherSharePct"]
     : ["bookedOn", "description", "category", "amountGross", "vatRate", "withholding", "reference", "businessSharePct", "otherSharePct"];
+  return hasFarms ? [...base, "farmId"] : base;
 }
 
 /** Luokka nimestä, tunnuksesta tai vanhan sovelluksen numerosta. */
@@ -982,9 +984,10 @@ export function applyGridPaste(
   startRow: number,
   startField: PasteField,
   grid: string[][],
-  opts: { year: number; properties: { id: string; name: string }[]; newKey: () => string },
+  opts: { year: number; properties: { id: string; name: string }[]; farms?: { id: string; name: string }[]; newKey: () => string },
 ): GridRow[] {
-  const fields = pasteFields(opts.properties.length > 0);
+  const farms = opts.farms ?? [];
+  const fields = pasteFields(opts.properties.length > 0, farms.length > 1);
   const startCol = fields.indexOf(startField);
   if (startCol < 0) return rows;
   let cells = grid;
@@ -1016,6 +1019,10 @@ export function applyGridPaste(
       } else if (field === "forestPropertyId") {
         const t = value.trim().toLowerCase();
         r = { ...r, forestPropertyId: opts.properties.find((p) => p.id === value.trim() || p.name.toLowerCase() === t)?.id ?? value };
+      } else if (field === "farmId") {
+        // Tyhjä solu = yhteinen kaikille tiloille. Tuntematon nimi jää näkyviin, ja tallennus pyytää valitsemaan tilan.
+        const t = value.trim().toLowerCase();
+        r = { ...r, farmId: t ? (farms.find((f) => f.id === value.trim() || f.name.toLowerCase() === t)?.id ?? value.trim()) : "" };
       } else {
         r = { ...r, [field]: value };
       }

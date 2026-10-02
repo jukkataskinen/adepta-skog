@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ACTIVITY_MESSAGE,
   applyGridPaste,
+  pasteFields,
   categoryDigit,
   emptyGridRow,
   gridColumns,
@@ -130,5 +131,23 @@ describe("osuudet ja muutokset", () => {
       year: 2025, properties: [], newKey: () => `n${n++}`,
     });
     expect(rows[0]).toMatchObject({ category: "agri_energy", businessSharePct: "70", otherSharePct: "20" });
+  });
+
+  it("Excelin liitoksessa maatila on valinnainen viimeinen sarake, kun tiloja on useampi", () => {
+    let n = 0;
+    const farms = [{ id: "f1", name: "Kotitila" }, { id: "f2", name: "Ostotila" }];
+    const line = ["30.4.2025", "Lannoite", "41", "500", "25,5", "", "", "", "", "ostotila"];
+    const rows = applyGridPaste([emptyGridRow("a", "")], 0, "bookedOn", [line, [...line.slice(0, 9), ""], [...line.slice(0, 9), "Naapuri"]], {
+      year: 2025, properties: [], farms, newKey: () => `n${n++}`,
+    });
+    expect(rows.map((r) => r.farmId)).toEqual(["f2", "", "Naapuri"]);
+    // Vanha pohja ilman maatilaa toimii ennallaan.
+    const old = applyGridPaste([emptyGridRow("a", "")], 0, "bookedOn", [line.slice(0, 9)], { year: 2025, properties: [], farms, newKey: () => `n${n++}` });
+    expect(old[0]).toMatchObject({ farmId: "", otherSharePct: "" });
+    // Yhden tilan asiakkaalla saraketta ei ole: ylimääräinen solu ohitetaan.
+    const one = applyGridPaste([emptyGridRow("a", "")], 0, "bookedOn", [line], { year: 2025, properties: [], farms: farms.slice(0, 1), newKey: () => `n${n++}` });
+    expect(one[0].farmId).toBe("");
+    expect(pasteFields(false, true).at(-1)).toBe("farmId");
+    expect(pasteFields(false)).not.toContain("farmId");
   });
 });

@@ -301,7 +301,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         title: "Rivit Excelistä",
         steps: [
-          "Järjestä Excelin sarakkeet näin: päivä, selite, luokka, summa arvonlisäveron kanssa, alv %, ennakonpidätys, metsätila ja viite. Metsätila jätetään pois, jos asiakkaalla ei ole tiloja. Viimeiseksi voit lisätä osuuden prosentteina ja sen jälkeen toisen toiminnon osuuden. Ne voi myös jättää pois.",
+          "Järjestä Excelin sarakkeet näin: päivä, selite, luokka, summa arvonlisäveron kanssa, alv %, ennakonpidätys, metsätila ja viite. Metsätila jätetään pois, jos asiakkaalla ei ole tiloja. Viimeiseksi voit lisätä osuuden prosentteina ja sen jälkeen toisen toiminnon osuuden. Jos asiakkaalla on useampi maatila, maatilan nimi voi tulla aivan viimeiseksi. Nämä voi myös jättää pois.",
           "Valitse rivit Excelissä ja kopioi ne.",
           "Napsauta uuden rivin päiväkenttää ja liitä (Ctrl + V).",
           "Tarkista rivit ja tallenna.",
@@ -509,6 +509,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Jos meno kuuluu osittain metsätaloudelle, kirjoita osuudet. Esimerkiksi sähkölasku: Osuus % 70 ja Toinen % 20. Silloin 20 % menee metsätaloudelle ja 10 % on yksityistä.",
           "Kortit taulukon yllä näyttävät maatalouden tulot ja menot. Niissä on myös metsän kirjauksista maataloudelle annettu osuus.",
           "Lomake ja rivit Excelistä toimivat samoin kuin metsässä. Excelissä luokaksi käy numero 21–59 tai luokan nimi.",
+          "Jos asiakkaalla on useampi maatila, Excelin viimeiseen sarakkeeseen voi kirjoittaa maatilan nimen. Tyhjä solu tarkoittaa, että kirjaus on yhteinen kaikille tiloille.",
           "Maatalouden investointi (58) kysyy poistoryhmän. Enintään 1 200 euron hankinta kirjataan menona.",
         ],
       },

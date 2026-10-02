@@ -439,3 +439,9 @@
 **Alv-ilmoituksen kentät 301–308 vain rekisteröidylle.** Rekisteröimätön ei anna ilmoitusta, ja kentät näyttivät ilmoitettavilta. Kentän 301 ja 302 teksti tulee vuoden verokannoista (2024: 24 % tai 25,5 %).
 
 **Meno tuloluokassa ja korotetun poiston erittely.** Menoksi käännetty tuloluokan kirjaus viedään menoihin alv-kannan mukaan (226/229/230) varoituksen kanssa, kuten tulo menoluokassa viedään kohtaan 220. Vuoden 2025 korotettu poisto jaetaan kohtiin 367 ja 368 aiempien (alku − myynnit) ja verovuoden (hankinnat − tasausvaraus − tuet) pohjien suhteessa.
+
+### Maatalouden viimeiset kohdat (2.10.2026)
+
+**Maatila Excel-liitoksessa viimeisenä sarakkeena.** Maatila on valinnainen sarake toisen toiminnon osuuden jälkeen ja vain, kun asiakkaalla on vähintään kaksi tilaa (sama ehto kuin taulukon sarakkeella). Vanhat pohjat toimivat ennallaan, ja yhden tilan asiakkaalla ylimääräinen solu ohitetaan. Tila tunnistetaan nimestä kirjainkoosta riippumatta; tyhjä solu on yhteinen kirjaus, ja tuntematon nimi jää näkyviin, jolloin tallennus pyytää valitsemaan tilan.
+
+**Investoinnille ei maatilaa.** Tasausvarauksen käyttö investointiin kirjataan varaukselle (`sk_agri_reserve_uses.reserve_id`), ja varauksella on jo maatila. Käyttö on siis tilakohtainen ilman investoinnin tilaa, eikä migraatiota tarvita. Poistot pysyvät yhteisenä eränä tilojen pohjissa (DECISIONS: tasausvaraus tiloittain).
