@@ -117,7 +117,7 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [ ] `legacy/` pois
 
 ### 8. Maatalous (lomake 2), MVP
-Suunnitelma: `docs/maatalous-suunnitelma-2026-10-02.md`. Verovuodet 2025 ja 2026, yksityinen maataloudenharjoittaja ja kuolinpesä.
+Suunnitelma: `docs/maatalous-suunnitelma-2026-10-02.md`. Verovuodet 2025 ja 2026, yksityinen maataloudenharjoittaja ja kuolinpesä. MVP tehty 2.10.2026 (tehtävät 1–9); demossa maatila-asiakas Maija Peltola vuodelle 2025 (`db:seed:demo`).
 - [x] 1. Migraatio 0015: asiakkaan toiminnot, kirjauksen toiminto ja toisen toiminnon osuus, investoinnin toiminto ja poistoryhmä, maatilat, vuoden tiedot, ryhmäpoistot, investointituet, varaukset ja niiden käyttö, kotieläinten jaksotukset, harvinaiset kentät; RLS, triggerit, lukitus, testit (2.10.2026)
 - [x] 2. Säännöt ja luokat: maatalouden luokat (21–59) lomakkeen 2 kenttiin, alennettu alv aikasarjana (14 → 13,5 %), maatalouden poistoryhmät ja rajat, 2025:n korotettu poisto, toiminnon osuudet; metsätalouden laskelmiin vain metsätalouden osa (2.10.2026)
 - [x] 3. Syöttö: asiakkaan toiminnot (metsätalous, maatalous), taulukko, lomake ja Excel maatalouden luokilla, toisen toiminnon osuus, maatalouden investoinnin poistoryhmä ja myynti, kortit toiminnoittain; ohjeet (2.10.2026)
@@ -129,9 +129,21 @@ Suunnitelma: `docs/maatalous-suunnitelma-2026-10-02.md`. Verovuodet 2025 ja 2026
 - [x] 9. VSY002-tiedosto (`src/lib/filing/vsy002.ts`, tietuekuvaukset 2025 ja 2026): kentät ja tarkistukset, esikatselu Veroraportti ja arkisto -välilehdellä, sama latauspolku kuin 2C, yksi tiedosto (ensin lomake 2, sitten 2C), tyhjä lomake 967:1; Ilmoitin.fi:n aineiston tarkastus odottaa (BLOCKERS 13) (2.10.2026)
 
 ### 9. Maatalous, myöhemmin
+- [ ] Lomakkeen 2 tiedosto Ilmoitin.fi:n aineiston tarkastukseen ja VSY002 tuotantokäytön aloitusilmoitukseen (Jukka, BLOCKERS 13)
+- [ ] Tulkinnat kirjanpitäjältä (BLOCKERS 14) ja tarvittavat korjaukset
 - [ ] Tilituki-aineiston tuonti (muoto selvitettävä, Jukka toimittaa esimerkin; BLOCKERS 12)
-- [ ] Yhtymät: lomake 2Y (VSY02Y), osakkaat ja osuudet, verovelvollisen laji asiakkaalle
+- [ ] Tasausvarauksen laskuri tiloittain: enimmäismäärä (40 % puhtaasta tulosta ennen korkoja, 800–25 000 €, alas sataan), käyttö investointiin, tuloutus kolmantena vuonna, jälleenhankintavaraus
+- [ ] Kotieläinten jaksotus kirjauksista automaattisesti ja vapaa jako kolmelle vuodelle
+- [ ] Yritystulon jako ja pääomatulo-osuus verosuunnitelmaan (puolisot, 20/10/0 %, 30 % palkoista, vahvistetut tappiot) ja maatalouden vero veroraportin maksutiedotteeseen
+- [ ] Maatalouden poistojen valinta verosuunnitelman laskuriin (nyt Maatalous-välilehdellä)
+- [ ] Tositteiden tunnistus: maatalouden luokat ja asiakirjalajit (meijeri- ja teurastamotilitys, tukipäätös, lainan vuosi-ilmoitus)
+- [ ] Ajoneuvo- ja matkaselvitys laskettuna (281–288, 401–425) ja tulolähdesiirto 2C:n kohtaan 630
 - [ ] Taulukon suodatin Kaikki / Metsä / Maatalous ja kirjauksen maatila (`farm_id`)
+- [ ] Rakennusten pieni menojäännös rakennuksittain (nyt ryhmän summasta)
+- [ ] Alv-ilmoitus tiedostona (VSRALVKV) tai Vero API:lla, ja erillinen alv-päivä vuodenvaihteen tilityksille
+- [ ] Pankkitiliotteen sisäänluku (CSV tai camt.053)
+- [ ] 7L (pellon ja metsämaan vuokratulot) samaan tiedostoon
+- [ ] Yhtymät: lomake 2Y (VSY02Y), osakkaat ja osuudet, verovelvollisen laji asiakkaalle
 
 ### Myöhemmin
 - [x] Tositteiden tunnistus tekoälyllä: kokoomaskannaus osissa, ehdotukset taulukkoon, sivuviittaukset; ensimmäinen oikea koe onnistui 28.9.2026. Kuvaus puhelimella myöhemmin
