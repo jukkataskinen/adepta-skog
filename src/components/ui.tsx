@@ -132,7 +132,7 @@ export function Th({ children, className, numeric }: { children?: ReactNode; cla
 }
 
 export function Td({ children, className, numeric }: { children?: ReactNode; className?: string; numeric?: boolean }) {
-  return <td className={cx("border-b border-line px-4 py-3 align-top last:border-b-0", numeric && "tabular text-right", className)}>{children}</td>;
+  return <td className={cx("border-b border-line px-4 py-3 align-top [tr:last-child>&]:border-b-0", numeric && "tabular text-right", className)}>{children}</td>;
 }
 
 export function Stat({ label, value, href, tone }: { label: string; value: ReactNode; href?: string; tone?: Tone }) {
