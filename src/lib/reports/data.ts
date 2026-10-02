@@ -1,5 +1,5 @@
 import type { Sql } from "@/lib/db/types";
-import { activityRows, forestryShare } from "@/lib/tax/share";
+import { activityRows, forestryShare, type ActivityInput, type ActivityPart } from "@/lib/tax/share";
 import { category, type Activity, type TransactionKind } from "@/lib/tax/rules";
 import { loadPlanData, type PlanData, type PriorOpening } from "@/lib/tax/load";
 import { computePlan, type PlanResult } from "@/lib/tax/plan";
@@ -78,6 +78,21 @@ export interface ReportData {
   } | null;
 }
 
+/** Luokkasummat toiminnon osuuksista (activityRows). Sama metsälle ja maataloudelle. */
+function categoryTotals(parts: ActivityPart<ActivityInput & { kind: TransactionKind }>[]): Map<string, ReportCategoryRow> {
+  const byCat = new Map<string, ReportCategoryRow>();
+  for (const r of parts) {
+    const label = category(r.category)?.label ?? r.category;
+    const e = byCat.get(label) ?? { label, kind: r.kind, net: 0, vat: 0, gross: 0 };
+    const s = forestryShare(r);
+    e.net = Math.round((e.net + s.net) * 100) / 100;
+    e.vat = Math.round((e.vat + s.vat) * 100) / 100;
+    e.gross = Math.round((e.gross + s.gross) * 100) / 100;
+    byCat.set(label, e);
+  }
+  return byCat;
+}
+
 const joinAddress = (street: string | null, postal: string | null, city: string | null) =>
   [street, [postal, city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || null;
 
@@ -139,23 +154,11 @@ export async function loadReportData(
       gross: Number(r.amount_gross), withholding: Number(r.withholding), sharePct: share.sharePct, shareNet: share.net, attachment: attachmentRef(r),
     };
   });
-  // Luokkasummiin vain metsätalouden osuus: loppu kuuluu muulle toiminnalle (src/lib/tax/share.ts, activityRows).
-  const forestryParts = activityRows(
-    rows.map((r) => ({
-      ...r, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), businessSharePct: Number(r.business_share_pct), otherSharePct: Number(r.other_share_pct),
-    })),
-    "forestry",
-  );
-  const byCat = new Map<string, ReportCategoryRow>();
-  for (const r of forestryParts) {
-    const label = category(r.category)?.label ?? r.category;
-    const e = byCat.get(label) ?? { label, kind: r.kind, net: 0, vat: 0, gross: 0 };
-    const s = forestryShare(r);
-    e.net = Math.round((e.net + s.net) * 100) / 100;
-    e.vat = Math.round((e.vat + s.vat) * 100) / 100;
-    e.gross = Math.round((e.gross + s.gross) * 100) / 100;
-    byCat.set(label, e);
-  }
+  // Luokkasummiin vain toiminnon osuus: loppu kuuluu muulle toiminnalle (src/lib/tax/share.ts, activityRows).
+  const shareRows = rows.map((r) => ({
+    ...r, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), businessSharePct: Number(r.business_share_pct), otherSharePct: Number(r.other_share_pct),
+  }));
+  const byCat = categoryTotals(activityRows(shareRows, "forestry"));
 
   const plan = await loadPlanData(tx, clientId, year);
   // Maatalouden kaluston metsätalouden ajot ovat metsätalouden menoa (2C: 630), joten ne näkyvät luokkasummissa.
@@ -166,21 +169,7 @@ export async function loadReportData(
   // Maatalouden luokkasummat maatalouden osuuksina (activityRows), lomake 2 ja ryhmäpoistot.
   let agriCalc: (AgriPlanResult & { categories: ReportCategoryRow[] }) | null = null;
   if (c.has_agriculture) {
-    const byAgriCat = new Map<string, ReportCategoryRow>();
-    for (const r of activityRows(
-      rows.map((x) => ({
-        ...x, amountNet: Number(x.amount_net), amountGross: Number(x.amount_gross), businessSharePct: Number(x.business_share_pct), otherSharePct: Number(x.other_share_pct),
-      })),
-      "agriculture",
-    )) {
-      const label = category(r.category)?.label ?? r.category;
-      const e = byAgriCat.get(label) ?? { label, kind: r.kind, net: 0, vat: 0, gross: 0 };
-      const s = forestryShare(r);
-      e.net = Math.round((e.net + s.net) * 100) / 100;
-      e.vat = Math.round((e.vat + s.vat) * 100) / 100;
-      e.gross = Math.round((e.gross + s.gross) * 100) / 100;
-      byAgriCat.set(label, e);
-    }
+    const byAgriCat = categoryTotals(activityRows(shareRows, "agriculture"));
     const agriPlan = await loadAgriPlanData(tx, clientId, year);
     if (agriPlan) {
       // Vahvistetut valinnat: sama laskenta kuin verosuunnitelmassa ja Lomake 2 -välilehdellä.

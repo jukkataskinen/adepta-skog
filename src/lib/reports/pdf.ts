@@ -1,6 +1,7 @@
 import { degrees, PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } from "pdf-lib";
 import { forestSaleLines } from "@/lib/tax/forest-sale";
 import { ACTIVITY_LABEL, ADDITIONAL_PREPAYMENT_MIN, additionalPrepaymentDueDate, annualVatDueDate } from "@/lib/tax/rules";
+import { vatFormRows } from "@/lib/tax/vat";
 import { formatSharePct } from "@/lib/tax/share";
 import { priorOpeningText } from "@/lib/tax/load";
 import type { ReportData, ReportTransaction } from "./data";
@@ -482,18 +483,12 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
     }
     w.row(["Yhteensä", eur(data.vat.year.output), eur(data.vat.year.input), eur(data.vat.year.payable)], vat4, { tone: "total" });
   }
-  w.space(4);
-  w.subheading("Arvonlisäveroilmoituksen kentät");
-  const f3: Col[] = [{ width: 20 }, { width: 100 }, { width: 50, align: "right" }];
-  const form = data.vat.year.form;
-  for (const [code, label, value] of [
-    ["301", "Vero 25,5 %", form.general],
-    ["302", "Vero 14 % tai 13,5 %", form.reduced],
-    ["303", "Vero 10 %", form.ten],
-    ["307", "Verokauden vähennettävä vero", form.deductible],
-    ["308", form.payable < 0 ? "Palautettava vero" : "Maksettava vero", Math.abs(form.payable)],
-  ] as const) {
-    w.row([code, label, eur(value)], f3);
+  // Ilmoituksen kentät vain rekisteröidylle: rekisteröimätön ei anna ilmoitusta, ja kentät näyttäisivät ilmoitettavilta.
+  if (data.client.vatRegistered) {
+    w.space(4);
+    w.subheading("Arvonlisäveroilmoituksen kentät");
+    const f3: Col[] = [{ width: 20 }, { width: 100 }, { width: 50, align: "right" }];
+    for (const [code, label, value] of vatFormRows(data.year, data.vat.year.form)) w.row([code, label, eur(value)], f3);
   }
   if (data.vat.year.byRate.length) {
     w.space(4);

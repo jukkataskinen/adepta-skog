@@ -249,8 +249,10 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
     .map((x) => ({ ...x, name: names.get(x.propertyId) ?? "" }));
 
   const recordedDeduction = properties.reduce((s, p) => s + p.recordedThisYear, 0);
-  const vehicle = await getVehicleReport(tx, clientId, year);
-  const otherSourceExpense = hasVehicleReport(vehicle) ? computeVehicleReport(vehicle, year).forestryTransfer : 0;
+  // Selvitys kuuluu maatalouteen: jos maatalous on asiakkaalta pois, sen metsätalouden ajoja ei siirretä (2C: 630).
+  const [agri] = await tx.query<{ has_agriculture: boolean }>("select has_agriculture from sk_clients where id = $1", [clientId]);
+  const vehicle = agri?.has_agriculture ? await getVehicleReport(tx, clientId, year) : null;
+  const otherSourceExpense = vehicle && hasVehicleReport(vehicle) ? computeVehicleReport(vehicle, year).forestryTransfer : 0;
   return {
     income: sum.income.net,
     expense: Math.round((sum.expense.net + otherSourceExpense) * 100) / 100,

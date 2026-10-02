@@ -429,3 +429,13 @@
 **Suodatin ja haku samalla säännöllä taulukossa ja luettelossa.** `matchesLedgerFilter`: luokka, kuukausi ja teksti (selite, viite, luokan nimi ja numero, summa suomalaisittain). Taulukko suodattaa selaimessa, luettelo osoitteen parametreista (`?luokka=&kk=&haku=`, ei henkilötietoja, koska haku on kirjanpitäjän kirjoittama sana). Tallentamattomat rivit näkyvät aina, näppäinsiirto ohittaa piilotetut rivit, tallennus koskee kaikkia rivejä ja summat näkyviä rivejä.
 
 **Uusi luokka 40 Kotieläinten hankinta.** Aiemmin eläinten ostot ohjattiin luokkaan Muut ostot; nyt Jaksota-valinnalla on pari, ja tunnistus ehdottaa eläinten ostoille luokkaa 40. Lomakkeella 2 se viedään alv-kannan mukaan (226) kuten muut ostot.
+
+### Maatalousmoduulin katselmointi (2.10.2026)
+
+**Varauksen eheys kannassa (0018).** Varauksen määrää tai vuotta ei voi muuttaa niin, että sen käytöt (kaikilta vuosilta) ylittävät sen tai osuvat ennen tekovuotta, ja käytön tarkistus lukee varauksen vain saman asiakkaan riveistä. Verosuunnitelma vertaa uutta tasausvarausta kaikkiin käyttöihin, ei vain verovuoden: muuten myöhemmän vuoden käyttö jäi varausta suuremmaksi tai poistui varauksen mukana.
+
+**Toimintoa ei voi poistaa asiakkaalta, jos sillä on kirjauksia tai investointeja.** Muuten metsän tai maatalouden luvut katoaisivat laskelmista ja ilmoitustiedostosta myös suljetuilta vuosilta. Ajoneuvoselvityksen metsätalouden ajot (2C: 630) siirretään vain, kun asiakkaalla on maatalous.
+
+**Alv-ilmoituksen kentät 301–308 vain rekisteröidylle.** Rekisteröimätön ei anna ilmoitusta, ja kentät näyttivät ilmoitettavilta. Kentän 301 ja 302 teksti tulee vuoden verokannoista (2024: 24 % tai 25,5 %).
+
+**Meno tuloluokassa ja korotetun poiston erittely.** Menoksi käännetty tuloluokan kirjaus viedään menoihin alv-kannan mukaan (226/229/230) varoituksen kanssa, kuten tulo menoluokassa viedään kohtaan 220. Vuoden 2025 korotettu poisto jaetaan kohtiin 367 ja 368 aiempien (alku − myynnit) ja verovuoden (hankinnat − tasausvaraus − tuet) pohjien suhteessa.

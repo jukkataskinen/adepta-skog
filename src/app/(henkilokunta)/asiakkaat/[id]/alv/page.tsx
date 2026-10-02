@@ -3,7 +3,7 @@ import { EmptyState, Notice, PageHeader, SectionTitle, Stat, Table, Td, Th } fro
 import { requireStaff } from "@/lib/auth/current-user";
 import { getClient } from "@/lib/clients/queries";
 import { defaultYear, listTransactions, listYears } from "@/lib/ledger/queries";
-import { vatRowsFrom, vatSummary } from "@/lib/tax/vat";
+import { vatFormRows, vatRowsFrom, vatSummary } from "@/lib/tax/vat";
 import { formatEur } from "@/lib/format";
 import { ACTIVITY_LABEL } from "@/lib/tax/rules";
 import { ClientTabs } from "../../ClientTabs";
@@ -142,6 +142,7 @@ export default async function VatPage({ params, searchParams }: { params: Promis
             )}
           </section>
 
+          {c.vat_registered && (
           <section className="mt-8">
             <SectionTitle>Arvonlisäveroilmoituksen kentät</SectionTitle>
             <p className="mb-3 max-w-3xl text-sm text-ink/70">
@@ -149,22 +150,17 @@ export default async function VatPage({ params, searchParams }: { params: Promis
             </p>
             <Table>
               <tbody>
-                {[
-                  ["301", "Vero 25,5 %", s.year.form.general],
-                  ["302", "Vero 14 % tai 13,5 %", s.year.form.reduced],
-                  ["303", "Vero 10 %", s.year.form.ten],
-                  ["307", "Verokauden vähennettävä vero", s.year.form.deductible],
-                  ["308", s.year.form.payable < 0 ? "Palautettava vero" : "Maksettava vero", Math.abs(s.year.form.payable)],
-                ].map(([code, label, value]) => (
-                  <tr key={code as string}>
+                {vatFormRows(year, s.year.form).map(([code, label, value]) => (
+                  <tr key={code}>
                     <Td className="w-16 tabular text-ink/55">{code}</Td>
                     <Td>{label}</Td>
-                    <Td numeric>{formatEur(value as number)}</Td>
+                    <Td numeric>{formatEur(value)}</Td>
                   </tr>
                 ))}
               </tbody>
             </Table>
           </section>
+          )}
         </>
       )}
     </>

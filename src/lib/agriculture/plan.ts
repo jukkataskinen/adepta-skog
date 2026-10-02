@@ -14,6 +14,17 @@ import { AgriError, getAgriYear, saveAgriDepreciations, saveAgriYear, type Actor
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/**
+ * Varauksesta käytetty kaikkina vuosina. Pelkkä verovuoden käyttö ei riitä:
+ * myöhemmän vuoden käyttö jäisi varausta suuremmaksi, ja poisto veisi sen
+ * mukanaan (cascade). Kanta tarkistaa saman (0018), tämä antaa selvän viestin.
+ */
+async function usedTotal(tx: Sql, reserveId: string | null): Promise<number> {
+  if (!reserveId) return 0;
+  const [r] = await tx.query<{ used: string }>("select coalesce(sum(amount), 0) as used from sk_agri_reserve_uses where reserve_id = $1", [reserveId]);
+  return Number(r?.used ?? 0);
+}
+
 export async function saveAgriPlanChoices(tx: Sql, actor: Actor, clientId: string, data: AgriPlanData, choices: AgriChoices): Promise<AgriPlanResult> {
   const { year } = data;
   const result = computeAgriPlan(data, choices);
@@ -27,9 +38,10 @@ export async function saveAgriPlanChoices(tx: Sql, actor: Actor, clientId: strin
     const amount = round2(choices.equalization);
     const error = validateEqualizationReserve(amount, result.equalization.max);
     if (error) throw new AgriError(error);
-    if (amount > 0 && amount < eq.usedThisYear) throw new AgriError("Tasausvaraus ei voi olla pienempi kuin siitä jo käytetty määrä.");
+    const used = await usedTotal(tx, eq.id);
+    if (amount > 0 && amount + 0.004 < used) throw new AgriError("Tasausvaraus ei voi olla pienempi kuin siitä jo käytetty määrä.");
     if (eq.id && amount === 0) {
-      if (eq.usedThisYear > 0) throw new AgriError("Tasausvarauksesta on jo käytetty osa. Poista käyttö ensin Lomake 2 -välilehdellä.");
+      if (used > 0) throw new AgriError("Tasausvarauksesta on jo käytetty osa. Poista käyttö ensin Lomake 2 -välilehdellä.");
       await tx.query("delete from sk_agri_reserves where id = $1 and client_id = $2", [eq.id, clientId]);
       await audit(tx, { organizationId: actor.organizationId, userId: actor.userId, action: "agri.reserve.delete", entity: "sk_agri_reserves", entityId: eq.id });
     } else if (eq.id && amount !== eq.amount) {
@@ -53,9 +65,10 @@ export async function saveAgriPlanChoices(tx: Sql, actor: Actor, clientId: strin
     const max = result.equalization.farms?.find((x) => x.farmId === f.farmId)?.max ?? 0;
     const error = validateEqualizationReserve(amount, max);
     if (error) throw new AgriError(`${f.farmName}: ${error}`);
-    if (amount > 0 && amount < f.usedThisYear) throw new AgriError(`${f.farmName}: tasausvaraus ei voi olla pienempi kuin siitä jo käytetty määrä.`);
+    const used = await usedTotal(tx, f.id);
+    if (amount > 0 && amount + 0.004 < used) throw new AgriError(`${f.farmName}: tasausvaraus ei voi olla pienempi kuin siitä jo käytetty määrä.`);
     if (f.id && amount === 0) {
-      if (f.usedThisYear > 0) throw new AgriError(`${f.farmName}: tasausvarauksesta on jo käytetty osa. Poista käyttö ensin Lomake 2 -välilehdellä.`);
+      if (used > 0) throw new AgriError(`${f.farmName}: tasausvarauksesta on jo käytetty osa. Poista käyttö ensin Lomake 2 -välilehdellä.`);
       await tx.query("delete from sk_agri_reserves where id = $1 and client_id = $2", [f.id, clientId]);
       await audit(tx, { organizationId: actor.organizationId, userId: actor.userId, action: "agri.reserve.delete", entity: "sk_agri_reserves", entityId: f.id });
     } else if (f.id && amount !== f.amount) {

@@ -83,3 +83,44 @@ create policy agri_vehicle_reports_all on sk_agri_vehicle_reports for all to aut
 revoke all on sk_agri_vehicle_reports from anon;
 grant select, insert, update, delete on sk_agri_vehicle_reports to authenticated;
 grant all on sk_agri_vehicle_reports to service_role;
+
+-- ---------------------------------------------------------------------------
+-- Varauksen ja sen käyttöjen eheys (katselmointi 2.10.2026)
+-- ---------------------------------------------------------------------------
+-- 0015:n tarkistus luki varauksen ennen saman asiakkaan tarkistusta (triggerit
+-- laukeavat nimijärjestyksessä), joten toisen asiakkaan varauksen tunnisteella
+-- sai tietää sen määrän rajan. Varaus haetaan nyt vain saman asiakkaan riveistä.
+create or replace function sk_check_reserve_use() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  total numeric;
+  r record;
+begin
+  select amount, made_year into r from sk_agri_reserves where id = new.reserve_id and client_id = new.client_id;
+  if not found then
+    raise exception 'Viittaus toisen asiakkaan riviin' using errcode = '42501';
+  end if;
+  if new.tax_year < r.made_year then
+    raise exception 'Varausta ei voi käyttää ennen sen tekovuotta' using errcode = '23514';
+  end if;
+  select coalesce(sum(amount), 0) into total from sk_agri_reserve_uses where reserve_id = new.reserve_id and id <> new.id;
+  if total + new.amount > r.amount then
+    raise exception 'Varauksesta käytettäisiin enemmän kuin se on' using errcode = '23514';
+  end if;
+  return new;
+end $$;
+
+-- Varauksen määrää tai vuotta ei voi muuttaa niin, että käytöt ylittävät sen
+-- tai osuvat ennen tekovuotta (verosuunnitelma muuttaa verovuoden varausta).
+create or replace function sk_check_reserve_amount() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if exists (select 1 from sk_agri_reserve_uses u where u.reserve_id = new.id
+              having coalesce(sum(u.amount), 0) > new.amount or min(u.tax_year) < new.made_year) then
+    raise exception 'Varauksesta käytettäisiin enemmän kuin se on' using errcode = '23514';
+  end if;
+  return new;
+end $$;
+create trigger sk_agri_reserves_amount_check before update of amount, made_year on sk_agri_reserves
+  for each row execute function sk_check_reserve_amount();
+revoke all on function sk_check_reserve_amount() from anon, public;

@@ -175,6 +175,13 @@ export function computeForm2(input: Form2Input): Form2Result {
       warnings.push(`${c.label}: tulo menoluokassa on viety kohtaan 220. Tarkista luokka.`);
       continue;
     }
+    // Menoksi käännetty tuloluokka on meno eikä tulo: ilman tätä se kasvattaisi tuloluokan kenttää.
+    // Meno viedään alv-kannan mukaan kohtaan 226, 229 tai 230 kuten muut ostot (vat.ts vähentää sen veron).
+    if (r.kind === "expense" && c.kind === "income") {
+      add(vatField(r, input.vatRegistered), cost(r));
+      warnings.push(`${c.label}: meno tuloluokassa on viety menoihin alv-kannan mukaan. Tarkista luokka.`);
+      continue;
+    }
     switch (target) {
       case "vat_only":
       case "asset_purchase":
@@ -264,8 +271,13 @@ export function computeForm2(input: Form2Input): Form2Result {
       add("365", Math.max(0, p.priorCost - p.start));
       add("366", p.start);
       add("581", p.additions);
-      const before = p.start + p.additions;
-      const old = before > 0 ? round2((p.depreciation * p.start) / before) : 0;
+      // Poisto jaetaan aiempien ja verovuoden investointien poistopohjien suhteessa. Verovuoden
+      // pohja on hankintameno miinus siihen käytetty tasausvaraus ja tuki, jotta täysi 50 %:n
+      // poisto jakautuu 367 = 50 % × aiempien pohja ja 368 = 50 % × uusien nettopohja.
+      // Myyty kone on tavallisesti aiempi, joten myyntihinta pienentää aiempien pohjaa.
+      const oldBase = Math.max(0, p.start - p.sales);
+      const newBase = Math.max(0, p.additions - p.equalization - p.grants);
+      const old = oldBase + newBase > 0 ? round2((p.depreciation * oldBase) / (oldBase + newBase)) : 0;
       add("367", old);
       add("368", p.depreciation - old);
       add("584", p.depreciation);

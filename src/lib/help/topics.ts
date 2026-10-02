@@ -728,6 +728,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         steps: [
           "Avaa asiakas ja valitse Muokkaa.",
           "Rastita Harjoittaa maataloutta. Jos asiakkaalla ei ole metsää, poista rasti kohdasta Harjoittaa metsätaloutta.",
+          "Toimintoa ei voi poistaa, jos sillä on jo kirjauksia tai investointeja.",
           "Tallenna. Asiakkaalle tulevat välilehdet Maatalouden kirjanpito ja Lomake 2.",
           "Jos asiakkaalla on useampi maatila, lisää tilat Lomake 2 -välilehden alaosassa.",
         ],
@@ -890,6 +891,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         title: "Arvonlisäveroilmoituksen kentät",
+        text: "Taulukko näkyy vain, kun asiakas on arvonlisäverorekisterissä.",
         steps: [
           "Avaa Arvonlisävero-välilehti ja valitse vuosi.",
           "Katso sivun alaosasta taulukko Arvonlisäveroilmoituksen kentät.",

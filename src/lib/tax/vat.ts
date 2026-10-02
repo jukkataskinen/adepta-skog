@@ -1,6 +1,6 @@
 import { round2 } from "./amounts";
 import { ownShare } from "./share";
-import { categoryActivity, vatRateGroup, type Activity, type TransactionKind } from "./rules";
+import { categoryActivity, generalVatRate, reducedVatRate, vatRateGroup, type Activity, type TransactionKind } from "./rules";
 
 /**
  * Arvonlisäveron yhteenveto neljänneksittäin ja vuodelta. Metsätalouden ja
@@ -129,4 +129,21 @@ export function vatRowsFrom(
     bookedOn: r.booked_on, kind: r.kind, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), vatRate: Number(r.vat_rate),
     businessSharePct: Number(r.business_share_pct), otherSharePct: Number(r.other_share_pct ?? 0), activity: r.activity ?? null, category: r.category,
   }));
+}
+
+/**
+ * Ilmoituksen kentät näytettäviksi riveiksi (alv-sivu ja veroraportti).
+ * Kannan teksti tulee vuoden kannoista, jotta vuoden 2024 kentässä 301 näkyy
+ * myös 24 % ja kentässä 302 vuoden oikea alennettu kanta.
+ */
+export function vatFormRows(year: number, form: VatReturnFields): [code: string, label: string, value: number][] {
+  const pct = (n: number) => `${String(n).replace(".", ",")} %`;
+  const rates = (f: (date: string) => number) => [...new Set([f(`${year}-01-01`), f(`${year}-12-31`)])].map(pct).join(" tai ");
+  return [
+    ["301", `Vero ${rates(generalVatRate)}`, form.general],
+    ["302", `Vero ${rates(reducedVatRate)}`, form.reduced],
+    ["303", "Vero 10 %", form.ten],
+    ["307", "Verokauden vähennettävä vero", form.deductible],
+    ["308", form.payable < 0 ? "Palautettava vero" : "Maksettava vero", Math.abs(form.payable)],
+  ];
 }

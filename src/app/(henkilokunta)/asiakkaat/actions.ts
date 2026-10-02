@@ -100,12 +100,25 @@ export async function updateClientAction(formData: FormData) {
   const clientId = uuid.parse(formData.get("clientId"));
   const back = `/asiakkaat/${clientId}/muokkaa`;
   const input = parseForm(clientSchema, formData, back);
+  const values = clientValues(input, back);
+  const [hasForestry, hasAgriculture] = values.slice(-2) as [boolean, boolean];
   const updated = await ctx.run(async (tx) => {
+    // Toimintoa ei voi poistaa, jos sillä on kirjauksia tai investointeja: ne katoaisivat
+    // laskelmista ja ilmoitustiedostosta myös suljetuilta vuosilta.
+    const [used] = await tx.query<{ forestry: boolean; agriculture: boolean }>(
+      `select exists (select 1 from sk_transactions where client_id = $1 and activity = 'forestry')
+              or exists (select 1 from sk_assets where client_id = $1 and activity = 'forestry') as forestry,
+              exists (select 1 from sk_transactions where client_id = $1 and activity = 'agriculture')
+              or exists (select 1 from sk_assets where client_id = $1 and activity = 'agriculture') as agriculture`,
+      [clientId],
+    );
+    if (used?.forestry && !hasForestry) fail(back, "Asiakkaalla on metsätalouden kirjauksia tai investointeja, joten metsätaloutta ei voi poistaa.");
+    if (used?.agriculture && !hasAgriculture) fail(back, "Asiakkaalla on maatalouden kirjauksia tai investointeja, joten maataloutta ei voi poistaa.");
     const rows = await tx.query(
       `update sk_clients set first_name = $3, last_name = $4, business_id = $5, municipality = $6, email = $7, phone = $8, street = $9,
               postal_code = $10, city = $11, tax_account_reference = $12, vat_registered = $13, vat_number = $14, has_forestry = $15, has_agriculture = $16
         where id = $1 and organization_id = $2 returning id`,
-      [clientId, ctx.org.organizationId, ...clientValues(input, back)],
+      [clientId, ctx.org.organizationId, ...values],
     );
     if (rows.length) await audit(tx, { organizationId: ctx.org.organizationId, userId: ctx.user.id, action: "client.update", entity: "sk_clients", entityId: clientId });
     return rows.length;

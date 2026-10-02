@@ -16,9 +16,7 @@ export const maxDuration = 120;
  * reitti käyttää istuntoevästettä; server actionit tekevät saman tarkistuksen itse.
  */
 export async function POST(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
-  if (!origin || !host || new URL(origin).host !== host) {
+  if (!sameOrigin(request.headers.get("origin"), request.headers.get("x-forwarded-host") ?? request.headers.get("host"))) {
     return NextResponse.json({ ok: false, error: "Pyyntö hylättiin." }, { status: 403 });
   }
   const ctx = await requireStaff();
@@ -31,4 +29,14 @@ export async function POST(request: NextRequest) {
   const parsed = chunkRequestSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ ok: false, error: "Pyyntöä ei voitu lukea." }, { status: 400 });
   return NextResponse.json(await runRecognitionChunk(ctx, parsed.data));
+}
+
+/** Origin "null" tai muuten jäsentymätön osoite hylätään eikä kaada reittiä. */
+function sameOrigin(origin: string | null, host: string | null): boolean {
+  if (!origin || !host) return false;
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
 }
