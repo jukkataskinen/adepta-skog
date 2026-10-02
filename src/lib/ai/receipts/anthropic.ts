@@ -1,7 +1,7 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import { CATEGORIES } from "@/lib/tax/rules";
+import { FORESTRY_CATEGORIES as CATEGORIES } from "@/lib/tax/rules";
 import type { ReceiptFile, ReceiptRecognizer } from "./index";
 import { isWholeFile, pageRangeText, validateChunkRecognition, type ChunkRange } from "./chunks";
 import { CHUNK_MAX_TOKENS, CHUNK_TIMEOUT_MS } from "./config";

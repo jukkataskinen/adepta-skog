@@ -3,8 +3,8 @@ import { summarize } from "@/lib/ledger/summary";
 import { assetYear, type AssetYear } from "./depreciation";
 import { forestDeductionBase } from "./forest-deduction";
 import { disposalFractions, forestDeductionPool, forestDeductionTracking, forestSales, soldSharePct, type ForestPropertyInput, type ForestSale } from "./forest-sale";
-import { isRoadOrDitch, type TransactionKind } from "./rules";
-import { forestryShare } from "./share";
+import { isRoadOrDitch, type Activity, type TransactionKind } from "./rules";
+import { activityRows } from "./share";
 
 /**
  * Verosuunnitelman lähtötiedot yhdelle asiakkaalle ja vuodelle. Käyttäjän
@@ -99,11 +99,21 @@ export interface PlanData {
 }
 
 export async function loadPlanData(tx: Sql, clientId: string, year: number): Promise<PlanData> {
-  const rows = await tx.query<{
+  const stored = await tx.query<{
     kind: TransactionKind; category: string; asset_id: string | null; amount_net: string; amount_gross: string; withholding: string; business_share_pct: string;
+    other_share_pct: string; activity: Activity;
   }>(
-    "select kind, category, asset_id, amount_net, amount_gross, withholding, business_share_pct from sk_transactions where client_id = $1 and tax_year = $2",
+    `select kind, category, asset_id, amount_net, amount_gross, withholding, business_share_pct, other_share_pct, activity
+       from sk_transactions where client_id = $1 and tax_year = $2`,
     [clientId, year],
+  );
+  // Metsätalouteen vain metsätalouden kirjausten osuus ja maatalouden kirjausten
+  // metsätaloudelle annettu osuus (src/lib/tax/share.ts, activityRows).
+  const rows = activityRows(
+    stored.map((r) => ({
+      ...r, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), businessSharePct: Number(r.business_share_pct), otherSharePct: Number(r.other_share_pct),
+    })),
+    "forestry",
   );
   // Investointiin liitetyn myynnin hinta ei ole tuloa sellaisenaan: verotettavaa on vain
   // myyntivoitto (tai vähennettävää myyntitappio), joka lasketaan investoinnista.
@@ -111,11 +121,9 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
   const sum = summarize(
     rows.map((r) => ({
       kind: r.kind,
-      amountNet: r.category === "asset_sale" && r.asset_id ? 0 : Number(r.amount_net),
-      amountGross: r.category === "asset_sale" && r.asset_id ? 0 : Number(r.amount_gross),
-      withholding: Number(r.withholding),
-      // Tuloihin, menoihin ja hankintatyöhön vain metsätalouden osuus (src/lib/tax/share.ts).
-      businessSharePct: Number(r.business_share_pct),
+      amountNet: r.category === "asset_sale" && r.asset_id ? 0 : r.amountNet,
+      amountGross: r.category === "asset_sale" && r.asset_id ? 0 : r.amountGross,
+      withholding: r.cross ? 0 : Number(r.withholding),
     })),
   );
 
@@ -148,7 +156,7 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
     `select a.id, a.description, a.acquired_on::text, a.acquisition_cost, a.method, a.useful_life_years, a.declining_rate_pct, a.opening_book_value,
             a.disposed_on::text, a.sale_price, a.forest_property_id, a.opening_year, a.opening_accumulated_depreciation,
             (select json_agg(json_build_object('taxYear', d.tax_year, 'amount', d.amount, 'bookValueEnd', d.book_value_end)) from sk_depreciations d where d.asset_id = a.id) as deps
-       from sk_assets a where a.client_id = $1 order by a.acquired_on`,
+       from sk_assets a where a.client_id = $1 and a.activity = 'forestry' order by a.acquired_on`,
     [clientId],
   );
   const planAssets: PlanAsset[] = [];
@@ -239,7 +247,7 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
       Math.round(
         rows
           .filter((r) => r.category === "delivery_work")
-          .reduce((s, r) => s + forestryShare({ kind: r.kind, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), businessSharePct: Number(r.business_share_pct) }).net, 0) * 100,
+          .reduce((s, r) => s + r.amountNet, 0) * 100,
       ) / 100,
     investment: sum.investment.net,
     withholding: sum.withholding,

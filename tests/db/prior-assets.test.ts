@@ -57,6 +57,8 @@ describe("migraatio 0014", () => {
       expect(r).toEqual({ opening_year: null, opening_accumulated_depreciation: null });
       // Tavallisen investoinnin muutos ei osu aiemman investoinnin lukitukseen.
       await old.asService((tx) => tx.query("update sk_assets set description = 'Traktori' where id = $1", [o.asset]));
+      // Laskenta lukee myöhempien migraatioiden sarakkeita (0015), joten loput ajetaan ennen sitä.
+      await migrateLocal(old);
       const plan = await old.asUser(o.staff.sub, (tx) => loadPlanData(tx, o.client, 2025));
       expect(plan.assets[0]).toMatchObject({ opening: { year: null, accumulated: 5000, bookValue: 25000 } });
     } finally {

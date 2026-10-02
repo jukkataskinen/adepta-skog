@@ -1,7 +1,7 @@
 import type { Sql } from "@/lib/db/types";
 import { loadPlanData } from "@/lib/tax/load";
-import { forestryShare } from "@/lib/tax/share";
-import type { TransactionKind } from "@/lib/tax/rules";
+import { activityRows } from "@/lib/tax/share";
+import type { Activity, TransactionKind } from "@/lib/tax/rules";
 import type { Filing2cData } from "./vsy02c";
 
 /**
@@ -63,16 +63,20 @@ export async function loadFilingSource(tx: Sql, orgId: string, clientId: string,
 
   const stored = await tx.query<{
     kind: TransactionKind; category: string; asset_id: string | null; description: string; amount_net: string; amount_gross: string; business_share_pct: string;
+    other_share_pct: string; activity: Activity;
   }>(
-    `select kind, category, asset_id, description, amount_net, amount_gross, business_share_pct from sk_transactions
+    `select kind, category, asset_id, description, amount_net, amount_gross, business_share_pct, other_share_pct, activity from sk_transactions
       where client_id = $1 and tax_year = $2 order by booked_on, created_at`,
     [clientId, year],
   );
-  // 2C:hen vain metsätalouden osuus (src/lib/tax/share.ts): loppu kuuluu muulle toiminnalle.
-  const rows = stored.map((r) => ({
-    ...r,
-    share: forestryShare({ kind: r.kind, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), businessSharePct: Number(r.business_share_pct) }),
-  }));
+  // 2C:hen vain metsätalouden osuus (src/lib/tax/share.ts): metsätalouden kirjausten oma osuus
+  // ja maatalouden kirjausten metsätaloudelle annettu osuus. Loppu kuuluu muulle toiminnalle.
+  const rows = activityRows(
+    stored.map((r) => ({
+      ...r, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), businessSharePct: Number(r.business_share_pct), otherSharePct: Number(r.other_share_pct),
+    })),
+    "forestry",
+  ).map((r) => ({ ...r, share: { net: r.amountNet, gross: r.amountGross } }));
   const categories: Filing2cData["categories"] = {};
   for (const r of rows) {
     // Investointiin liitetty myynti on luovutusvoittoa (lomake 9), ei metsätalouden tuloa.

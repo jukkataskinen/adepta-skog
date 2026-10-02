@@ -1,8 +1,8 @@
 import type { Sql } from "@/lib/db/types";
 import { audit } from "@/lib/audit";
 import { netFromGross, percentOf } from "@/lib/tax/amounts";
-import { sharePct } from "@/lib/tax/share";
-import { ASSET_CLASS_PCTS, category, SMALL_ASSET_LIMIT, type TransactionKind } from "@/lib/tax/rules";
+import { otherSharePct, sharePct } from "@/lib/tax/share";
+import { allowsOtherShare, ASSET_CLASS_PCTS, category, SMALL_ASSET_LIMIT, type TransactionKind } from "@/lib/tax/rules";
 import { ASSET_CLASS_MESSAGE, DEPRECIATED_MESSAGE, effectiveKind, SALE_ASSET_MESSAGE, SMALL_ASSET_MESSAGE } from "@/lib/ledger/transaction-input";
 
 /**
@@ -30,8 +30,10 @@ export interface TransactionWrite {
   /** Tehokas verokanta (oletus jo ratkaistu). */
   vatRate: number;
   withholding: number;
-  /** Metsätalouden osuus prosentteina (0 < x ≤ 100). Summat ovat silti koko tositteen. */
+  /** Oman toiminnon osuus prosentteina (0 < x ≤ 100). Summat ovat silti koko tositteen. */
   businessSharePct: number;
+  /** Toisen toiminnon osuus prosentteina (vain menot). Puuttuva = 0. */
+  otherSharePct?: number;
   /** undefined = muokatessa ennallaan (taulukossa ei ole viitesaraketta). */
   reference?: string | null;
   forestPropertyId: string | null;
@@ -90,6 +92,8 @@ export async function saveTransaction(
   if (!cat) throw new LedgerError("Valitse luokka.");
   const prev = id ? await previous(tx, clientId, id) : null;
   const share = sharePct(w.businessSharePct);
+  // Toisen toiminnon osuus vain menoille, joille se sallitaan (rules.ts allowsOtherShare); muuten 0.
+  const otherShare = allowsOtherShare(cat.code) ? Math.min(otherSharePct(w.otherSharePct), 100 - share) : 0;
   // Investoinnin hankintameno ja myyntihinta ovat metsätalouden osuus verottomasta summasta (src/lib/tax/share.ts).
   const net = percentOf(netFromGross(w.amountGross, w.vatRate), share);
   const kind = effectiveKind(cat.code, w.kind ?? (prev && prev.category === cat.code ? prev.kind : null));
@@ -135,19 +139,21 @@ export async function saveTransaction(
   }
   if (cat.code !== "asset_purchase" && cat.code !== "asset_sale") assetId = null;
 
-  const values = [w.bookedOn, kind, cat.code, w.description, w.amountGross, w.vatRate, w.withholding, assetId, w.forestPropertyId, share];
+  // Toiminto tulee luokasta, ja kanta tarkistaa saman säännön (0015).
+  const values = [w.bookedOn, kind, cat.code, w.description, w.amountGross, w.vatRate, w.withholding, assetId, w.forestPropertyId, share, cat.activity, otherShare];
   if (id) {
     const keepReference = w.reference === undefined;
     await tx.query(
       `update sk_transactions set booked_on = $3, kind = $4, category = $5, description = $6, amount_gross = $7, vat_rate = $8, withholding = $9,
-              asset_id = $10, forest_property_id = $11, business_share_pct = $12${keepReference ? "" : ", reference = $13"} where id = $1 and client_id = $2`,
+              asset_id = $10, forest_property_id = $11, business_share_pct = $12, activity = $13, other_share_pct = $14${keepReference ? "" : ", reference = $15"}
+        where id = $1 and client_id = $2`,
       keepReference ? [id, clientId, ...values] : [id, clientId, ...values, w.reference],
     );
   } else {
     const [row] = await tx.query<{ id: string }>(
       `insert into sk_transactions (organization_id, client_id, booked_on, kind, category, description, amount_gross, vat_rate, withholding, asset_id,
-                                    forest_property_id, business_share_pct, reference, created_by)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning id`,
+                                    forest_property_id, business_share_pct, activity, other_share_pct, reference, created_by)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) returning id`,
       [actor.organizationId, clientId, ...values, w.reference ?? null, actor.userId],
     );
     id = row.id;

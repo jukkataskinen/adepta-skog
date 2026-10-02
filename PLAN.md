@@ -119,7 +119,7 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 ### 8. Maatalous (lomake 2), MVP
 Suunnitelma: `docs/maatalous-suunnitelma-2026-10-02.md`. Verovuodet 2025 ja 2026, yksityinen maataloudenharjoittaja ja kuolinpesä.
 - [x] 1. Migraatio 0015: asiakkaan toiminnot, kirjauksen toiminto ja toisen toiminnon osuus, investoinnin toiminto ja poistoryhmä, maatilat, vuoden tiedot, ryhmäpoistot, investointituet, varaukset ja niiden käyttö, kotieläinten jaksotukset, harvinaiset kentät; RLS, triggerit, lukitus, testit (2.10.2026)
-- [ ] 2. Säännöt ja luokat: maatalouden luokat lomakkeen 2 kenttiin, alennettu alv aikasarjana (14 → 13,5 %), maatalouden poistoryhmät ja rajat, 2025:n korotettu poisto, toiminnon osuudet
+- [x] 2. Säännöt ja luokat: maatalouden luokat (21–59) lomakkeen 2 kenttiin, alennettu alv aikasarjana (14 → 13,5 %), maatalouden poistoryhmät ja rajat, 2025:n korotettu poisto, toiminnon osuudet; metsätalouden laskelmiin vain metsätalouden osa (2.10.2026)
 - [ ] 3. Syöttö: taulukko, lomake ja Excel maatalouden luokilla ja toisen toiminnon osuudella, asiakkaan asetus
 - [ ] 4. Yhteinen arvonlisävero metsälle ja maataloudelle, erittely toiminnoittain
 - [ ] 5. Maatalouden investoinnit, aiemmat investoinnit ja ryhmäpoistot

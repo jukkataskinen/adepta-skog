@@ -1,5 +1,5 @@
 import { grossFromNet } from "@/lib/tax/amounts";
-import { CATEGORIES, type TransactionKind } from "@/lib/tax/rules";
+import { FORESTRY_CATEGORIES as CATEGORIES, type TransactionKind } from "@/lib/tax/rules";
 
 /**
  * Vanhan Skog-kannan rivit uuden tietomallin riveiksi. Puhdas muunnos ilman

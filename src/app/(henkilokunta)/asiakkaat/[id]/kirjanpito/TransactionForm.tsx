@@ -1,5 +1,5 @@
 import { Button, Field, Input, Select } from "@/components/ui";
-import { ASSET_CLASSES, CATEGORIES, CATEGORY_GROUPS } from "@/lib/tax/rules";
+import { ASSET_CLASSES, FORESTRY_CATEGORIES as CATEGORIES } from "@/lib/tax/rules";
 import type { AssetOption, PropertyOption, TransactionRow } from "@/lib/ledger/queries";
 import { isPartialShare } from "@/lib/tax/share";
 import { DeliveryWorkCalculator } from "./DeliveryWorkCalculator";
@@ -47,7 +47,7 @@ export function TransactionForm({
             <option value="" disabled>
               Valitse
             </option>
-            {CATEGORY_GROUPS.map((g) => (
+            {[...new Set(CATEGORIES.map((c) => c.group))].map((g) => (
               <optgroup key={g} label={g}>
                 {CATEGORIES.filter((c) => c.group === g).map((c) => (
                   <option key={c.code} value={c.code}>

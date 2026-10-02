@@ -1,4 +1,4 @@
-import { CATEGORIES, category, categoryByNo, defaultVatRate, SMALL_ASSET_LIMIT, TIMBER_SALE_CODES, type TransactionKind } from "@/lib/tax/rules";
+import { FORESTRY_CATEGORIES, category, categoryByNo, defaultVatRate, SMALL_ASSET_LIMIT, TIMBER_SALE_CODES, type TransactionKind } from "@/lib/tax/rules";
 import { netFromGross, percentOf } from "@/lib/tax/amounts";
 import { forestryShare, formatSharePct, type ShareAmounts } from "@/lib/tax/share";
 import type { PendingSuggestion } from "@/lib/documents/receipt-suggestions";
@@ -459,7 +459,7 @@ export interface DigitResult {
  * numero voi jatkua (1 → 10, 11, 12), odotetaan hetki toista numeroa.
  * Numero, joka ei jatka syötettä, aloittaa uuden.
  */
-export function categoryDigit(buffer: string, digit: string, numbers: number[] = CATEGORIES.map((c) => c.no)): DigitResult {
+export function categoryDigit(buffer: string, digit: string, numbers: number[] = FORESTRY_CATEGORIES.map((c) => c.no)): DigitResult {
   const cand = buffer + digit;
   const exact = numbers.includes(Number(cand)) && !cand.startsWith("0");
   const longer = numbers.some((n) => String(n).startsWith(cand) && String(n) !== cand);
@@ -471,7 +471,7 @@ export function categoryDigit(buffer: string, digit: string, numbers: number[] =
 }
 
 /** Valikon rivit järjestyksessä: sama järjestys kuin CATEGORIES (ryhmittäin). */
-export const MENU_CATEGORIES = CATEGORIES;
+export const MENU_CATEGORIES = FORESTRY_CATEGORIES;
 
 export function menuIndexOfNo(no: number): number {
   return MENU_CATEGORIES.findIndex((c) => c.no === no);

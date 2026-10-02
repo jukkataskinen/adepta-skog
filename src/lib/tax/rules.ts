@@ -7,8 +7,25 @@
 
 export type TransactionKind = "income" | "expense" | "investment";
 
-/** Arvonlisäveron oletus luokalle: yleinen verokanta tai veroton. */
-export type VatDefault = "general" | "none";
+/** Toiminto: metsätalous (2C) tai maatalous (lomake 2). Kirjauksen toiminto tulee luokasta. */
+export type Activity = "forestry" | "agriculture";
+
+export const ACTIVITY_LABEL: Record<Activity, string> = { forestry: "Metsätalous", agriculture: "Maatalous" };
+
+/** Arvonlisäveron oletus luokalle: yleinen verokanta, alennettu verokanta tai veroton. */
+export type VatDefault = "general" | "reduced" | "none";
+
+/**
+ * Maatalouden luokan paikka lomakkeella 2 (docs/maatalous-suunnitelma-2026-10-02.md, 1.2–1.3).
+ * by_vat: meno viedään kohtaan 226, 229 tai 230 arvonlisäverokannan mukaan.
+ * vat_only: oma käyttö, jonka vero kuuluu arvonlisäveroon mutta ei tuloverotukseen.
+ * asset_purchase ja asset_sale: investointi ja sen myynti poistoryhmän kautta.
+ */
+export type Form2Target =
+  | "210" | "211" | "213" | "214" | "215" | "216" | "217" | "218" | "220" | "221" | "222"
+  | "dividend_listed" | "dividend_other" | "coop_surplus" | "vat_only"
+  | "225" | "227" | "230" | "464" | "465" | "by_vat"
+  | "asset_purchase" | "asset_sale";
 
 export interface Category {
   code: string;
@@ -16,37 +33,155 @@ export interface Category {
   group: string;
   kind: TransactionKind;
   vat: VatDefault;
-  /** Vanhan sovelluksen nimi tiedonsiirtoa varten. */
+  activity: Activity;
+  /** Vanhan sovelluksen nimi tiedonsiirtoa varten. Maatalouden luokilla sama kuin nimi. */
   legacyName: string;
   /**
    * Pikanumero taulukkosyötön luokkavalikossa. Numerot 1–11 ovat samat kuin
    * vanhassa sovelluksessa, jotta kirjanpitäjän tottumukset säilyvät; Hankintatyö
-   * on uusi numero 12.
+   * on uusi numero 12. Maatalouden numerot ovat 21–59, jotta numero on
+   * yksilöllinen koko luettelossa ja Excelin luokkanumero toimii ilman toimintoa.
    */
   no: number;
+  /** Maatalouden luokan kenttä lomakkeella 2. */
+  form2?: Form2Target;
 }
 
+/** Maatalouden luokan tunnus alkaa aina tällä, ja kanta tarkistaa sen (0015). */
+export const AGRI_PREFIX = "agri_";
+
+const F = "forestry" as const;
+const A = "agriculture" as const;
+
 export const CATEGORIES: Category[] = [
-  { code: "standing_sale", no: 1, label: "Pystykauppa", group: "Puukauppatulot", kind: "income", vat: "general", legacyName: "Pystykauppa" },
-  { code: "delivery_sale", no: 2, label: "Hankintakauppa", group: "Puukauppatulot", kind: "income", vat: "general", legacyName: "Hankintakauppa" },
-  { code: "firewood_sale", no: 3, label: "Polttopuukauppa", group: "Puukauppatulot", kind: "income", vat: "general", legacyName: "Polttopuukauppa" },
-  { code: "insurance_compensation", no: 4, label: "Vakuutuskorvaukset", group: "Korvaukset ja tuet", kind: "income", vat: "none", legacyName: "Vakuutuskorvaukset" },
-  { code: "moose_damage_compensation", no: 5, label: "Hirvivahinkokorvaukset", group: "Korvaukset ja tuet", kind: "income", vat: "none", legacyName: "Hirvivahinkokorvaukset" },
-  { code: "forestry_subsidy", no: 6, label: "Metsätalouden tuet", group: "Korvaukset ja tuet", kind: "income", vat: "none", legacyName: "Metsätalouden tuet" },
-  { code: "asset_purchase", no: 10, label: "Käyttöomaisuuden hankinta", group: "Investoinnit", kind: "investment", vat: "general", legacyName: "Käyttöomaisuuden hankinta" },
-  { code: "asset_sale", no: 11, label: "Käyttöomaisuuden myynti", group: "Investoinnit", kind: "income", vat: "general", legacyName: "Käyttöomaisuuden myynti" },
-  { code: "wages", no: 7, label: "Palkkausmenot", group: "Menot", kind: "expense", vat: "none", legacyName: "Palkkausmenot" },
-  { code: "travel", no: 8, label: "Matkakulut", group: "Menot", kind: "expense", vat: "general", legacyName: "Matkakulut" },
-  { code: "other_expense", no: 9, label: "Muut vuosimenot", group: "Menot", kind: "expense", vat: "general", legacyName: "Muut vuosimenot" },
+  { code: "standing_sale", no: 1, label: "Pystykauppa", group: "Puukauppatulot", kind: "income", vat: "general", activity: F, legacyName: "Pystykauppa" },
+  { code: "delivery_sale", no: 2, label: "Hankintakauppa", group: "Puukauppatulot", kind: "income", vat: "general", activity: F, legacyName: "Hankintakauppa" },
+  { code: "firewood_sale", no: 3, label: "Polttopuukauppa", group: "Puukauppatulot", kind: "income", vat: "general", activity: F, legacyName: "Polttopuukauppa" },
+  { code: "insurance_compensation", no: 4, label: "Vakuutuskorvaukset", group: "Korvaukset ja tuet", kind: "income", vat: "none", activity: F, legacyName: "Vakuutuskorvaukset" },
+  { code: "moose_damage_compensation", no: 5, label: "Hirvivahinkokorvaukset", group: "Korvaukset ja tuet", kind: "income", vat: "none", activity: F, legacyName: "Hirvivahinkokorvaukset" },
+  { code: "forestry_subsidy", no: 6, label: "Metsätalouden tuet", group: "Korvaukset ja tuet", kind: "income", vat: "none", activity: F, legacyName: "Metsätalouden tuet" },
+  { code: "asset_purchase", no: 10, label: "Käyttöomaisuuden hankinta", group: "Investoinnit", kind: "investment", vat: "general", activity: F, legacyName: "Käyttöomaisuuden hankinta" },
+  { code: "asset_sale", no: 11, label: "Käyttöomaisuuden myynti", group: "Investoinnit", kind: "income", vat: "general", activity: F, legacyName: "Käyttöomaisuuden myynti" },
+  { code: "wages", no: 7, label: "Palkkausmenot", group: "Menot", kind: "expense", vat: "none", activity: F, legacyName: "Palkkausmenot" },
+  { code: "travel", no: 8, label: "Matkakulut", group: "Menot", kind: "expense", vat: "general", activity: F, legacyName: "Matkakulut" },
+  { code: "other_expense", no: 9, label: "Muut vuosimenot", group: "Menot", kind: "expense", vat: "general", activity: F, legacyName: "Muut vuosimenot" },
   // Oma hankintatyö arvostetaan Verohallinnon ohjetaksoilla (DELIVERY_WORK_RATES, laskuri src/lib/tax/delivery-work.ts).
-  { code: "delivery_work", no: 12, label: "Hankintatyö", group: "Menot", kind: "expense", vat: "none", legacyName: "Hankintatyö" },
+  { code: "delivery_work", no: 12, label: "Hankintatyö", group: "Menot", kind: "expense", vat: "none", activity: F, legacyName: "Hankintatyö" },
+  // Maatalous (lomake 2). Ostot viedään lomakkeelle arvonlisäverokannan mukaan (226/229/230), joten
+  // menoluokat palvelevat kirjanpitäjää ja asiakasta: niistä näkee, mihin rahat menivät.
+  ...agri([
+    [21, "agri_livestock_sale", "Kotieläinten myynti", "Maatalous: myynnit", "income", "general", "210"],
+    [22, "agri_livestock_sale_deferred", "Kotieläinten myynti, jaksotettava", "Maatalous: myynnit", "income", "general", "211"],
+    [23, "agri_other_sales", "Muu myynti (työt, koneiden vuokra)", "Maatalous: myynnit", "income", "general", "213"],
+    [24, "agri_livestock_products", "Maito ja muut kotieläintuotteet", "Maatalous: myynnit", "income", "reduced", "214"],
+    [25, "agri_crops", "Kasvinviljelytuotteet", "Maatalous: myynnit", "income", "reduced", "215"],
+    [26, "agri_accommodation", "Majoituspalvelut", "Maatalous: myynnit", "income", "reduced", "216"],
+    [34, "agri_own_use_vat", "Oma käyttö (vain alv)", "Maatalous: myynnit", "income", "reduced", "vat_only"],
+    [27, "agri_state_subsidy", "Maataloustuet (Ruokavirasto)", "Maatalous: tuet ja muut tulot", "income", "none", "217"],
+    [28, "agri_other_subsidy", "Muut tuet ja korvaukset", "Maatalous: tuet ja muut tulot", "income", "none", "218"],
+    [29, "agri_other_income", "Muut alv 0 % tulot (vahingonkorvaukset, rakennusten vuokrat)", "Maatalous: tuet ja muut tulot", "income", "none", "220"],
+    [30, "agri_additions", "Energiaveron palautus ja muut lisäykset", "Maatalous: tuet ja muut tulot", "income", "none", "222"],
+    [31, "agri_private_use", "Tuloutus yksityiskäytöstä", "Maatalous: tuet ja muut tulot", "income", "none", "221"],
+    [32, "agri_coop_surplus", "Osuuskunnan ylijäämä", "Maatalous: tuet ja muut tulot", "income", "none", "coop_surplus"],
+    [33, "agri_dividends", "Osingot (muut kuin pörssiyhtiöt)", "Maatalous: tuet ja muut tulot", "income", "none", "dividend_other"],
+    [35, "agri_dividends_listed", "Osingot pörssiyhtiöistä", "Maatalous: tuet ja muut tulot", "income", "none", "dividend_listed"],
+    [41, "agri_fertilizers", "Lannoitteet ja kalkki", "Maatalous: ostot", "expense", "general", "by_vat"],
+    [42, "agri_seeds", "Siemenet ja taimet", "Maatalous: ostot", "expense", "general", "by_vat"],
+    [43, "agri_feed", "Rehut", "Maatalous: ostot", "expense", "reduced", "by_vat"],
+    [44, "agri_fuels", "Polttoaineet ja voiteluaineet", "Maatalous: ostot", "expense", "general", "by_vat"],
+    [45, "agri_repairs", "Koneiden ja rakennusten korjaukset", "Maatalous: ostot", "expense", "general", "by_vat"],
+    [46, "agri_energy", "Sähkö, vesi ja lämpö", "Maatalous: ostot", "expense", "general", "by_vat"],
+    [47, "agri_veterinary", "Eläinlääkäri ja eläinten hoito", "Maatalous: ostot", "expense", "general", "by_vat"],
+    [48, "agri_contracting", "Urakointi ja ostopalvelut", "Maatalous: ostot", "expense", "general", "by_vat"],
+    [49, "agri_other_purchases", "Muut ostot ja kalusto", "Maatalous: ostot", "expense", "general", "by_vat"],
+    [50, "agri_livestock_purchase_deferred", "Kotieläinten hankinta, jaksotettava", "Maatalous: ostot", "expense", "general", "227"],
+    [51, "agri_wages", "Palkat ja sivukulut", "Maatalous: muut menot", "expense", "none", "225"],
+    [52, "agri_rents", "Vuokrat", "Maatalous: muut menot", "expense", "none", "by_vat"],
+    [53, "agri_insurance", "Vakuutukset", "Maatalous: muut menot", "expense", "none", "230"],
+    [54, "agri_myel", "MYEL-maksut", "Maatalous: muut menot", "expense", "none", "230"],
+    [55, "agri_property_tax", "Kiinteistövero ja lomitusmaksut", "Maatalous: muut menot", "expense", "none", "230"],
+    [56, "agri_interest", "Korot", "Maatalous: muut menot", "expense", "none", "465"],
+    [57, "agri_other_deductions", "Muut vähennykset", "Maatalous: muut menot", "expense", "none", "464"],
+    [58, "agri_asset_purchase", "Maatalouden investointi", "Maatalous: investoinnit", "investment", "general", "asset_purchase"],
+    [59, "agri_asset_sale", "Maatalouden käyttöomaisuuden myynti", "Maatalous: investoinnit", "income", "general", "asset_sale"],
+  ]),
 ];
+
+function agri(rows: [number, string, string, string, TransactionKind, VatDefault, Form2Target][]): Category[] {
+  return rows.map(([no, code, label, group, kind, vat, form2]) => ({ no, code, label, group, kind, vat, activity: A, legacyName: label, form2 }));
+}
+
+/** Metsätalouden luokat: vanhan sovelluksen tuonti ja tositteiden tunnistus käyttävät vain näitä. */
+export const FORESTRY_CATEGORIES = CATEGORIES.filter((c) => c.activity === F);
 
 export const CATEGORY_GROUPS = [...new Set(CATEGORIES.map((c) => c.group))];
 
 export function category(code: string): Category | null {
   return CATEGORIES.find((c) => c.code === code) ?? null;
 }
+
+/** Luokan toiminto. Tuntematon luokka on metsätaloutta kuten vanhoissa riveissä. */
+export function categoryActivity(code: string): Activity {
+  return code.startsWith(AGRI_PREFIX) ? "agriculture" : "forestry";
+}
+
+/** Asiakkaan toiminnot: metsätalous oletuksena, maatalous asetuksesta. */
+export interface ClientActivities {
+  hasForestry: boolean;
+  hasAgriculture: boolean;
+}
+
+export function activitiesOf(c: ClientActivities): Activity[] {
+  const out: Activity[] = [];
+  if (c.hasForestry || !c.hasAgriculture) out.push("forestry");
+  if (c.hasAgriculture) out.push("agriculture");
+  return out;
+}
+
+/** Asiakkaan luokat: pelkkä metsäasiakas näkee vain metsätalouden luokat kuten ennen. */
+export function categoriesFor(c: ClientActivities): Category[] {
+  const acts = activitiesOf(c);
+  return CATEGORIES.filter((x) => acts.includes(x.activity));
+}
+
+/** Investoinnin hankinta tai myynti: investointi syntyy tai myydään kirjauksesta. */
+export const ASSET_PURCHASE_CODES = ["asset_purchase", "agri_asset_purchase"];
+export const ASSET_SALE_CODES = ["asset_sale", "agri_asset_sale"];
+export const isAssetPurchase = (code: string) => ASSET_PURCHASE_CODES.includes(code);
+export const isAssetSale = (code: string) => ASSET_SALE_CODES.includes(code);
+
+/**
+ * Toisen toiminnon osuuden luokka (0015). Esimerkiksi sähkölasku kirjataan
+ * maatalouteen, ja 20 % siitä kuuluu metsätaloudelle: metsätalouden osuus on
+ * Muut vuosimenot. Osuus on vain menoilla. Metsätaloudesta maatalouteen
+ * siirtyvä meno viedään lomakkeelle 2 arvonlisäverokannan mukaan.
+ */
+export function crossCategory(code: string): string {
+  if (categoryActivity(code) === "agriculture") return code === "agri_wages" ? "wages" : "other_expense";
+  return code === "wages" ? "agri_wages" : "agri_other_purchases";
+}
+
+/** Luokat, joille toisen toiminnon osuutta ei voi antaa: hankintatyö on metsätalouden oma arvostus. */
+export function allowsOtherShare(code: string): boolean {
+  const c = category(code);
+  return !!c && c.kind === "expense" && code !== "delivery_work" && code !== "agri_livestock_purchase_deferred";
+}
+
+/**
+ * Maatalouden osinkojen ja osuuskuntaylijäämän veronalaiset osuudet (lomake 2: 224, 322, 328).
+ * Muiden osuuskuntien ylijäämästä 25 % on veronalaista 5 000 euroon asti ja 75 % sen yli.
+ */
+export const DIVIDEND_OTHER_TAXABLE_PCT = 75;
+export const DIVIDEND_LISTED_TAXABLE_PCT = 85;
+export const COOP_SURPLUS_LOW_PCT = 25;
+export const COOP_SURPLUS_HIGH_PCT = 75;
+export const COOP_SURPLUS_THRESHOLD = 5000;
+
+/** Tasausvaraus: enintään 40 % tilan puhtaasta tulosta ennen korkoja, 800–25 000 €, alas sataan euroon. */
+export const EQUALIZATION_RESERVE = { pct: 40, min: 800, max: 25000, round: 100 } as const;
+
+/** Kotieläinten jaksotus: kolme vuotta tasaerinä (lomake 2: 211/212 ja 227/228). */
+export const LIVESTOCK_DEFERRAL_YEARS = 3;
 
 /** Puukaupan tulot: metsävähennyksen vuosiraja lasketaan näistä (vaihe 5). */
 export const TIMBER_SALE_CODES = ["standing_sale", "delivery_sale", "firewood_sale"];
@@ -67,6 +202,31 @@ export function generalVatRate(date: string): number {
 }
 
 /**
+ * Alennettu arvonlisäverokanta (elintarvikkeet, rehut, majoitus): 14 % ja
+ * 13,5 % 1.1.2026 alkaen. Maito ja vilja ovat tällä kannalla, elävät eläimet
+ * yleisellä (docs/maatalous-suunnitelma-2026-10-02.md, 2.1).
+ */
+const REDUCED_VAT: { from: string; rate: number }[] = [
+  { from: "2013-01-01", rate: 14 },
+  { from: "2026-01-01", rate: 13.5 },
+];
+
+export function reducedVatRate(date: string): number {
+  let rate = REDUCED_VAT[0].rate;
+  for (const r of REDUCED_VAT) if (date >= r.from) rate = r.rate;
+  return rate;
+}
+
+/** Verokannan ryhmä: yleinen (VSRALVKV 301), alennettu 14 % tai 13,5 % (302), 10 % (303) tai veroton. */
+export type VatRateGroup = "general" | "reduced" | "ten" | "zero";
+
+export function vatRateGroup(rate: number): VatRateGroup {
+  if (rate <= 0) return "zero";
+  if (rate === 10) return "ten";
+  return rate >= 20 ? "general" : "reduced";
+}
+
+/**
  * Uuden kirjauksen oletusverokanta. Arvonlisäverorekisteriin kuulumaton
  * asiakas ei voi vähentää ostojen veroa eikä hänen myynnissään ole veroa,
  * joten hänelle oletus on aina 0 % ja kulu on koko kuitin summa (Jukan
@@ -76,7 +236,7 @@ export function generalVatRate(date: string): number {
 export function defaultVatRate(code: string, date: string, client: { vatRegistered: boolean }): number {
   if (!client.vatRegistered) return 0;
   const c = category(code);
-  return c?.vat === "general" ? generalVatRate(date) : 0;
+  return c?.vat === "general" ? generalVatRate(date) : c?.vat === "reduced" ? reducedVatRate(date) : 0;
 }
 
 export function categoryByNo(no: number): Category | null {
@@ -102,11 +262,79 @@ export function assetClassLabel(pct: number | null): string {
 }
 
 /**
+ * Maatalouden poistoryhmät lomakkeella 2 (MVL; docs/maatalous-suunnitelma-2026-10-02.md, 1.5).
+ * Prosentti on enimmäispoisto menojäännöksestä. Poisto valitaan ryhmälle
+ * (sk_agri_depreciations), ja koneilla on yhteinen menojäännös.
+ * smallLimit: enintään tämän suuruisen ryhmän menojäännöksen saa poistaa kerralla.
+ */
+export type AgriAssetClass =
+  | "agri_production_building" | "agri_dwelling" | "agri_greenhouse" | "agri_environmental" | "agri_machinery" | "agri_bridges" | "agri_drainage";
+
+export const AGRI_ASSET_CLASSES: { code: AgriAssetClass; label: string; pct: number; smallLimit: number | null }[] = [
+  { code: "agri_production_building", label: "Tuotantorakennus", pct: 10, smallLimit: 1000 },
+  { code: "agri_dwelling", label: "Asuin- tai toimistorakennus", pct: 6, smallLimit: 1000 },
+  { code: "agri_greenhouse", label: "Kasvihuone tai vastaava rakennelma", pct: 20, smallLimit: 1000 },
+  { code: "agri_environmental", label: "Ympäristönsuojelun rakennelma", pct: 25, smallLimit: 1000 },
+  { code: "agri_machinery", label: "Koneet ja kalusto", pct: 25, smallLimit: 1200 },
+  { code: "agri_bridges", label: "Sillat, asfaltointi, padot ja kaivot", pct: 10, smallLimit: null },
+  { code: "agri_drainage", label: "Salaojat (oma viljely)", pct: 20, smallLimit: null },
+];
+
+export function agriAssetClass(code: string | null | undefined) {
+  return AGRI_ASSET_CLASSES.find((c) => c.code === code) ?? null;
+}
+
+/**
+ * Uuden koneen korotettu poisto 50 % (käyttöön 2020–2025, verovuodet 2020–2025).
+ * Valinnassa se on oma vaihtoehtonsa, ja kannassa koneet ja kalusto + accelerated.
+ */
+export const AGRI_ACCELERATED_CHOICE = "agri_machinery_accelerated";
+const ACCELERATED: { firstYear: number; lastYear: number; pct: number } = { firstYear: 2020, lastYear: 2025, pct: 50 };
+
+export function acceleratedPct(year: number): number | null {
+  return year >= ACCELERATED.firstYear && year <= ACCELERATED.lastYear ? ACCELERATED.pct : null;
+}
+
+/** Investoinnin lajivalinnat maataloudelle: ryhmät ja vuonna sallittu korotettu poisto. */
+export function agriAssetChoices(year: number): { id: string; label: string }[] {
+  const out = AGRI_ASSET_CLASSES.map((c) => ({ id: c.code as string, label: `${c.label} ${c.pct} %` }));
+  if (acceleratedPct(year)) {
+    out.splice(5, 0, { id: AGRI_ACCELERATED_CHOICE, label: `Uusi kone, korotettu poisto ${ACCELERATED.pct} % (käyttöön ${ACCELERATED.firstYear}–${ACCELERATED.lastYear})` });
+  }
+  return out;
+}
+
+/** Valinta kannan sarakkeiksi. null, jos valinta ei ole maatalouden laji tai vuosi ei salli sitä. */
+export function parseAgriAssetChoice(choice: string, year: number): { assetClass: AgriAssetClass; accelerated: boolean; pct: number } | null {
+  if (choice === AGRI_ACCELERATED_CHOICE) return acceleratedPct(year) ? { assetClass: "agri_machinery", accelerated: true, pct: 25 } : null;
+  const c = agriAssetClass(choice);
+  return c ? { assetClass: c.code, accelerated: false, pct: c.pct } : null;
+}
+
+/** Maatalouden investoinnin laji tekstinä. */
+export function agriAssetLabel(assetClass: string | null, accelerated = false): string {
+  if (accelerated) return "Uusi kone, korotettu poisto";
+  return agriAssetClass(assetClass)?.label ?? "Maatalouden investointi";
+}
+
+/**
+ * Maatalouden pienhankinta: enintään tämän suuruinen hankinta vähennetään
+ * vuosimenona eikä poistoina (docs/maatalous-suunnitelma-2026-10-02.md, 1.5).
+ * Poikkeaa metsätaloudesta (600 €), joten raja on toiminnon mukainen.
+ */
+export const AGRI_SMALL_ASSET_LIMIT = 1200;
+
+/**
  * Pienen hyödykkeen raja (TVL 115 § 3 mom., vuodesta 2021): enintään tämän
  * suuruinen menojäännös poistetaan kerralla, ja enintään tämän suuruinen
  * hankinta vähennetään vuosimenona.
  */
 export const SMALL_ASSET_LIMIT = 600;
+
+/** Pienhankinnan raja toiminnon mukaan. */
+export function smallAssetLimit(activity: Activity): number {
+  return activity === "agriculture" ? AGRI_SMALL_ASSET_LIMIT : SMALL_ASSET_LIMIT;
+}
 
 /**
  * Pääomatulon vero: alempi kanta rajaan asti, ylempi sen yli. Voimassa

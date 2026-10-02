@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CATEGORIES, category, defaultVatRate, SMALL_ASSET_LIMIT, type TransactionKind } from "@/lib/tax/rules";
+import { FORESTRY_CATEGORIES, category, defaultVatRate, SMALL_ASSET_LIMIT, type TransactionKind } from "@/lib/tax/rules";
 
 /**
  * Kirjauksen kenttien tarkistus. Sama skeema palvelee kirjauslomaketta ja
@@ -132,5 +132,5 @@ export function parseClipboard(text: string): string[][] {
 export function resolveCategory(text: string): string | null {
   const t = text.trim().toLowerCase();
   if (!t) return null;
-  return CATEGORIES.find((c) => c.code === t || c.label.toLowerCase() === t || c.legacyName.toLowerCase() === t)?.code ?? null;
+  return FORESTRY_CATEGORIES.find((c) => c.code === t || c.label.toLowerCase() === t || c.legacyName.toLowerCase() === t)?.code ?? null;
 }

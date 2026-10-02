@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CATEGORIES, TIMBER_SALE_CODES } from "@/lib/tax/rules";
+import { FORESTRY_CATEGORIES as CATEGORIES, TIMBER_SALE_CODES } from "@/lib/tax/rules";
 
 /**
  * Tositteen tunnistuksen tulos: yksi tai useampi kirjausehdotus.
@@ -14,6 +14,8 @@ import { CATEGORIES, TIMBER_SALE_CODES } from "@/lib/tax/rules";
  * rivillä on lähdeasiakirjan järjestysnumero, kuvaus, laji ja sivut.
  */
 
+// Tunnistus ehdottaa vain metsätalouden luokkia: ohje on kirjoitettu metsätalouden tositteille,
+// ja maatalouden asiakirjalajit (meijeri, teurastamo, tuet) tehdään myöhemmin (PLAN, maatalous).
 export const RECEIPT_CATEGORY_CODES = CATEGORIES.map((c) => c.code) as [string, ...string[]];
 
 /**

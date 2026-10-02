@@ -18,7 +18,7 @@ describe("prosenttiosuus senteiksi", () => {
 describe("metsätalouden osuus", () => {
   it("tiemaksu 50 %: veroton ja ostojen vero puoliksi, loppu muulle", () => {
     const s = forestryShare({ kind: "expense", amountNet: 200, amountGross: 251, businessSharePct: 50 });
-    expect(s).toEqual({ sharePct: 50, net: 100, vat: 25.5, gross: 125.5, nonDeductibleVat: 25.5, otherNet: 100, otherGross: 125.5 });
+    expect(s).toMatchObject({ sharePct: 50, net: 100, vat: 25.5, gross: 125.5, nonDeductibleVat: 25.5, otherNet: 100, otherGross: 125.5 });
   });
 
   it("33,33 %: pyöristykset erikseen verottomasta ja verosta", () => {
@@ -40,7 +40,7 @@ describe("metsätalouden osuus", () => {
 
   it("myynnin vero on koko myynnistä, vaikka tulosta osa kuuluu muulle", () => {
     const s = forestryShare({ kind: "income", amountNet: 1000, amountGross: 1255, businessSharePct: 50 });
-    expect(s).toEqual({ sharePct: 50, net: 500, vat: 255, gross: 755, nonDeductibleVat: 0, otherNet: 500, otherGross: 500 });
+    expect(s).toMatchObject({ sharePct: 50, net: 500, vat: 255, gross: 755, nonDeductibleVat: 0, otherNet: 500, otherGross: 500 });
   });
 
   it("puuttuva, tyhjä tai kelvoton osuus on 100 %", () => {

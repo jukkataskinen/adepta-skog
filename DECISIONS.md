@@ -297,3 +297,17 @@
 **Maatila (`sk_farms`) on tietomallissa, kirjauksella ei vielä.** Tasausvaraus on tilakohtainen, joten varaus voi viitata tilaan. Kirjauksen tilasarake (`farm_id`) jätettiin pois, koska MVP:n laskenta ei tarvitse sitä; se lisätään tasausvarauksen laskurin yhteydessä (PLAN).
 
 **Verovelvollisen laji (`taxpayer_type`) jätettiin pois.** Kuolinpesän ja henkilön lomake 2 on sama, ja yhtymä (2Y) on myöhemmin. Sarake lisätään 2Y:n kanssa.
+
+**Maatalouden luokat (rules.ts).** Luokat numeroilla 21–35 (tulot) ja 41–59 (menot ja investoinnit) suunnitelman C1:n mukaan. Lisäksi 35 "Osingot pörssiyhtiöistä" (223/224), koska osinkojen veronalainen osuus riippuu yhtiöstä (85 % / 75 %). Investointitukea ei ole luokkana: tuki ei ole tuloa vaan pienentää poistopohjaa, joten se kirjataan investoinnille Maatalous-sivulla. Menoluokat viedään lomakkeelle arvonlisäverokannan mukaan (226/229/230); poikkeuksina palkat 225, jaksotettava kotieläinhankinta 227, vakuutukset, MYEL ja kiinteistövero 230, korot 465 ja muut vähennykset 464.
+
+**Alennettu arvonlisäverokanta aikasarjana.** `reducedVatRate`: 14 % ja 13,5 % 1.1.2026 alkaen, kuten yleinen kanta (24 → 25,5 %). Luokan oletus on `general`, `reduced` tai `none`; rekisteröimättömällä oletus on aina 0 % kuten ennen.
+
+**Toisen toiminnon osuuden luokka (`crossCategory`).** Maatalouden menon metsätalouden osuus on metsätaloudessa Muut vuosimenot (palkoista Palkkausmenot), ja metsätalouden menon maatalouden osuus on maataloudessa Muut ostot ja kalusto (palkoista Palkat), jolloin lomakkeen 2 kenttä tulee arvonlisäverokannasta. Näin rivillä on yksi luokka eikä kuitti jakaudu kahteen kirjaukseen. Hankintatyölle ja jaksotettavalle kotieläinhankinnalle toista osuutta ei sallita, koska ne ovat oman toimintonsa erityiseriä.
+
+**Metsätalouden laskelmat ottavat vain metsätalouden osan (`activityRows`).** Verosuunnitelma, 2C ja veroraportin luokkasummat laskevat metsätalouden kirjausten oman osuuden ja maatalouden kirjausten metsätaloudelle annetun osuuden. Maatalouden investoinnit eivät ole metsätalouden poistoissa. Pelkän metsäasiakkaan luvut eivät muutu, koska kaikki rivit ovat metsätaloutta ja toinen osuus on 0.
+
+**Ei-vähennettävä vero on vain yksityinen osuus.** Ostojen verosta vähennetään oman ja toisen toiminnon osuus, koska metsätalous ja maatalous ovat saman verovelvollisen toimintaa ja ilmoitetaan samalla alv-ilmoituksella. Tämä ratkaisee BLOCKERS 11 b:n maatalouden osalta.
+
+**Tositteiden tunnistus ja vanhan sovelluksen tuonti käyttävät vain metsätalouden luokkia.** Tunnistuksen ohje on kirjoitettu metsätalouden tositteille, ja vanhassa Skogissa ei ole maataloutta. Maatalouden asiakirjalajit (meijeri, teurastamo, tukipäätös) ovat myöhemmin.
+
+**Maatalouden pienhankinta 1 200 € ja ryhmän pieni menojäännös.** Hankinta, jonka maatalouden osuus on enintään 1 200 €, kirjataan vuosimenona. Koneiden ryhmän menojäännöksen saa poistaa kerralla, jos se on enintään 1 200 €, ja rakennusryhmien, jos enintään 1 000 €. Raja verrataan ryhmän summaan, koska poisto valitaan ryhmälle.

@@ -1,6 +1,6 @@
 import type { Sql } from "@/lib/db/types";
-import { forestryShare } from "@/lib/tax/share";
-import { category, type TransactionKind } from "@/lib/tax/rules";
+import { activityRows, forestryShare } from "@/lib/tax/share";
+import { category, type Activity, type TransactionKind } from "@/lib/tax/rules";
 import { loadPlanData, type PlanData, type PriorOpening } from "@/lib/tax/load";
 import { computePlan, type PlanResult } from "@/lib/tax/plan";
 import { vatSummary, type VatPeriod } from "@/lib/tax/vat";
@@ -87,9 +87,10 @@ export async function loadReportData(
 
   const rows = await tx.query<{
     booked_on: string; kind: TransactionKind; category: string; description: string; amount_net: string; amount_gross: string; vat_rate: string; withholding: string;
-    business_share_pct: string; own_document_id: string | null; source_document_id: string | null; source_pages: string | null;
+    business_share_pct: string; other_share_pct: string; activity: Activity; own_document_id: string | null; source_document_id: string | null; source_pages: string | null;
   }>(
     `select t.booked_on::text, t.kind, t.category, t.description, t.amount_net, t.amount_gross, t.vat_rate, t.withholding, t.business_share_pct,
+            t.other_share_pct, t.activity,
             (select d.id from sk_documents d where d.transaction_id = t.id and d.kind = 'receipt' order by d.created_at, d.id limit 1) as own_document_id,
             t.source_document_id, t.source_pages::text as source_pages
        from sk_transactions t where t.client_id = $1 and t.tax_year = $2 order by t.booked_on, t.created_at`,
@@ -117,12 +118,18 @@ export async function loadReportData(
       gross: Number(r.amount_gross), withholding: Number(r.withholding), sharePct: share.sharePct, shareNet: share.net, attachment: attachmentRef(r),
     };
   });
-  // Luokkasummiin vain metsätalouden osuus: loppu kuuluu muulle toiminnalle.
+  // Luokkasummiin vain metsätalouden osuus: loppu kuuluu muulle toiminnalle (src/lib/tax/share.ts, activityRows).
+  const forestryParts = activityRows(
+    rows.map((r) => ({
+      ...r, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), businessSharePct: Number(r.business_share_pct), otherSharePct: Number(r.other_share_pct),
+    })),
+    "forestry",
+  );
   const byCat = new Map<string, ReportCategoryRow>();
-  for (const r of rows) {
+  for (const r of forestryParts) {
     const label = category(r.category)?.label ?? r.category;
     const e = byCat.get(label) ?? { label, kind: r.kind, net: 0, vat: 0, gross: 0 };
-    const s = shareOf(r);
+    const s = forestryShare(r);
     e.net = Math.round((e.net + s.net) * 100) / 100;
     e.vat = Math.round((e.vat + s.vat) * 100) / 100;
     e.gross = Math.round((e.gross + s.gross) * 100) / 100;
