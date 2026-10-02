@@ -137,7 +137,8 @@ Suunnitelma: `docs/maatalous-suunnitelma-2026-10-02.md`. Verovuodet 2025 ja 2026
 - [ ] Kotieläinten jaksotus kirjauksista automaattisesti ja vapaa jako kolmelle vuodelle
 - [ ] Yritystulon jako ja pääomatulo-osuus verosuunnitelmaan (puolisot, 20/10/0 %, 30 % palkoista, vahvistetut tappiot) ja maatalouden vero veroraportin maksutiedotteeseen
 - [ ] Maatalouden poistojen valinta verosuunnitelman laskuriin (nyt Lomake 2 -välilehdellä)
-- [ ] Tositteiden tunnistus: lainan vuosi-ilmoitus (korot ja lyhennykset) ja investointituen tunnistus investoinnille (meijeri, teurastamo, tuet ja ostot tehty 2.10.2026); oikea koe maatilan aineistolla
+- [x] Maatalouden tositteiden tunnistus valmiiksi oikeaa aineistoa varten (2.10.2026, `docs/tunnistus-maatalous-2026-10-02.md`): asiakirjalajit ohjeineen ja sudenkuoppineen (meijeri, teurastamo, vilja, tuen maksuilmoitus, Vipun maksetut tuet, tukipäätös, eläinkauppa, konekauppa, polttoaine, energiaveron palautus, sähkö, vakuutus, MYEL), tukilajit luokkiin 217/218/220/222 maksupäivän mukaan, huomautukset (jaksotus, yksityisosuus, vaihtokone, verokanta vuoden mukaan), hyväksyntänäkymän ryhmät ja täsmäytys tositteen summaan, hyväksyntä kerralla tai riveittäin, testitilan esimerkit, palat reitillä rinnakkain ja ohje välimuistiin, rivien raja 1000 (migraatio 0018); ohjeet
+- [ ] Tositteiden tunnistus: lainan vuosi-ilmoitus (korot ja lyhennykset) ja investointituen tunnistus suoraan investoinnille; oikea koe maatilan aineistolla (Jukka: anonymisoitu vuosiaineisto, myös Vipun maksetut tuet PDF:nä)
 - [ ] Ajoneuvo- ja matkaselvitys laskettuna (281–288, 401–425) ja tulolähdesiirto 2C:n kohtaan 630
 - [ ] Kirjauksen maatila (`farm_id`) (toiminnoittainen näkymä tehty 2.10.2026)
 - [ ] Rakennusten pieni menojäännös rakennuksittain (nyt ryhmän summasta)

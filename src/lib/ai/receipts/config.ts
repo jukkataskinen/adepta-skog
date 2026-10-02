@@ -30,8 +30,20 @@ export const CHUNK_TIMEOUT_MS = 100_000;
  */
 export const CHUNK_MAX_TOKENS = 12_000;
 
-/** Selain lukee enintään näin monta palaa yhtä aikaa. */
+/**
+ * Selain lukee enintään näin monta palaa yhtä aikaa (DECISIONS 2.10.2026).
+ * Lyhyt tiedosto luetaan kahtena rinnakkaisena, pitkä (yli 6 osaa, noin 45
+ * sivua) kolmena, jotta 300 sivun vuosiaineisto valmistuu noin 10–25
+ * minuutissa. Enempää ei ajeta, koska Anthropicin minuuttikohtainen
+ * tokeniraja (8 skannattua sivua on noin 20 000 syötetokenia) ja
+ * palan uusinta riittävät silloin vielä pienelläkin käyttötasolla.
+ */
 export const CHUNK_PARALLEL = 2;
+export const CHUNK_PARALLEL_LONG = 3;
+
+export function chunkParallel(chunkCount: number): number {
+  return chunkCount > 6 ? CHUNK_PARALLEL_LONG : CHUNK_PARALLEL;
+}
 
 /** Aika-arvio yhdelle palalle sekunteina (alaraja, yläraja). */
 export const CHUNK_SECONDS: [number, number] = [30, 70];

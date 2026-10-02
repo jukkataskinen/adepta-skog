@@ -13,6 +13,7 @@ import {
   categoryByNo,
   categoryDigit,
   changeCount,
+  deferredSuggestionLines,
   emptyGridRow,
   formatAmountInput,
   gridColumns,
@@ -33,7 +34,9 @@ import {
   selectCategory,
   shareNote,
   suggestionDateWarning,
+  suggestionGroups,
   toggleKind,
+  type SuggestionGroup,
   type GridField,
   type GridRow,
   type GridSaveState,
@@ -172,7 +175,15 @@ export function LedgerGrid({
     const o = r.suggestionId ? suggestionSnapshot.current.get(r.key) : undefined;
     return Boolean(o && sameRow(o, r, year));
   };
-  const pendingSuggestions = rows.filter((r) => r.suggestionId).length;
+  const pendingSuggestions = rows.filter((r) => r.suggestionId && !r.deferred).length;
+  const deferredSuggestions = rows.filter((r) => r.suggestionId && r.deferred).length;
+  // Monikirjauksiset tositteet ryhminä ja niiden täsmäytys (taulukon nykyisistä riveistä).
+  const groups = useMemo(() => suggestionGroups(rows), [rows]);
+  const groupOf = useMemo(() => {
+    const m = new Map<string, SuggestionGroup>();
+    for (const g of groups.values()) for (const k of g.rowKeys) m.set(k, g);
+    return m;
+  }, [groups]);
   const warnDirty = changes.updated.length + changes.deleted.length + changes.created.filter((r) => !untouchedSuggestion(r)).length > 0;
 
   // ---------------------------------------------------------------------------
@@ -507,8 +518,10 @@ export function LedgerGrid({
     fd.set("clientId", clientId);
     fd.set("year", String(year));
     if (activity) fd.set("toiminta", ACTIVITY_PARAM[activity]);
+    // Odottamaan jätetyt ehdotusrivit eivät tallennu; ne palaavat ehdotukseksi.
+    const keepPending = deferredSuggestionLines(rowsRef.current);
     const payload = rowsRef.current
-      .filter((r) => r.id || !isBlankGridRow(r))
+      .filter((r) => r.id || (!isBlankGridRow(r) && !(r.suggestionId && r.deferred)))
       .map((r) => ({
         key: r.key, id: r.id, bookedOn: r.bookedOn, description: r.description, category: r.category, amountGross: r.amountGross, vatRate: r.vatRate,
         businessSharePct: r.businessSharePct, otherSharePct: r.otherSharePct ?? "", withholding: r.withholding, forestPropertyId: r.forestPropertyId, kind: r.kind, reference: r.reference, assetRatePct: r.assetRatePct, saleAssetId: r.saleAssetId,
@@ -518,7 +531,7 @@ export function LedgerGrid({
     // Ehdotus, jonka kaikki rivit on poistettu taulukosta, hylätään tallennuksessa.
     const present = new Set(rowsRef.current.map((r) => r.suggestionId).filter(Boolean));
     const dismissedSuggestionIds = [...knownSuggestions.current].filter((id) => !present.has(id));
-    fd.set("payload", JSON.stringify({ rows: payload, deletedIds: deleted, dismissedSuggestionIds }));
+    fd.set("payload", JSON.stringify({ rows: payload, deletedIds: deleted, dismissedSuggestionIds, keepPending }));
     startTransition(async () => {
       const res = await action(fd);
       setResult(res);
@@ -526,13 +539,16 @@ export function LedgerGrid({
       if (res.status === "saved") {
         setErrors({});
         setOriginal(res.rows);
-        setRows(res.rows.length ? res.rows : [emptyGridRow(newKey(), defaultDate)]);
+        // Odottavat ehdotukset (myös odottamaan jätetyt rivit) tulevat palvelimelta uusina.
+        const waiting = res.suggestionRows ?? [];
+        const next = [...res.rows, ...waiting];
+        setRows(next.length ? next : [emptyGridRow(newKey(), defaultDate)]);
         setDeleted([]);
         setUndoStack([]);
         htOffered.current = new Set(res.rows.map((r) => r.key));
-        // Tallennetut ehdotukset on hyväksytty ja tyhjennetyt hylätty.
-        knownSuggestions.current = new Set();
-        suggestionSnapshot.current = new Map();
+        // Tallennetut ehdotukset on hyväksytty ja tyhjennetyt hylätty; jäljellä ovat palvelimen odottavat.
+        knownSuggestions.current = new Set(waiting.map((r) => r.suggestionId!).filter(Boolean));
+        suggestionSnapshot.current = new Map(waiting.map((r) => [r.key, r]));
       }
     });
   }, [action, clientId, year, deleted, defaultDate, pending, activity]);
@@ -617,7 +633,14 @@ export function LedgerGrid({
   // Näkymä
   // ---------------------------------------------------------------------------
 
-  const filled = rows.filter((r) => !isBlankGridRow(r));
+  // Odottamaan jätetyt ehdotusrivit eivät ole mukana summissa, koska ne eivät tallennu.
+  const filled = rows.filter((r) => !isBlankGridRow(r) && !(r.suggestionId && r.deferred));
+
+  /** Ehdotusrivin hyväksyntä: odottamaan jätetty rivi ei tallennu tällä kertaa. */
+  function setDeferred(keys: string[], deferred: boolean) {
+    const set = new Set(keys);
+    setRows((rs) => rs.map((r) => (set.has(r.key) && r.suggestionId && !r.id ? { ...r, deferred } : r)));
+  }
   const totals = filled.reduce(
     (s, r) => {
       const g = parseAmount(r.amountGross);
@@ -707,10 +730,22 @@ export function LedgerGrid({
               const sg = r.suggestion && r.suggestionId && !r.id ? r.suggestion : null;
               const dateWarning = sg ? suggestionWarning(r) : null;
               const confidencePct = sg ? Math.round(sg.confidence * 100) : 0;
+              const group = sg ? groupOf.get(r.key) : undefined;
+              const header = group && group.firstKey === r.key && group.rowKeys.length > 1 ? group : null;
+              // Yksirivisen tositteen ero näytetään rivin alla; ryhmän ero otsikossa.
+              const singleMismatch = group && group.rowKeys.length === 1 && group.balance.status === "mismatch" ? group : null;
               return [
+                header ? (
+                  <tr key={`${r.key}-g`} className="border-t-2 border-sky/40 bg-sky-soft">
+                    <td className="border-l-4 border-sky" />
+                    <td colSpan={columns.length + 5} className="px-2 py-2 text-xs text-ink/80">
+                      <GroupHeader group={header} clientId={clientId} onDefer={setDeferred} />
+                    </td>
+                  </tr>
+                ) : null,
                 <tr
                   key={r.key}
-                  className={`border-t align-top ${sg ? "border-sky/30 bg-sky-soft" : r.id ? "border-line" : "border-line bg-sky-soft/30"}`}
+                  className={`border-t align-top ${sg ? `border-sky/30 bg-sky-soft${r.deferred ? " opacity-60" : ""}` : r.id ? "border-line" : "border-line bg-sky-soft/30"}`}
                   title={sg ? `Ehdotus: ${sg.reasoning}` : undefined}
                 >
                   <td className={`px-2 py-2.5 text-right tabular ${sg ? "border-l-4 border-sky font-semibold text-sky" : "text-ink/45"}`}>{i + 1}</td>
@@ -964,7 +999,13 @@ export function LedgerGrid({
                           Rivi on vuosi-ilmoituksesta eli koko vuoden yhteenvedosta. Jos kauppa on jo kirjattu tilityksestä, poista tämä rivi.
                         </span>
                       ) : null}
+                      {sg.note ? <span className="block font-semibold text-amber">{sg.note}</span> : null}
+                      {singleMismatch ? <span className="block font-semibold text-coral">{balanceText(singleMismatch)}</span> : null}
                       {sg.duplicateWarning ? <span className="block font-semibold text-coral">{sg.duplicateWarning}</span> : null}
+                      <label className="mt-1 flex w-fit items-center gap-2 font-semibold text-ink/80">
+                        <input type="checkbox" tabIndex={-1} checked={!r.deferred} onChange={(e) => setDeferred([r.key], !e.currentTarget.checked)} />
+                        {r.deferred ? "Odottaa: ei tallennu nyt, palaa ehdotukseksi" : "Hyväksy tallennettaessa"}
+                      </label>
                       {dateWarning ? <span className="block font-semibold text-amber">{dateWarning}</span> : null}
                       {sg.first ? (
                         <span className="block">
@@ -1084,6 +1125,11 @@ export function LedgerGrid({
             {pendingSuggestions === 1
               ? "1 ehdotusrivi odottaa tarkistusta. Se tallentuu kirjaukseksi, kun tallennat."
               : `${pendingSuggestions} ehdotusriviä odottaa tarkistusta. Ne tallentuvat kirjauksiksi, kun tallennat.`}
+          </span>
+        ) : null}
+        {deferredSuggestions ? (
+          <span className="text-sm text-ink/60">
+            {deferredSuggestions === 1 ? "1 ehdotusrivi jää odottamaan." : `${deferredSuggestions} ehdotusriviä jää odottamaan.`}
           </span>
         ) : null}
       </div>
@@ -1346,5 +1392,50 @@ function ChoiceDialog({
         </Button>
       </div>
     </GridDialog>
+  );
+}
+
+/** Täsmäytyksen teksti: tulot − vähennykset = netto, ja vertailu tositteen summaan. */
+function balanceText(g: SuggestionGroup): string {
+  const b = g.balance;
+  const parts: string[] = [];
+  if (b.income) parts.push(`Tulot ${formatEur(b.income)}`);
+  if (b.withholding) parts.push(`ennakonpidätys ${formatEur(b.withholding)}`);
+  if (b.costs) parts.push(`${b.income ? "vähennykset" : "menot"} ${formatEur(b.costs)}`);
+  const sum = `${parts.join(", ")}. ${b.income && b.costs ? `Erotus ${formatEur(Math.abs(b.net))}.` : ""}`.trim();
+  if (b.status === "no_total") return `${sum} Tositteen loppusummaa ei tunnistettu, joten täsmäytystä ei tehty.`;
+  if (b.status === "ok") return `${sum} Täsmää tositteen summaan ${formatEur(b.total ?? 0)}.`;
+  return `${sum} Tositteen summa on ${formatEur(b.total ?? 0)}: ero ${formatEur(Math.abs(b.difference ?? 0))}. Tarkista rivit ennen tallennusta.`;
+}
+
+/**
+ * Monikirjauksisen tositteen otsikko: asiakirja, rivien määrä, täsmäytys ja
+ * hyväksyntä kerralla. Rivit hyväksytään tallennettaessa; odottamaan jätetyt
+ * palaavat ehdotukseksi.
+ */
+function GroupHeader({ group, clientId, onDefer }: { group: SuggestionGroup; clientId: string; onDefer: (keys: string[], deferred: boolean) => void }) {
+  const b = group.balance;
+  const allDeferred = group.deferredKeys.length === group.rowKeys.length;
+  const tone = b.status === "ok" ? "text-moss" : b.status === "mismatch" ? "text-coral" : "text-ink/70";
+  return (
+    <div className="grid gap-1">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="font-bold text-sky">{DOCUMENT_TYPE_LABEL[group.documentType]}</span>
+        {group.sourceDocument ? <span className="font-semibold">{group.sourceDocument}</span> : null}
+        <span>· {group.rowKeys.length} riviä</span>
+        <a href={documentHref(clientId, group.documentId, group.pages)} target="_blank" rel="noreferrer" tabIndex={-1} className="font-semibold text-sky hover:underline">
+          {group.pages.length ? sourceDocumentLabel(group.pages) : "Tosite"}
+        </a>
+        <button
+          type="button"
+          tabIndex={-1}
+          className="ml-auto rounded-full border border-sky/40 px-2 py-0.5 font-semibold text-sky hover:bg-sky/10"
+          onClick={() => onDefer(group.rowKeys, !allDeferred)}
+        >
+          {allDeferred ? "Hyväksy kaikki rivit" : group.deferredKeys.length ? "Jätä kaikki odottamaan" : "Jätä tosite odottamaan"}
+        </button>
+      </div>
+      <span className={`font-semibold ${tone}`}>{balanceText(group)}</span>
+    </div>
   );
 }

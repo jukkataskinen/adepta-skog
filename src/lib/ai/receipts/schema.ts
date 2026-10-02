@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CATEGORIES, categoryActivity, FORESTRY_CATEGORIES, TIMBER_SALE_CODES, type Activity } from "@/lib/tax/rules";
+import { AGRI_ASSET_CLASS_CODES, annotateAgriLine, SUBSIDY_TYPE_CODES } from "./agri";
 
 /**
  * Tositteen tunnistuksen tulos: yksi tai useampi kirjausehdotus.
@@ -37,14 +38,23 @@ export const isForestryOnly = (activities: Activity[]) => !activities.includes("
 
 /**
  * Enintään näin monta riviä yhdestä tositteesta. Koko vuoden aineisto luetaan
- * osissa yhdeksi ehdotukseksi, joten 100 sivun skannauksesta voi tulla satoja rivejä.
+ * osissa yhdeksi ehdotukseksi, joten 300 sivun maatilan vuosiaineistosta voi tulla
+ * yli 400 riviä (0018: raja 1000).
  */
-export const MAX_SUGGESTION_LINES = 400;
+export const MAX_SUGGESTION_LINES = 1000;
 
 /** Asiakirjan laji. Vuosi-ilmoitus on ostajan koko vuoden yhteenveto, ei yksittäinen kauppa. */
 export const DOCUMENT_TYPES = ["invoice", "receipt", "timber_settlement", "timber_annual_summary", "other"] as const;
-/** Maatalouden asiakirjalajit: vain maatalousasiakkaan tunnistuksessa. */
-export const AGRI_DOCUMENT_TYPES = ["dairy_settlement", "slaughter_settlement", "crop_settlement", "subsidy_decision", "subsidy_payment"] as const;
+/**
+ * Maatalouden asiakirjalajit: vain maatalousasiakkaan tunnistuksessa. Lajit,
+ * joista yksi tosite tuottaa usein monta kirjausta (tilitykset, tukien
+ * koonti, konekauppa), ja tavalliset maatalouden laskut, joihin liittyy
+ * huomautus (polttoaine, sähkö, vakuutus, MYEL). Ohjeet lajeittain: anthropic.ts.
+ */
+export const AGRI_DOCUMENT_TYPES = [
+  "dairy_settlement", "slaughter_settlement", "crop_settlement", "subsidy_decision", "subsidy_payment", "subsidy_summary",
+  "livestock_trade", "machine_trade", "fuel_invoice", "energy_tax_refund", "utility_invoice", "insurance_invoice", "myel_invoice",
+] as const;
 export const ALL_DOCUMENT_TYPES = [...DOCUMENT_TYPES, ...AGRI_DOCUMENT_TYPES] as const;
 export type DocumentType = (typeof ALL_DOCUMENT_TYPES)[number];
 
@@ -59,7 +69,24 @@ export const DOCUMENT_TYPE_LABEL: Record<DocumentType, string> = {
   crop_settlement: "Viljan tai muun tuotteen myynti",
   subsidy_decision: "Tukipäätös",
   subsidy_payment: "Tuen maksuilmoitus",
+  subsidy_summary: "Maksetut tuet (koonti)",
+  livestock_trade: "Kotieläinten kauppa",
+  machine_trade: "Konekauppa",
+  fuel_invoice: "Polttoainelasku",
+  energy_tax_refund: "Energiaveron palautus",
+  utility_invoice: "Sähkö-, vesi- tai lämpölasku",
+  insurance_invoice: "Vakuutuslasku",
+  myel_invoice: "MYEL-lasku",
 };
+
+/**
+ * Asiakirjalajit, joiden summa on tilitys: tulot miinus vähennykset on
+ * maksettu summa. Täsmäytys (reconcile.ts) käyttää samaa kaavaa kaikille
+ * lajeille, mutta tilityksen loppusumma on nettomaksu eikä laskun summa.
+ */
+export const SETTLEMENT_DOCUMENT_TYPES: DocumentType[] = [
+  "timber_settlement", "dairy_settlement", "slaughter_settlement", "crop_settlement", "subsidy_payment", "subsidy_summary",
+];
 
 /**
  * Palvelulle annettava skeema. Lukurajoja ei ole tässä, koska rakenteinen
@@ -67,10 +94,29 @@ export const DOCUMENT_TYPE_LABEL: Record<DocumentType, string> = {
  * Luokat ja asiakirjalajit tulevat asiakkaan toiminnoista (recognitionOutputSchemaFor);
  * tämä on pelkän metsäasiakkaan skeema.
  */
-export function recognitionOutputSchemaFor(activities: Activity[]) {
+/**
+ * lenient: tarkistuksessa maatalouden lisäkentät saavat puuttua, ja tuntematon
+ * tukilaji tai poistoryhmä ei hylkää koko vastausta (agri.ts ohittaa sen).
+ * Palvelulle annettava skeema vaatii kentät, jotta malli täyttää ne aina.
+ */
+export function recognitionOutputSchemaFor(activities: Activity[], lenient = false) {
   if (isForestryOnly(activities)) return recognitionOutputSchema;
   const codes = receiptCategoryCodes(activities);
   const shape = recognitionOutputSchema.shape.lines.element.shape;
+  const extras = lenient
+    ? {
+        note: z.string().nullable().optional(),
+        subsidy_type: z.string().nullable().optional(),
+        asset_class: z.string().nullable().optional(),
+      }
+    : {
+        note: z
+          .string()
+          .nullable()
+          .describe("Huomautus kirjanpitäjälle suomeksi, enintään 200 merkkiä, kun rivi vaatii päätöksen (esimerkiksi yksityisosuus, jaksotus, vaihtokone, epäselvä tukilaji). Muuten null."),
+        subsidy_type: z.enum(SUBSIDY_TYPE_CODES).nullable().describe("Tuen laji tukiriville (maksuilmoitus, tukien koonti, tukipäätös, energiaveron palautus). Muille riveille null."),
+        asset_class: z.enum(AGRI_ASSET_CLASS_CODES).nullable().describe("Maatalouden investoinnin poistoryhmä riville agri_asset_purchase. Muille riveille null."),
+      };
   return z.object({
     lines: z
       .array(
@@ -82,6 +128,11 @@ export function recognitionOutputSchemaFor(activities: Activity[]) {
             .number()
             .describe("Arvonlisäveroprosentti tositteen mukaan, esimerkiksi 25.5, 24, 14, 13.5, 10 tai 0. Elintarvikkeet ja rehut 14 (2025) tai 13.5 (2026)."),
           withholding: z.number().describe("Ennakonpidätys euroina puukaupan tulorivillä, muuten 0."),
+          document_total: z
+            .number()
+            .nullable()
+            .describe("Lähdeasiakirjan loppusumma euroina: laskun maksettava summa, tai tilityksen ja tukien maksuilmoituksen tilille maksettu nettosumma. null, jos sitä ei ole tulostettu."),
+          ...extras,
         }),
       )
       .describe("Kirjausehdotukset asiakirjoittain. Kunkin asiakirjan pääasiallinen rivi ensin."),
@@ -137,6 +188,17 @@ export interface SuggestionLine {
   pages: number[];
   contractNumber: string | null;
   invoiceNumber: string | null;
+  /**
+   * Lähdeasiakirjan loppusumma (lasku) tai maksettu nettosumma (tilitys).
+   * Täsmäytys vertaa asiakirjan rivejä tähän. Puuttuu vanhoilta ehdotuksilta.
+   */
+  documentTotal?: number | null;
+  /** Huomautus kirjanpitäjälle (maatalous: jaksotus, yksityisosuus, vaihtokone, verokanta). */
+  note?: string | null;
+  /** Tukirivin laji (agri.ts SUBSIDY_TYPES). */
+  subsidyType?: string | null;
+  /** Maatalouden investoinnin poistoryhmä (rules.ts AGRI_ASSET_CLASSES). */
+  assetClass?: string | null;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -186,6 +248,10 @@ export const suggestionLineSchema = z.object({
   pages: z.array(z.number()).default([]),
   contractNumber: z.string().max(40).nullable().default(null),
   invoiceNumber: z.string().max(40).nullable().default(null),
+  documentTotal: z.number().min(0).max(100_000_000).nullable().optional(),
+  note: z.string().max(300).nullable().optional(),
+  subsidyType: z.string().max(40).nullable().optional(),
+  assetClass: z.string().max(40).nullable().optional(),
 });
 
 export type RecognitionResult = { ok: true; lines: SuggestionLine[] } | { ok: false };
@@ -242,13 +308,8 @@ export function removeDuplicatePaymentLines(lines: LineWithTotal[]): SuggestionL
     );
     if (earlier >= 0) removed.add(i);
   });
-  return lines
-    .filter((_, i) => !removed.has(i))
-    .map((l) => {
-      const { documentTotal, ...rest } = l;
-      void documentTotal;
-      return rest;
-    });
+  // Loppusumma säilyy rivillä, koska hyväksyntänäkymä täsmäyttää asiakirjan rivit siihen.
+  return lines.filter((_, i) => !removed.has(i)).map((l) => ({ ...l, documentTotal: l.documentTotal ?? null }));
 }
 
 /**
@@ -270,10 +331,11 @@ export function validateRecognition(raw: unknown, activities: Activity[] = ["for
  * tehdään vasta yhdistetylle tulokselle (merge.ts). null = vastaus ei kelpaa.
  */
 export function validateLines(raw: unknown, activities: Activity[] = ["forestry"]): ChunkLine[] | null {
-  const parsed = recognitionOutputSchemaFor(activities).safeParse(raw);
+  const parsed = recognitionOutputSchemaFor(activities, true).safeParse(raw);
   if (!parsed.success) return null;
+  const agri = !isForestryOnly(activities);
   const lines: ChunkLine[] = [];
-  for (const l of parsed.data.lines.slice(0, MAX_SUGGESTION_LINES)) {
+  for (const l of parsed.data.lines.slice(0, MAX_SUGGESTION_LINES) as (RecognitionOutput["lines"][number] & AgriExtras)[]) {
     const amount = round2(Math.abs(l.amount_gross));
     if (!Number.isFinite(amount) || amount <= 0 || amount > 100_000_000) continue;
     const vat = round2(l.vat_rate);
@@ -282,7 +344,7 @@ export function validateLines(raw: unknown, activities: Activity[] = ["forestry"
     const wh = round2(Math.abs(l.withholding));
     const confidence = Number.isFinite(l.confidence) ? Math.min(1, Math.max(0, l.confidence)) : 0;
     const total = l.document_total === null ? null : round2(Math.abs(l.document_total));
-    lines.push({
+    const line: ChunkLine = {
       date: validDate(l.date),
       description: l.description.replace(/\s+/g, " ").trim().slice(0, 200),
       category: l.category,
@@ -298,9 +360,19 @@ export function validateLines(raw: unknown, activities: Activity[] = ["forestry"
       contractNumber: cleanNumber(l.contract_number),
       invoiceNumber: cleanNumber(l.invoice_number),
       documentTotal: total !== null && Number.isFinite(total) ? total : null,
-    });
+    };
+    // Maatalousasiakkaalla tuen luokka tukilajista, investoinnin ryhmä ja huomautukset (agri.ts).
+    lines.push(agri ? annotateAgriLine({ ...line, note: cleanNote(l.note), subsidyType: l.subsidy_type ?? null, assetClass: l.asset_class ?? null }) : line);
   }
   return lines;
+}
+
+/** Maatalouden skeeman lisäkentät (recognitionOutputSchemaFor). */
+type AgriExtras = { note?: string | null; subsidy_type?: string | null; asset_class?: string | null };
+
+function cleanNote(s: string | null | undefined): string | null {
+  const t = (s ?? "").replace(/\s+/g, " ").trim();
+  return t ? t.slice(0, 300) : null;
 }
 
 /** Kannasta luetut rivit: rikkinäinen rivi jätetään pois eikä se kaada sivua. */

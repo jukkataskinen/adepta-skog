@@ -1,11 +1,12 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import { CATEGORIES as ALL_CATEGORIES, FORESTRY_CATEGORIES as CATEGORIES, type Activity, type Category } from "@/lib/tax/rules";
+import { AGRI_ASSET_CLASSES, CATEGORIES as ALL_CATEGORIES, FORESTRY_CATEGORIES as CATEGORIES, type Activity, type Category } from "@/lib/tax/rules";
 import { FORESTRY_CONTEXT, type ReceiptFile, type ReceiptRecognizer, type RecognitionContext } from "./index";
 import { isWholeFile, pageRangeText, validateChunkRecognition, type ChunkRange } from "./chunks";
 import { CHUNK_MAX_TOKENS, CHUNK_TIMEOUT_MS } from "./config";
 import { isForestryOnly, recognitionOutputSchemaFor, validateRecognition, type RecognitionResult } from "./schema";
+import { SUBSIDY_TYPES } from "./agri";
 
 /**
  * Tositteen tunnistus Anthropicin Claude-mallilla (DECISIONS 28.9.2026).
@@ -53,14 +54,44 @@ ${categoryList}`;
  * asiakkaasta muuta kuin toiminnot. Oletustoiminto (näkymä, josta tunnistus
  * aloitettiin) tulee käyttäjän viestiin, jotta ohje pysyy samana.
  */
+/** Tukilajit ohjeeseen samasta luettelosta, josta tarkistus ottaa luokan (agri.ts). */
+const subsidyList = SUBSIDY_TYPES.map((t) => `  - ${t.code}: ${t.label} (${t.examples})`).join("\n");
+const assetClassList = AGRI_ASSET_CLASSES.map((c) => `${c.code} (${c.label})`).join(", ");
+
+/**
+ * Maatalouden asiakirjalajit ja niiden sudenkuopat (DECISIONS 2.10.2026,
+ * maatalouden tositteiden tunnistus). Ohje on vakio: se ei kerro asiakkaasta
+ * mitään, ja sama teksti lähtee jokaisessa kutsussa, joten se välimuistittuu.
+ */
 const AGRI_RULES = `Farm documents (agriculture, categories starting with agri_):
-- Dairy settlement (meijeritilitys, maitotilitys; document_type dairy_settlement): the milk sales as the first line with category agri_livestock_products and amount_gross including VAT. Deductions in the settlement (for example kuljetusmaksu, tarvikeostot, rehu, jäsenmaksu) become their own expense lines with the matching category and positive amounts. Put the settlement number in invoice_number.
-- Slaughterhouse settlement (teurastamo, teurastilitys, eläinten myynti; document_type slaughter_settlement): animal sales with agri_livestock_sale; deductions as their own expense lines.
-- Grain and other crop sales (viljakauppa, viljan tilityslaskelma, sokerijuurikas, peruna; document_type crop_settlement): agri_crops. Contract work for others or machine rental: agri_other_sales.
-- Subsidy payment notice (maksuilmoitus, maksatus; document_type subsidy_payment) from Ruokavirasto, an ELY-keskus or the municipal rural business authority (maaseutuelinkeinoviranomainen): one line per paid subsidy with agri_state_subsidy (for example perustulotuki, luonnonhaittakorvaus, ympäristökorvaus, eläinten hyvinvointikorvaus, kotieläintuki), vat_rate 0, date = payment date. Investment aid (investointituki) is not income: use agri_other_subsidy with confidence at most 0.4 and say in reasoning that it may be investment aid.
-- Subsidy decision (tukipäätös, päätös; document_type subsidy_decision) only states an amount that will be paid later: make one line with the decided amount, agri_state_subsidy, confidence at most 0.3, and say in reasoning that it is a decision, not a payment.
-- Purchases: fertilizers and lime agri_fertilizers, seed agri_seeds, feed agri_feed, fuel and lubricants agri_fuels, repairs of machines and buildings agri_repairs, electricity, water and heating agri_energy, veterinary agri_veterinary, contract work agri_contracting, other supplies and small tools agri_other_purchases, rents agri_rents, insurance agri_insurance, pension insurance MYEL (Mela) agri_myel, property tax and relief service fees agri_property_tax, interest agri_interest. Machines, buildings and other investments over 1 200 euros without VAT: agri_asset_purchase.
-- VAT on farm sales and purchases: food and feed (milk, meat, grain for food, feed) 14 % in 2025 and 13.5 % from 1 January 2026; most other goods and services 25.5 % (24 % before 1 September 2024). Subsidies, MYEL, insurance, interest and property tax have vat_rate 0. Always use the rate printed on the document when it is shown.`;
+
+General rules for farm documents:
+- One document often produces several lines. Make one line per income item and one line per deduction or cost, all with positive amounts. Never net a deduction against an income line, and never make a line for the net payment itself.
+- document_total on every line of a document: for an invoice the amount to pay; for a settlement or a subsidy payment the net amount paid to the farmer's account (maksetaan tilille, tilitetään, maksettava määrä). The accountant checks that income − deductions = document_total, so read it exactly.
+- VAT: food and feed (milk, meat, eggs, grain, feed) 14 % for supplies until 31 December 2025 and 13.5 % from 1 January 2026; most other goods and services 25.5 % (24 % before 1 September 2024); live animals 25.5 %. The rate follows the delivery date, so a January settlement for December deliveries can still show 14 %. Always use the rate printed on the document. Subsidies, MYEL, insurance premiums, interest and property tax have vat_rate 0.
+- note: write a short Finnish note when the accountant must decide something the document cannot tell (private share, livestock deferral, trade-in machine, unclear subsidy type, investment aid). Otherwise null.
+
+Document types:
+- dairy_settlement (meijeritilitys, maitotilitys, tilityslaskelma from a dairy such as Valio, Arla, Maitokolmio or a local osuusmeijeri): the milk payment as the first line, agri_livestock_products, gross amount including VAT (perushinta, laatulisät, pitoisuuslisät, kausihinta and other price additions belong to the same milk line). Each deduction is its own line: feed bought through the dairy agri_feed, veterinary and insemination agri_veterinary, supplies and detergents agri_other_purchases, transport or collection fee agri_contracting, membership fee (jäsenmaksu), advisory fee (neuvontamaksu) or ProAgria fee agri_other_purchases. Cooperative surplus (ylijäämä, osuuskunnan ylijäämän palautus, jälkitili paid as surplus, osuusmaksun korko) is income agri_coop_surplus with vat_rate 0; a price supplement (jälkitili, lisähinta) that is a price for milk stays agri_livestock_products. Capital contributions withheld (osuusmaksu, lisäosuusmaksu, pääomasijoitus) are not costs: do not make a line for them, but mention them in note, because they explain why the net payment is smaller. Pitfalls: a monthly settlement often lists the litres and the price per litre; use the euro totals, not the litres. The annual summary (vuosikooste) repeats the monthly settlements: use the last day of the year as date and say in note that it may duplicate monthly settlements.
+- slaughter_settlement (teurastamo, teurastilitys, eläinten tilitys from HKScan, Atria, Snellman or similar): animal sales agri_livestock_sale with the VAT shown (25.5 % for live animals, 24 % before 1 September 2024). Deductions as their own lines: transport agri_contracting, slaughter or classification fees agri_contracting, health care programme (Naseva, Sikava) agri_veterinary, membership fee agri_other_purchases, feed or animals bought through the slaughterhouse agri_feed or agri_other_purchases, cooperative surplus income agri_coop_surplus. If the document says the whole herd or most of it is sold (tuotannon lopetus, karjan myynti, eläintauti), say in note that the income can be deferred over three years.
+- crop_settlement (viljan tilityslaskelma, viljakauppa, sokerijuurikas, peruna, rypsi, nurmen tai heinän myynti): sales agri_crops with the printed VAT. Deductions as their own lines: drying (kuivaus), storage (varastointi), cleaning, transport and quality deductions charged as a fee agri_contracting; quality price reductions that only lower the unit price stay inside the sales amount. Seed or fertilizer bought through the same buyer: agri_seeds or agri_fertilizers. Contract work or machine rent sold to others: agri_other_sales.
+- subsidy_payment (maksuilmoitus, maksupäätös, maksatus from Ruokavirasto, an ELY-keskus or the municipal rural business authority; also a bank statement line clearly naming one subsidy): one line per paid subsidy, date = payment date (maksupäivä), vat_rate 0, description "<payer>, <subsidy name> <support year>", for example "Ruokavirasto, perustulotuki 2024 loppuerä". Set subsidy_type from the list below; the category is chosen from the subsidy type. If a payment is reduced by a recovery (takaisinperintä) or an offset (kuittaus), use the net amount paid for that subsidy and say so in note; a separate recovery invoice is agri_other_deductions with a note.
+- subsidy_summary (Vipu-palvelun maksetut tuet, tukiyhteenveto, Ruokaviraston vuosikooste, maksajan vuosi-ilmoitus tuista): a table of all payments in a year. Make one line per payment row: date = that row's payment date, amount = that row's paid amount, description = subsidy name and support year, subsidy_type from the list below, vat_rate 0. Do not add up rows of different payment dates or different subsidies. Skip rows that are only decisions, applications or planned payments without a payment date, and skip subtotal and total rows. Put the summary's grand total of paid amounts in document_total. Pitfalls: the support year (tukivuosi) differs from the payment year; the payment date decides the tax year. Advance and final payments (ennakko, loppuerä) of the same subsidy are separate lines.
+- subsidy_decision (tukipäätös, päätös, hyväksymispäätös): only states an amount that will be paid later. Make one line with the decided amount, subsidy_type set, confidence at most 0.3, and say in note that it is a decision, not a payment.
+- livestock_trade (eläinkauppa, välityseläimet, vasikoiden tai porsaiden myynti tai osto, eläinvälityksen tilitys): sales agri_livestock_sale, purchases of animals agri_other_purchases, both with 25.5 % VAT unless the document shows another rate. Write in note that sales or purchases of animals can be deferred over three years. Fees deducted in the same settlement are their own lines.
+- machine_trade (konekauppa, kauppakirja, traktorin, puimurin tai koneen lasku): the machine is agri_asset_purchase with the full price including VAT and asset_class agri_machinery (buildings: agri_production_building, drainage: agri_drainage). A trade-in machine (vaihtokone, hyvitys vaihtokoneesta) is its own line agri_asset_sale with the trade-in price; never deduct it from the new machine. Financing costs, insurance or registration fees on the same document are their own lines. Small tools under 1 200 euros without VAT are agri_other_purchases, not investments. If the machine is also used privately or in forestry, say so in note.
+- fuel_invoice (polttoaine, kevyt polttoöljy, diesel, moottoribensiini, voiteluaineet): agri_fuels. The energy tax refund (energiaveron palautus) is a separate decision from Verohallinto; never deduct it from the fuel invoice. Fuel for a car used privately: mention in note.
+- energy_tax_refund (energiaveron palautus, maatalouden energiatuotteiden valmisteveron palautus): income line with subsidy_type energy_tax_refund, vat_rate 0, date = payment date.
+- utility_invoice (sähkö, vesi, kaukolämpö): agri_energy. If the same meter serves the farm and the dwelling (yksi liittymä, asuinrakennus samassa mittauksessa), write in note that a private share must be set. Energy and transfer (siirto) on the same invoice are one line unless a separate meter clearly belongs only to the farm.
+- insurance_invoice (vakuutus, maatilavakuutus, eläinvakuutus): agri_insurance with vat_rate 0. Private parts (home, car used privately, personal accident insurance, life insurance) are not farm costs: make them separate lines with agri_insurance, confidence at most 0.4, and a note saying they may be private. MYEL-related accident insurance (MATA, Melan tapaturmavakuutus) is agri_insurance.
+- myel_invoice (Mela, MYEL-vakuutusmaksu, maatalousyrittäjän eläkevakuutus): agri_myel, vat_rate 0. MATA accident insurance on the same invoice is its own line agri_insurance. Pitfall: a MYEL invoice is often for several instalments (erät); book the instalments that this document charges, and use the due date if no invoice date is shown.
+- Other purchases: fertilizers and lime agri_fertilizers, seed agri_seeds, feed agri_feed, repairs of machines and buildings agri_repairs, veterinary agri_veterinary, contract work agri_contracting, other supplies and small tools agri_other_purchases, rents agri_rents, property tax and relief service fees agri_property_tax, interest agri_interest. Machines, buildings and other investments over 1 200 euros without VAT: agri_asset_purchase with asset_class.
+
+Subsidy types for subsidy_type (subsidy_payment, subsidy_summary, subsidy_decision and energy_tax_refund lines; null on every other line):
+${subsidyList}
+Investment aid (investointituki) is not income: use subsidy_type investment_aid and say so in note. If none fits, use other and describe the subsidy in note.
+
+Asset classes for asset_class (only on agri_asset_purchase lines): ${assetClassList}.`;
 
 const FOREST_RULES = `Forestry documents (categories without the agri_ prefix):
 - Timber sales: standing_sale (pystykauppa), delivery_sale (hankintakauppa), firewood_sale (polttopuu). Forest management costs (metsänhoito, taimikonhoito, taimet, metsäsuunnitelma, metsänhoitoyhdistyksen jäsenmaksu) go to other_expense, travel to travel. Use asset_purchase only for forestry machines, forest roads, ditches or buildings costing over 600 euros without VAT.
@@ -158,7 +189,9 @@ export function anthropicRecognizer(opts: { apiKey: string; model?: string; clie
             // Ajattelu on tällä mallilla aina päällä; keskitaso riittää tositteen lukemiseen.
             thinking: { type: "adaptive" },
             output_config: { effort: "medium", format: zodOutputFormat(recognitionOutputSchemaFor(context.activities)) },
-            system: receiptSystemPrompt(context.activities),
+            // Ohje on vakio, joten se merkitään välimuistiin: osissa luettavan tiedoston
+            // jokainen pala lähettää saman ohjeen (lyhyt metsäohje jää alle välimuistin alarajan).
+            system: [{ type: "text", text: receiptSystemPrompt(context.activities), cache_control: { type: "ephemeral" } }],
             messages: [{ role: "user", content: [source, { type: "text", text: chunkInstruction(chunk, context) }] }],
           },
           { signal },

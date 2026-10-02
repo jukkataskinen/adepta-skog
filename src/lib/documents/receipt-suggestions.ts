@@ -174,15 +174,28 @@ export interface CreatedFromSuggestion {
  */
 export async function acceptSuggestion(
   tx: Sql,
-  input: { actor: Actor; clientId: string; suggestionId: string; documentId: string; lines: SuggestionLine[]; created: CreatedFromSuggestion[] },
+  input: {
+    actor: Actor;
+    clientId: string;
+    suggestionId: string;
+    documentId: string;
+    lines: SuggestionLine[];
+    created: CreatedFromSuggestion[];
+    /** Osa riveistä jää odottamaan (requeueSuggestionLines): tiedosto jää vuoden tositteeksi. */
+    partial?: boolean;
+  },
 ): Promise<{ compilation: boolean }> {
   // Tiedosto, jonka rivit jaettiin toiminnoittain kahdeksi ehdotukseksi, käsitellään kuten
   // kokoomatiedosto: se jää vuoden tositteeksi, ja kummankin toiminnon kirjaukset viittaavat siihen.
+  // Samoin tiedosto, jonka ehdotuksesta osa on jo hyväksytty (hyväksyntä riveittäin).
   const [sibling] = await tx.query(
-    "select 1 from sk_receipt_suggestions where document_id = $1 and id <> $2 and status in ('pending', 'accepted') and activity <> (select activity from sk_receipt_suggestions where id = $2) limit 1",
+    `select 1 from sk_receipt_suggestions where document_id = $1 and id <> $2
+        and (status = 'accepted' or (status = 'pending' and activity <> (select activity from sk_receipt_suggestions where id = $2))) limit 1`,
     [input.documentId, input.suggestionId],
   );
-  const compilation = isCompilation(input.lines) || Boolean(sibling);
+  // Osittain hyväksytty ehdotus käsitellään kuten kokoomatiedosto, jotta odottamaan
+  // jääneet rivit näkyvät yhä (vuoden tosite, ei kirjauksen liite).
+  const compilation = isCompilation(input.lines) || Boolean(sibling) || input.partial === true;
   const [first, ...rest] = input.created;
   if (first && !compilation) {
     await tx.query("update sk_documents set transaction_id = $1 where id = $2 and client_id = $3 and transaction_id is null", [
@@ -200,7 +213,36 @@ export async function acceptSuggestion(
   ]);
   await audit(tx, {
     organizationId: input.actor.organizationId, userId: input.actor.userId, action: "receipt_suggestion.accept", entity: "sk_receipt_suggestions",
-    entityId: input.suggestionId, details: { document: input.documentId, transactions: input.created.map((c) => c.transactionId), compilation },
+    entityId: input.suggestionId, details: { document: input.documentId, transactions: input.created.map((c) => c.transactionId), compilation, partial: input.partial === true },
   });
   return { compilation };
+}
+
+/**
+ * Hyväksyntä riveittäin (DECISIONS 2.10.2026, maatalouden tositteiden
+ * tunnistus): odottamaan jätetyt rivit tallennetaan uudeksi odottavaksi
+ * ehdotukseksi samalle tositteelle ja toiminnolle. Rivit otetaan hyväksytystä
+ * ehdotuksesta kannasta (ei selaimelta), joten taulukossa tehdyt muutokset
+ * odottaviin riveihin eivät säily. Kutsutaan acceptSuggestion-funktion jälkeen,
+ * kun alkuperäinen ehdotus ei enää ole odottava. Palauttaa uuden ehdotuksen tunnisteen.
+ */
+export async function requeueSuggestionLines(
+  tx: Sql,
+  input: { actor: Actor; clientId: string; suggestionId: string; lines: SuggestionLine[] },
+): Promise<string | null> {
+  if (!input.lines.length) return null;
+  const [row] = await tx.query<{ id: string }>(
+    `insert into sk_receipt_suggestions (organization_id, client_id, document_id, tax_year, lines, model, created_by, activity)
+     select organization_id, client_id, document_id, tax_year, $3, model, $4, activity from sk_receipt_suggestions
+      where id = $1 and client_id = $2 and status = 'accepted'
+     returning id`,
+    [input.suggestionId, input.clientId, JSON.stringify(input.lines), input.actor.userId],
+  );
+  if (!row) throw new SuggestionError("Ehdotusta ei voitu jättää odottamaan. Lataa sivu uudelleen.");
+  // Lokiin vain tunnisteet ja määrä.
+  await audit(tx, {
+    organizationId: input.actor.organizationId, userId: input.actor.userId, action: "receipt_suggestion.requeue", entity: "sk_receipt_suggestions",
+    entityId: row.id, details: { from: input.suggestionId, lines: input.lines.length },
+  });
+  return row.id;
 }

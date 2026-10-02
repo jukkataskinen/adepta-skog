@@ -35,7 +35,7 @@ describe("tunnistuksen tarkistus", () => {
     const res = validateRecognition({ lines: [line(), line({ category: "other_expense", description: "Mittauskulut", amount_gross: 124, withholding: 0 })] });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
-    const doc = { documentIndex: 1, sourceDocument: "Puukaupan tilitys, Metsä Oy", documentType: "timber_settlement", pages: [1], contractNumber: "10432", invoiceNumber: null };
+    const doc = { documentIndex: 1, sourceDocument: "Puukaupan tilitys, Metsä Oy", documentType: "timber_settlement", pages: [1], contractNumber: "10432", invoiceNumber: null, documentTotal: null };
     expect(res.lines).toEqual([
       { date: "2025-03-15", description: "Metsä Oy, pystykauppa", category: "standing_sale", amountGross: 12550, vatRate: 25.5, withholding: 3000, confidence: 0.9, reasoning: "Tilityksen loppusumma ja päivä.", ...doc },
       { date: "2025-03-15", description: "Mittauskulut", category: "other_expense", amountGross: 124, vatRate: 25.5, withholding: 0, confidence: 0.9, reasoning: "Tilityksen loppusumma ja päivä.", ...doc },
@@ -126,10 +126,11 @@ describe("Anthropic-toteutus ilman verkkoa", () => {
     const { client, calls } = fakeClient(() => ({ stop_reason: "end_turn", parsed_output: { lines: [line()] } }));
     const res = await anthropicRecognizer({ apiKey: "testiavain", client }).recognize(pdf);
     expect(res.ok).toBe(true);
-    const params = calls[0] as { model: string; system: string; messages: { content: { type: string; source?: { media_type: string } }[] }[]; output_config: { effort: string; format: { type: string } } };
+    const params = calls[0] as { model: string; system: { type: string; text: string; cache_control?: { type: string } }[]; messages: { content: { type: string; source?: { media_type: string } }[] }[]; output_config: { effort: string; format: { type: string } } };
     expect(params.model).toBe("claude-opus-5-5");
     expect(params.output_config.format.type).toBe("json_schema");
-    expect(params.system).toBe(RECEIPT_SYSTEM_PROMPT);
+    // Ohje on vakio ja merkitty välimuistiin, jotta palojen toistuva ohje ei maksa täyttä hintaa.
+    expect(params.system).toEqual([{ type: "text", text: RECEIPT_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }]);
     const content = params.messages[0].content;
     expect(content.map((c) => c.type)).toEqual(["document", "text"]);
     expect(content[0].source?.media_type).toBe("application/pdf");

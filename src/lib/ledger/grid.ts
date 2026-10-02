@@ -25,6 +25,7 @@ import { formatSharePct, ownShare, type ShareAmounts } from "@/lib/tax/share";
 import type { PendingSuggestion } from "@/lib/documents/receipt-suggestions";
 import { isCompilation, parsePagesColumn, type DocumentType } from "@/lib/ai/receipts/schema";
 import { duplicateWarnings, type ExistingEntry } from "@/lib/ai/receipts/duplicates";
+import { documentBalance, type DocumentBalance } from "@/lib/ai/receipts/reconcile";
 import {
   AGRI_ASSET_CLASS_MESSAGE,
   ASSET_CLASS_MESSAGE,
@@ -91,6 +92,11 @@ export interface GridRow {
   suggestionLine?: number | null;
   /** Ehdotuksen näyttötiedot. Eivät vaikuta tallennukseen. */
   suggestion?: SuggestionInfo;
+  /**
+   * Ehdotusrivi jätetään odottamaan: sitä ei tallenneta, ja se palaa
+   * tallennuksen jälkeen ehdotukseksi (hyväksyntä riveittäin).
+   */
+  deferred?: boolean;
 }
 
 export interface SuggestionInfo {
@@ -113,6 +119,10 @@ export interface SuggestionInfo {
   compilation: boolean;
   /** Mahdollinen päällekkäisyys olemassa olevan kirjauksen tai toisen ehdotuksen kanssa. */
   duplicateWarning?: string | null;
+  /** Lähdeasiakirjan loppusumma tai tilityksen maksettu summa (täsmäytys). */
+  documentTotal?: number | null;
+  /** Huomautus kirjanpitäjälle (maatalous). */
+  note?: string | null;
 }
 
 export type GridField = "bookedOn" | "description" | "category" | "amountGross" | "vatRate" | "businessSharePct" | "otherSharePct" | "forestPropertyId" | "kind";
@@ -227,12 +237,14 @@ export function rowsFromSuggestion(s: Pick<PendingSuggestion, "id" | "document_i
       vatRate: numberInput(opts.vatRegistered ? l.vatRate : 0),
       withholding: l.withholding > 0 && TIMBER_SALE_CODES.includes(l.category) ? formatAmountInput(l.withholding) : "",
       reference: reference.slice(0, 100),
+      // Maatalouden investointi saa tunnistetun poistoryhmän valmiiksi; kirjanpitäjä voi vaihtaa sen.
+      assetRatePct: l.category === "agri_asset_purchase" && l.assetClass ? l.assetClass : "",
       suggestionId: s.id,
       suggestionLine: i,
       suggestion: {
         documentId: s.document_id, documentName: s.file_name, confidence: l.confidence, reasoning: l.reasoning, first: i === 0, sourceDate: l.date,
         sourceDocument: l.sourceDocument, documentType: l.documentType, documentIndex: l.documentIndex, pages: l.pages, contractNumber: l.contractNumber,
-        invoiceNumber: l.invoiceNumber, compilation,
+        invoiceNumber: l.invoiceNumber, compilation, documentTotal: l.documentTotal ?? null, note: l.note ?? null,
       },
     };
   });
@@ -258,6 +270,72 @@ export function withDuplicateWarnings(
   });
   const warnings = duplicateWarnings(candidates, existing);
   return rows.map((r) => (r.suggestion && warnings.has(r.key) ? { ...r, suggestion: { ...r.suggestion, duplicateWarning: warnings.get(r.key) } } : r));
+}
+
+/**
+ * Ehdotuksen asiakirja taulukossa: tilitys tai lasku riveineen (DECISIONS
+ * 2.10.2026, maatalouden tositteiden tunnistus). Ryhmä lasketaan taulukon
+ * nykyisistä riveistä, joten muokkaus, poisto ja odottamaan jättäminen näkyvät
+ * heti täsmäytyksessä. Avain on ensimmäisen rivin avain, jonka yläpuolelle
+ * näkymä piirtää ryhmän otsikon.
+ */
+export interface SuggestionGroup {
+  firstKey: string;
+  suggestionId: string;
+  documentIndex: number;
+  sourceDocument: string;
+  documentType: DocumentType;
+  documentName: string;
+  documentId: string;
+  pages: number[];
+  rowKeys: string[];
+  /** Odottamaan jätetyt rivit (eivät tallennu tällä kertaa). */
+  deferredKeys: string[];
+  balance: DocumentBalance;
+}
+
+export function suggestionGroups(rows: GridRow[]): Map<string, SuggestionGroup> {
+  const byDoc = new Map<string, SuggestionGroup>();
+  for (const r of rows) {
+    const sg = r.suggestion;
+    if (!sg || !r.suggestionId || r.id) continue;
+    const key = `${r.suggestionId}:${sg.documentIndex}`;
+    let g = byDoc.get(key);
+    if (!g) {
+      g = {
+        firstKey: r.key, suggestionId: r.suggestionId, documentIndex: sg.documentIndex, sourceDocument: sg.sourceDocument, documentType: sg.documentType,
+        documentName: sg.documentName, documentId: sg.documentId, pages: [], rowKeys: [], deferredKeys: [],
+        balance: documentBalance([], null),
+      };
+      byDoc.set(key, g);
+    }
+    g.rowKeys.push(r.key);
+    if (r.deferred) g.deferredKeys.push(r.key);
+    g.pages = [...new Set([...g.pages, ...sg.pages])].sort((a, b) => a - b);
+  }
+  const rowByKey = new Map(rows.map((r) => [r.key, r]));
+  const out = new Map<string, SuggestionGroup>();
+  for (const g of byDoc.values()) {
+    const members = g.rowKeys.map((k) => rowByKey.get(k)!);
+    const total = members.map((r) => r.suggestion?.documentTotal).find((t): t is number => typeof t === "number" && t > 0) ?? null;
+    const lines = members.map((r) => {
+      const gross = parseAmount(r.amountGross);
+      const wh = parseAmount(r.withholding);
+      return { kind: (rowKind(r) ?? "") as TransactionKind | "", amountGross: gross !== null && !Number.isNaN(gross) ? gross : 0, withholding: wh !== null && !Number.isNaN(wh) ? wh : 0 };
+    });
+    out.set(g.firstKey, { ...g, balance: documentBalance(lines, total) });
+  }
+  return out;
+}
+
+/** Odottamaan jätetyt ehdotusrivit tallennusta varten: ehdotus ja rivien numerot. */
+export function deferredSuggestionLines(rows: GridRow[]): { suggestionId: string; lines: number[] }[] {
+  const out = new Map<string, number[]>();
+  for (const r of rows) {
+    if (r.id || !r.deferred || !r.suggestionId || r.suggestionLine === null || r.suggestionLine === undefined) continue;
+    out.set(r.suggestionId, [...(out.get(r.suggestionId) ?? []), r.suggestionLine]);
+  }
+  return [...out.entries()].map(([suggestionId, lines]) => ({ suggestionId, lines: [...new Set(lines)].sort((a, b) => a - b) }));
 }
 
 /**
@@ -837,4 +915,4 @@ export function applyGridPaste(
 export type GridSaveState =
   | { status: "idle" }
   | { status: "error"; message: string; rowErrors: Record<string, RowErrors> }
-  | { status: "saved"; created: number; updated: number; deleted: number; rows: GridRow[] };
+  | { status: "saved"; created: number; updated: number; deleted: number; rows: GridRow[]; suggestionRows?: GridRow[] };

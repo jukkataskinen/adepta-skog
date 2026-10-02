@@ -48,7 +48,7 @@ Uusi sovellus rakennetaan `v2`-haaraan (DECISIONS 26.9.2026). `main` on vanha tu
 ```
 src/app/(henkilokunta)/     sivut (StaffShell, requireStaff)
 src/app/kirjaudu/           kirjautuminen
-src/app/api/                ping (cron), tiedostojen lataus
+src/app/api/                ping (cron), tiedostojen lataus, tositteen palan tunnistus (tunnistus/pala)
 src/app/tietosuoja/          julkinen tietosuojasivu (alikäsittelijät src/lib/privacy, asiakirjat docs/tietosuoja)
 src/lib/db/                 kantakerros (PGlite / Postgres), kopio Mittarilukemasta
 src/lib/auth/               istunto, käyttäjä ja roolit, kopio Mittarilukemasta
@@ -71,7 +71,7 @@ src/lib/years/              verovuoden avaus, sulkeminen ja lukitus
 src/lib/compare/            vertailu vanhaan sovellukseen (legacy-tax)
 src/lib/import/             tiedonsiirto vanhasta kannasta: muunnokset (legacy.ts) ja kirjoitus (run.ts)
 src/lib/storage/            tositteet ja raportit: paikallinen kansio tai Supabase Storage
-src/lib/ai/receipts/        tositteiden tunnistus: index (tila), anthropic (Claude), mock, schema (tarkistus), config/chunks/pdf/merge (osissa)
+src/lib/ai/receipts/        tositteiden tunnistus: index (tila), anthropic (Claude), mock ja mock-agri, schema (tarkistus), agri (maatalouden lajit, tukilajit, huomautukset), reconcile (täsmäytys), config/chunks/pdf/merge (osissa)
 src/lib/documents/          vuoden tositteet ja tunnistuksen ehdotukset
 supabase/migrations/        0001–
 tests/db/                   RLS- ja kantatestit (tests/helpers/db.ts: freshDb, seedOrg)

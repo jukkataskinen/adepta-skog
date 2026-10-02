@@ -3,6 +3,7 @@ import { FORESTRY_CONTEXT, type ReceiptFile, type ReceiptRecognizer, type Recogn
 import { isWholeFile, mapChunkPages, validateChunkRecognition, type ChunkRange } from "./chunks";
 import { validateRecognition, type RecognitionResult } from "./schema";
 import { categoryActivity } from "@/lib/tax/rules";
+import { agriExampleByName } from "./mock-agri";
 
 /**
  * Testitila: tositetta ei lähetetä minnekään eikä sitä lueta. Ehdotus johdetaan
@@ -11,7 +12,9 @@ import { categoryActivity } from "@/lib/tax/rules";
  *   "polttoaine 2025-04-02 86,50.jpg" → muu vuosimeno 86,50 €
  *   "kokooma 2025.pdf" tai "vuosi-ilmoitus 2025.pdf" → kokoomatiedosto: puukaupan
  *     vuosi-ilmoitus (sivut 1–2) ja taimilasku (sivut 3–4) tilisiirtolomakkeineen
- *   "maatila 2025.pdf" (myös meijeri, maito, maatalous) → maatalouden kokooma:
+ *   maatalouden yksittäiset asiakirjat (meijeri, teurastamo, vilja, vipu, konekauppa,
+ *     eläinkauppa, sähkö, myel, osuusmaksu): ks. mock-agri.ts
+ *   "maatila 2025.pdf" (myös maatalous) → maatalouden kokooma:
  *     maitotilitys (14 % tai 2026 alkaen 13,5 %), Ruokaviraston maksuilmoitus,
  *     lannoitelasku, MYEL-lasku ja metsänhoitolasku. Metsänhoitolasku on
  *     metsätaloutta, ja se jää pois, jos asiakkaalla ei ole metsätaloutta.
@@ -80,8 +83,11 @@ function byName(name: string, context: RecognitionContext = FORESTRY_CONTEXT): R
   const amountMatch = /(?<!\d)(\d{1,6}(?:[.,]\d{1,2})?)(?!\d)/.exec(rest);
   const amount = amountMatch ? Number(amountMatch[1].replace(",", ".")) : 100;
   const reasoning = "Testitila: ehdotus on johdettu tiedostonimestä, tositetta ei luettu.";
-  if (/maatila|maatalous|meijeri|maito/.test(name) && context.activities.includes("agriculture")) {
-    return validateRecognition(forContext(farmExample(name, reasoning), context), context.activities);
+  if (context.activities.includes("agriculture")) {
+    // Yksittäiset maatalouden asiakirjat (mock-agri.ts) ja vanha maatilan kokooma.
+    const agri = agriExampleByName(name);
+    if (agri) return validateRecognition(forContext(agri, context), context.activities);
+    if (/maatila|maatalous/.test(name)) return validateRecognition(forContext(farmExample(name, reasoning), context), context.activities);
   }
   if (/kokooma|vuosi-ilmoitus|vuosi_ilmoitus/.test(name)) return validateRecognition(forContext(compilationExample(name, reasoning), context), context.activities);
   const timber = /puukauppa|tilitys|pystykauppa/.test(name);

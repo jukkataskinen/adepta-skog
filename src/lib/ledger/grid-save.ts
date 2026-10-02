@@ -3,7 +3,15 @@ import { activitiesOf, isAssetPurchase, type Activity } from "@/lib/tax/rules";
 import { listPropertyOptions, listTransactions } from "@/lib/ledger/queries";
 import { DEPRECIATED_MESSAGE } from "@/lib/ledger/transaction-input";
 import { deleteTransaction, LedgerError, saveTransaction, type Actor } from "@/lib/ledger/write";
-import { acceptSuggestion, dismissSuggestion, lockPendingSuggestions, SuggestionError, type CreatedFromSuggestion, type LockedSuggestion } from "@/lib/documents/receipt-suggestions";
+import {
+  acceptSuggestion,
+  dismissSuggestion,
+  lockPendingSuggestions,
+  requeueSuggestionLines,
+  SuggestionError,
+  type CreatedFromSuggestion,
+  type LockedSuggestion,
+} from "@/lib/documents/receipt-suggestions";
 import { inView, MAX_GRID_ROWS, planGridChanges, rowFromStored, validateGridRow, type GridRow, type RowErrors, type ValidGridRow } from "@/lib/ledger/grid";
 
 /**
@@ -37,7 +45,17 @@ const plural = (n: number) => (n === 1 ? "Yhdellä rivillä on virhe." : `${n} r
 
 export async function saveLedgerGrid(
   tx: Sql,
-  input: { actor: Actor; clientId: string; year: number; rows: GridRow[]; deletedIds: string[]; dismissedSuggestionIds?: string[]; view?: Activity | null },
+  input: {
+    actor: Actor;
+    clientId: string;
+    year: number;
+    rows: GridRow[];
+    deletedIds: string[];
+    dismissedSuggestionIds?: string[];
+    /** Odottamaan jätetyt ehdotusrivit (hyväksyntä riveittäin): ehdotus ja rivien numerot. */
+    keepPending?: { suggestionId: string; lines: number[] }[];
+    view?: Activity | null;
+  },
 ): Promise<GridSaveResult> {
   const { actor, clientId, year } = input;
   if (input.rows.length > MAX_GRID_ROWS) throw new GridSaveError(`Taulukossa voi olla enintään ${MAX_GRID_ROWS} riviä.`);
@@ -149,13 +167,28 @@ export async function saveLedgerGrid(
       throw err;
     }
   }
+  // Odottamaan jätetyt rivit: vain rivit, joista ei juuri tehty kirjausta.
+  const keep = new Map((input.keepPending ?? []).map((k) => [k.suggestionId, k.lines]));
   for (const sid of suggestionIds) {
     const locked = suggestions.get(sid)!;
-    await acceptSuggestion(tx, { actor, clientId, suggestionId: sid, documentId: locked.documentId, lines: locked.lines, created: created.get(sid) ?? [] });
+    const booked = new Set((created.get(sid) ?? []).map((c) => c.line));
+    const kept = [...new Set(keep.get(sid) ?? [])].filter((i) => Number.isInteger(i) && i >= 0 && i < locked.lines.length && !booked.has(i)).sort((a, b) => a - b);
+    await acceptSuggestion(tx, {
+      actor, clientId, suggestionId: sid, documentId: locked.documentId, lines: locked.lines, created: created.get(sid) ?? [], partial: kept.length > 0,
+    });
+    if (kept.length) {
+      try {
+        await requeueSuggestionLines(tx, { actor, clientId, suggestionId: sid, lines: kept.map((i) => locked.lines[i]) });
+      } catch (err) {
+        if (err instanceof SuggestionError) throw new GridSaveError(err.message);
+        throw err;
+      }
+    }
   }
-  // Ehdotukset, joiden kaikki rivit poistettiin taulukosta, hylätään.
+  // Ehdotukset, joiden kaikki rivit poistettiin taulukosta, hylätään. Ehdotus,
+  // jonka rivejä jätettiin odottamaan, ei ole hylätty.
   for (const sid of new Set(input.dismissedSuggestionIds ?? [])) {
-    if (!suggestions.has(sid)) await dismissSuggestion(tx, { actor, clientId, suggestionId: sid, details });
+    if (!suggestions.has(sid) && !keep.get(sid)?.length) await dismissSuggestion(tx, { actor, clientId, suggestionId: sid, details });
   }
   return { created: changes.created.length, updated: changes.updated.length, deleted: changes.deleted.length };
 }

@@ -156,7 +156,8 @@ describe("yhdistäminen", () => {
     expect(byAmount[800]).toBe(2);
     expect(new Set([byAmount[55], byAmount[56], byAmount[300]]).size).toBe(3);
     expect(byAmount[300]).toBeGreaterThan(byAmount[56]);
-    expect(out.every((l) => !("documentTotal" in l))).toBe(true);
+    // Loppusumma säilyy täsmäytystä varten (DECISIONS 2.10.2026).
+    expect(out.every((l) => l.documentTotal === null || typeof l.documentTotal === "number")).toBe(true);
   });
 
   it("sama summa ilman yhteistä päivää tai numeroa ei ole sama rivi", () => {

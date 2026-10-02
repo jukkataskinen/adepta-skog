@@ -3,8 +3,9 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { YearReceipt } from "@/lib/documents/year-receipts";
+import type { JobChunk } from "@/lib/documents/recognition-jobs";
 import type { Activity } from "@/lib/tax/rules";
-import { CHUNK_PARALLEL } from "@/lib/ai/receipts/config";
+import { chunkParallel } from "@/lib/ai/receipts/config";
 import { estimateText, failedPagesText, pageRangeText } from "@/lib/ai/receipts/chunks";
 import {
   cancelRecognitionAction,
@@ -12,7 +13,6 @@ import {
   deleteYearReceiptAction,
   finishRecognitionAction,
   planYearReceiptsAction,
-  recognizeChunkAction,
   startRecognitionAction,
   type StartedRecognition,
 } from "./receipt-actions";
@@ -73,8 +73,8 @@ export function YearReceipts({
   const [failed, setFailed] = useState<Record<string, string>>({});
 
   /**
-   * Yhden tiedoston palat: selain kutsuu palat järjestyksessä, CHUNK_PARALLEL
-   * kerrallaan, ja yrittää epäonnistunutta palaa kerran uudelleen. Palvelin
+   * Yhden tiedoston palat: selain kutsuu palat järjestyksessä, chunkParallel
+   * kerrallaan reitillä /api/tunnistus/pala (server actionit kulkisivat jonossa), ja yrittää epäonnistunutta palaa kerran uudelleen. Palvelin
    * tallentaa jokaisen palan tuloksen, joten keskeytyksen jälkeen jatketaan
    * siitä, mihin jäätiin. Lopuksi palat yhdistetään yhdeksi ehdotukseksi.
    */
@@ -105,15 +105,15 @@ export function YearReceipts({
       for (let c = todo.shift(); c && !fatal; c = todo.shift()) {
         active.set(c.index, pageRangeText(c.first, c.last));
         show();
-        let res = await recognizeChunkAction({ clientId, year, jobId: job.jobId, index: c.index });
-        if (res.ok && res.value.status !== "done") res = await recognizeChunkAction({ clientId, year, jobId: job.jobId, index: c.index });
+        let res = await recognizeChunkRequest({ clientId, year, jobId: job.jobId, index: c.index });
+        if (res.ok && res.value.status !== "done") res = await recognizeChunkRequest({ clientId, year, jobId: job.jobId, index: c.index });
         active.delete(c.index);
         if (!res.ok) fatal = res.error;
         else if (res.value.status === "done") done++;
         show();
       }
     };
-    await Promise.all(Array.from({ length: Math.min(CHUNK_PARALLEL, Math.max(1, todo.length)) }, worker));
+    await Promise.all(Array.from({ length: Math.min(chunkParallel(total), Math.max(1, todo.length)) }, worker));
     if (fatal) return { ok: false, error: fatal };
     const fin = await finishRecognitionAction({ clientId, jobId: job.jobId, allowPartial });
     if (!fin.ok) return fin;
@@ -419,4 +419,19 @@ function RecognitionButtons({
       </button>
     </>
   );
+}
+
+/**
+ * Palan tunnistus reitiltä. Verkkovirhe tai katkennut yhteys on palan
+ * epäonnistuminen, jota yritetään kerran uudelleen kuten ennenkin.
+ */
+async function recognizeChunkRequest(input: { clientId: string; year: number; jobId: string; index: number }): Promise<{ ok: true; value: JobChunk } | { ok: false; error: string }> {
+  try {
+    const res = await fetch("/api/tunnistus/pala", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) });
+    if (res.redirected || res.status === 401) return { ok: false, error: "Kirjautuminen on vanhentunut. Lataa sivu ja kirjaudu uudelleen." };
+    const body = (await res.json()) as { ok: true; value: JobChunk } | { ok: false; error: string };
+    return body;
+  } catch {
+    return { ok: true, value: { first: 0, last: 0, status: "failed", attempts: 0 } };
+  }
 }

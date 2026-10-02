@@ -48,7 +48,7 @@ describe("tunnistus maataloudelle", () => {
 
   it("maatalouden ohjeessa ovat tyypilliset tositteet ja alv-kannat, eikä asiakkaan tietoja", () => {
     const p = receiptSystemPrompt(["forestry", "agriculture"]);
-    for (const word of ["meijeritilitys", "teurastamo", "Ruokavirasto", "ELY-keskus", "MYEL", "agri_fertilizers", "14 % in 2025", "13.5 % from 1 January 2026", "25.5 %", "standing_sale"]) {
+    for (const word of ["meijeritilitys", "teurastamo", "Ruokavirasto", "ELY-keskus", "MYEL", "agri_fertilizers", "14 % for supplies until 31 December 2025", "13.5 % from 1 January 2026", "25.5 %", "standing_sale"]) {
       expect(p).toContain(word);
     }
     expect(receiptSystemPrompt(["agriculture"])).not.toContain("standing_sale");

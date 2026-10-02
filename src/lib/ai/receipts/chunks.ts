@@ -1,4 +1,4 @@
-import { CHUNK_OVERLAP, CHUNK_PAGES, CHUNK_PARALLEL, CHUNK_SECONDS } from "./config";
+import { CHUNK_OVERLAP, CHUNK_PAGES, CHUNK_SECONDS, chunkParallel } from "./config";
 import type { Activity } from "@/lib/tax/rules";
 import { cleanPages, validateLines, type ChunkLine } from "./schema";
 
@@ -95,9 +95,9 @@ export function failedPagesText(chunks: { first: number; last: number; status: s
 
 /**
  * Aika-arvio käyttäjälle: "40 sivua, 6 osaa, noin 2–3 min". Palat luetaan
- * CHUNK_PARALLEL kerrallaan, joten kierroksia on palojen määrä jaettuna sillä.
+ * chunkParallel kerrallaan, joten kierroksia on palojen määrä jaettuna sillä.
  */
-export function estimateText(pageCount: number, chunkCount: number, parallel = CHUNK_PARALLEL): string {
+export function estimateText(pageCount: number, chunkCount: number, parallel = chunkParallel(chunkCount)): string {
   const rounds = Math.ceil(chunkCount / Math.max(1, parallel));
   const [lo, hi] = [rounds * CHUNK_SECONDS[0], rounds * CHUNK_SECONDS[1]];
   const min = Math.max(1, Math.round(lo / 60));

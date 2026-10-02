@@ -9,11 +9,12 @@ import { emptyToNull, fail, parseForm } from "@/lib/forms";
 import { audit } from "@/lib/audit";
 import type { Sql } from "@/lib/db/types";
 import { ACTIVITY_PARAM, activitiesOf, allowsOtherShare, ASSET_CLASS_PCTS, category, isAssetSale, ledgerView, type Activity } from "@/lib/tax/rules";
-import { effectiveVatRate, OTHER_SHARE_MESSAGE, SALE_ASSET_MESSAGE, transactionFieldsSchema } from "@/lib/ledger/transaction-input";
+import { effectiveVatRate, OTHER_SHARE_MESSAGE, SALE_ASSET_MESSAGE, toFinnishDate, transactionFieldsSchema } from "@/lib/ledger/transaction-input";
 import { ACTIVITY_MESSAGE, FORESTRY_OFF_MESSAGE, inView, viewMessage } from "@/lib/ledger/grid";
 import { deleteTransaction, LedgerError, saveTransaction } from "@/lib/ledger/write";
 import { GridSaveError, saveLedgerGrid } from "@/lib/ledger/grid-save";
-import { MAX_GRID_ROWS, rowFromStored, type GridSaveState } from "@/lib/ledger/grid";
+import { MAX_GRID_ROWS, rowFromStored, rowsFromSuggestion, withDuplicateWarnings, type GridSaveState } from "@/lib/ledger/grid";
+import { listPendingSuggestions } from "@/lib/documents/receipt-suggestions";
 import { listTransactions } from "@/lib/ledger/queries";
 import { documentPath, getStorage } from "@/lib/storage";
 
@@ -149,6 +150,11 @@ const gridPayloadSchema = z.object({
   rows: z.array(gridRowSchema).max(MAX_GRID_ROWS),
   deletedIds: z.array(z.string().uuid()).max(MAX_GRID_ROWS),
   dismissedSuggestionIds: z.array(z.string().uuid()).max(MAX_GRID_ROWS).optional(),
+  // Hyväksyntä riveittäin: odottamaan jätetyt ehdotusrivit.
+  keepPending: z
+    .array(z.object({ suggestionId: z.string().uuid(), lines: z.array(z.number().int().min(0).max(1000)).max(MAX_GRID_ROWS) }))
+    .max(MAX_GRID_ROWS)
+    .optional(),
 });
 
 /**
@@ -170,19 +176,31 @@ export async function saveLedgerGridAction(formData: FormData): Promise<GridSave
   const actor = { organizationId: ctx.org.organizationId, userId: ctx.user.id };
   const param = formData.get("toiminta");
   try {
-    const { counts, view } = await ctx.run(async (tx) => {
+    const { counts, view, vatRegistered } = await ctx.run(async (tx) => {
       // Näkymä lasketaan asiakkaan toiminnoista samoin kuin sivulla, ei pelkästä selaimen tiedosta.
       const found = await clientView(tx, clientId, param);
       const v = found?.view ?? null;
       const c = await saveLedgerGrid(tx, {
-        actor, clientId, year, rows: payload.rows, deletedIds: payload.deletedIds, dismissedSuggestionIds: payload.dismissedSuggestionIds, view: v,
+        actor, clientId, year, rows: payload.rows, deletedIds: payload.deletedIds, dismissedSuggestionIds: payload.dismissedSuggestionIds,
+        keepPending: payload.keepPending, view: v,
       });
-      return { counts: c, view: v };
+      return { counts: c, view: v, vatRegistered: found?.client.vat_registered ?? false };
     });
-    const rows = (await ctx.run((tx) => listTransactions(tx, clientId, year))).filter((t) => inView(t.category, view));
+    const { all, pending } = await ctx.run(async (tx) => ({
+      all: await listTransactions(tx, clientId, year),
+      pending: await listPendingSuggestions(tx, clientId, year, view),
+    }));
+    // Odottavat ehdotukset (myös odottamaan jätetyt rivit) palautetaan samassa muodossa
+    // kuin sivu ne näyttää, jotta taulukko näyttää ne heti tallennuksen jälkeen.
+    const today = new Date().toISOString().slice(0, 10);
+    const defaultDate = toFinnishDate(today.startsWith(String(year)) ? today : `${year}-01-01`);
+    const suggestionRows = withDuplicateWarnings(
+      pending.flatMap((sg) => rowsFromSuggestion(sg, { vatRegistered, defaultDate, year })),
+      all,
+    );
     revalidatePath(`/asiakkaat/${clientId}/kirjanpito`);
     revalidatePath(`/asiakkaat/${clientId}/raportti`);
-    return { status: "saved", ...counts, rows: rows.map(rowFromStored) };
+    return { status: "saved", ...counts, rows: all.filter((t) => inView(t.category, view)).map(rowFromStored), suggestionRows };
   } catch (err) {
     if (err instanceof GridSaveError) return { status: "error", message: err.message, rowErrors: err.rowErrors };
     const f = friendly(err);

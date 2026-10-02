@@ -152,7 +152,7 @@ describe("tunnistus osissa", () => {
     expect(await db.asUser(a.staff.sub, (tx) => findRecognitionJob(tx, a.client, doc))).toBeNull();
   });
 
-  it("kesken olevalla tunnistuksella ei ole rivejä, valmiilla on; enintään 400 riviä", async () => {
+  it("kesken olevalla tunnistuksella ei ole rivejä, valmiilla on; enintään 1000 riviä (0018)", async () => {
     const doc = await yearReceipt(a, "rajat.pdf");
     const insert = (status: string, lines: string, chunks: string | null) =>
       q("insert into sk_receipt_suggestions (organization_id, client_id, document_id, tax_year, lines, status, model, chunks) values ($1,$2,$3,2025,$4::jsonb,$5,'mock',$6::jsonb)", [
@@ -161,8 +161,8 @@ describe("tunnistus osissa", () => {
     await expect(insert("pending", "[]", null)).rejects.toThrow();
     await expect(insert("pending", "[{}]", '[{"first":1,"last":8,"status":"waiting"}]')).rejects.toThrow();
     await expect(insert("processing", "[]", null)).rejects.toThrow();
-    await expect(insert("pending", JSON.stringify(Array.from({ length: 401 }, () => ({}))), null)).rejects.toThrow();
-    await insert("pending", JSON.stringify(Array.from({ length: 400 }, () => ({}))), null);
+    await expect(insert("pending", JSON.stringify(Array.from({ length: 1001 }, () => ({}))), null)).rejects.toThrow();
+    await insert("pending", JSON.stringify(Array.from({ length: 1000 }, () => ({}))), null);
   });
 });
 

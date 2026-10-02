@@ -8,26 +8,17 @@ import { fail } from "@/lib/forms";
 import { audit } from "@/lib/audit";
 import { getStorage } from "@/lib/storage";
 import { confirmYearReceipts, planYearReceipts, ReceiptError, type PlannedUpload } from "@/lib/documents/year-receipts";
-import { dismissSuggestion, recognizableDocument, SuggestionError } from "@/lib/documents/receipt-suggestions";
-import { cancelRecognitionJob, findRecognitionJob, finishRecognitionJob, jobChunk, startRecognitionJob, storeChunkResult, type JobChunk } from "@/lib/documents/recognition-jobs";
-import { receiptRecognizer, recognizeChunk, RECOGNIZE_MAX_BYTES, type RecognitionContext, type RecognizeOutcome } from "@/lib/ai/receipts";
-import type { Sql } from "@/lib/db/types";
-import { activitiesOf, ledgerView, type Activity } from "@/lib/tax/rules";
+import { dismissSuggestion, recognizableDocument } from "@/lib/documents/receipt-suggestions";
+import { cancelRecognitionJob, findRecognitionJob, finishRecognitionJob, startRecognitionJob, type JobChunk } from "@/lib/documents/recognition-jobs";
+import { receiptRecognizer, RECOGNIZE_MAX_BYTES } from "@/lib/ai/receipts";
+import { NOT_RECOGNIZED, recognitionContext, recognitionError } from "@/lib/documents/recognize-chunk";
+import type { Activity } from "@/lib/tax/rules";
 import { estimateText, failedPagesText, planChunks } from "@/lib/ai/receipts/chunks";
 import { countPdfPages } from "@/lib/ai/receipts/pdf";
 
 const uuid = z.string().uuid();
 const yearSchema = z.number().int().min(2000).max(2100);
 const activitySchema = z.enum(["forestry", "agriculture"]).nullable().optional();
-
-/** Asiakkaan toiminnot tunnistusta varten. Oletus on näkymä, jos asiakkaalla on se toiminto. */
-async function recognitionContext(tx: Sql, clientId: string, requested: Activity | null | undefined): Promise<RecognitionContext> {
-  const [c] = await tx.query<{ has_forestry: boolean; has_agriculture: boolean }>("select has_forestry, has_agriculture from sk_clients where id = $1", [clientId]);
-  const client = { hasForestry: c?.has_forestry ?? true, hasAgriculture: c?.has_agriculture ?? false };
-  const activities = activitiesOf(client);
-  const view = ledgerView(client, requested === "agriculture" ? "maatalous" : null);
-  return { activities, defaultActivity: requested && activities.includes(requested) ? requested : (view ?? "forestry") };
-}
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -109,16 +100,6 @@ export async function deleteYearReceiptAction(formData: FormData) {
   redirect(`${back}#tositteet`);
 }
 
-const NOT_RECOGNIZED = "Tositetta ei voitu tunnistaa. Voit kirjata sen käsin taulukkoon.";
-
-function recognitionError(err: unknown, fallback = NOT_RECOGNIZED): string {
-  if (err instanceof SuggestionError) return err.message;
-  if (err instanceof Error && /row-level security/.test(err.message)) return "Sinulla ei ole oikeutta tähän asiakkaaseen.";
-  if (err instanceof Error && /suljettu/.test(err.message)) return "Verovuosi on suljettu, joten tositteita ei tunnisteta.";
-  console.error("Tositteen tunnistus epäonnistui", { error: err instanceof Error ? err.name : "tuntematon" });
-  return fallback;
-}
-
 export interface StartedRecognition {
   jobId: string;
   pageCount: number;
@@ -187,38 +168,9 @@ export async function startRecognitionAction(input: {
 }
 
 /**
- * Vaihe 2: yksi pala omana kutsunaan, jotta kutsu pysyy selvästi funktion
- * aikarajan alla (CHUNK_TIMEOUT_MS). Tiedosto haetaan, palan sivut erotetaan ja
- * tulos tallennetaan kesken olevaan tunnistukseen. Tietokantatransaktio ei ole
- * auki tunnistuksen aikana. Selain yrittää epäonnistunutta palaa kerran uudelleen.
+ * Vaihe 2: palat luetaan reitillä /api/tunnistus/pala (src/lib/documents/recognize-chunk.ts),
+ * koska selain ajaa server actionit jonossa eikä rinnakkain.
  */
-export async function recognizeChunkAction(input: { clientId: string; year: number; jobId: string; index: number }): Promise<Result<JobChunk>> {
-  const ctx = await requireStaff();
-  try {
-    const clientId = uuid.parse(input.clientId);
-    const year = yearSchema.parse(input.year);
-    const jobId = uuid.parse(input.jobId);
-    const index = z.number().int().min(0).max(400).parse(input.index);
-    const { chunk, status, attempts, doc, context } = await ctx.run(async (tx) => {
-      const c = await jobChunk(tx, { clientId, jobId, index });
-      // Oletustoiminto on tallennettu tunnistukseen, joten jatko toisesta näkymästä käyttää samaa.
-      return { ...c, doc: await recognizableDocument(tx, { clientId, year, documentId: c.documentId }), context: await recognitionContext(tx, clientId, c.activity) };
-    });
-    if (status === "done") return { ok: true, value: { first: chunk.first, last: chunk.last, status, attempts } };
-    let result: RecognizeOutcome;
-    try {
-      const bytes = await getStorage().get(doc.storage_path);
-      result = await recognizeChunk(receiptRecognizer(), { bytes, contentType: doc.content_type, fileName: doc.file_name }, chunk, context);
-    } catch {
-      console.error("Tositteen tiedostoa ei saatu tunnistukseen", { documentId: doc.id });
-      result = { ok: false };
-    }
-    const saved = await ctx.run((tx) => storeChunkResult(tx, { clientId, jobId, index, result: result.ok ? { ok: true, lines: result.lines } : { ok: false } }));
-    return { ok: true, value: saved };
-  } catch (err) {
-    return { ok: false, error: recognitionError(err) };
-  }
-}
 
 export type FinishedRecognition =
   | { status: "done"; lines: number; byActivity: Partial<Record<Activity, number>> }
