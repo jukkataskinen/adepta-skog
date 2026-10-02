@@ -1,7 +1,8 @@
 import type { Sql } from "@/lib/db/types";
 import { getAgriYear, listExtras } from "@/lib/agriculture/year";
 import { computeForm2, type Form2Input, type Form2Result } from "./agriculture";
-import { loadAgriDepreciation } from "./agri-load";
+import { loadAgriDepreciation, loadAgriDepreciationSource } from "./agri-load";
+import type { AgriPlanData, PlanReserve } from "./agri-plan";
 import type { Activity, TransactionKind } from "./rules";
 import { activityRows } from "./share";
 
@@ -74,4 +75,58 @@ export async function loadForm2Input(tx: Sql, clientId: string, year: number): P
 export async function loadForm2(tx: Sql, clientId: string, year: number): Promise<Form2Result | null> {
   const input = await loadForm2Input(tx, clientId, year);
   return input ? computeForm2(input) : null;
+}
+
+/**
+ * Verosuunnitelman maatalousosan lähtötiedot (agri-plan.ts). Edellisen vuoden
+ * nettovarallisuus lasketaan Skogin edellisen vuoden lomakkeesta 2, jos se
+ * vuosi on Skogissa ja sille on varallisuustiedot; muuten käytetään vuoden
+ * tietoihin syötettyä edellisen vuoden nettovarallisuutta (0015).
+ */
+export async function loadAgriPlanData(tx: Sql, clientId: string, year: number): Promise<AgriPlanData | null> {
+  const input = await loadForm2Input(tx, clientId, year);
+  if (!input) return null;
+  const form2Base: AgriPlanData["form2Base"] = {
+    year: input.year, vatRegistered: input.vatRegistered, rows: input.rows, ledgerDeferrals: input.ledgerDeferrals, manualDeferrals: input.manualDeferrals,
+    agriYear: input.agriYear, extras: input.extras,
+  };
+  const source = await loadAgriDepreciationSource(tx, clientId);
+  const rows = await tx.query<{ id: string; kind: "equalization" | "replacement"; made_year: number; amount: string; farm_name: string | null; before: string; asset_now: string; income_now: string }>(
+    `select r.id, r.kind, r.made_year, r.amount, f.name as farm_name,
+            coalesce((select sum(u.amount) from sk_agri_reserve_uses u where u.reserve_id = r.id and u.tax_year < $2), 0) as before,
+            coalesce((select sum(u.amount) from sk_agri_reserve_uses u where u.reserve_id = r.id and u.tax_year = $2 and u.use_kind = 'asset'), 0) as asset_now,
+            coalesce((select sum(u.amount) from sk_agri_reserve_uses u where u.reserve_id = r.id and u.tax_year = $2 and u.use_kind = 'income'), 0) as income_now
+       from sk_agri_reserves r left join sk_farms f on f.id = r.farm_id
+      where r.client_id = $1 and r.made_year <= $2 order by r.kind, r.made_year, r.created_at`,
+    [clientId, year],
+  );
+  const reserves: PlanReserve[] = rows.map((r) => ({
+    id: r.id, kind: r.kind, madeYear: Number(r.made_year), amount: Number(r.amount), farmName: r.farm_name,
+    usedBefore: Number(r.before), assetUseThisYear: Number(r.asset_now), incomeThisYear: Number(r.income_now),
+  }));
+  const eqNow = reserves.filter((r) => r.kind === "equalization" && r.madeYear === year);
+  const equalizationThisYear =
+    eqNow.length === 0
+      ? { id: null, amount: 0, editable: true, usedThisYear: 0 }
+      : {
+          id: eqNow[0].id,
+          amount: eqNow.reduce((s, r) => s + r.amount, 0),
+          editable: eqNow.length === 1,
+          usedThisYear: eqNow.reduce((s, r) => s + r.assetUseThisYear + r.incomeThisYear, 0),
+        };
+  const y = await getAgriYear(tx, clientId, year);
+  let priorWealth: AgriPlanData["priorWealth"] = { netWealth: null, wages: 0, source: "none" };
+  const [prevYear] = await tx.query<{ year: number }>("select year from sk_tax_years where client_id = $1 and year = $2", [clientId, year - 1]);
+  const prev = prevYear ? await loadForm2(tx, clientId, year - 1) : null;
+  if (prev && (prev.fields["731"] !== undefined || prev.fields["732"] !== undefined)) {
+    const prevYearData = await getAgriYear(tx, clientId, year - 1);
+    priorWealth = { netWealth: (prev.fields["735"] ?? 0) - (prev.fields["736"] ?? 0), wages: prevYearData.wagesSubjectToWithholding, source: "computed" };
+  } else if (y.priorNetWealth !== null) {
+    priorWealth = { netWealth: y.priorNetWealth, wages: 0, source: "manual" };
+  }
+  return {
+    year, form2Base, depreciation: source, reserves, equalizationThisYear, priorWealth, confirmedLosses: y.confirmedLossesCarried,
+    spouseWealthSharePct: y.spouseWealthSharePct, spouseWorkSharePct: y.spouseWorkSharePct, claim: y.incomeSplitClaim, lossToCapitalIncome: y.lossToCapitalIncome,
+    depreciationConfirmed: source.recorded.some((r) => r.taxYear === year),
+  };
 }

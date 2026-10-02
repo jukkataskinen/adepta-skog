@@ -310,15 +310,26 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
 
   // 1. Yhteenveto ja maksutiedote: kaksi asiakkaan tärkeintä kysymystä.
   section("summary");
-  const taxLeft = Math.round((r.tax.total - data.plan.withholding) * 100) / 100;
   const agri = data.agri;
-  // Maatalousasiakkaan yhteenvedossa on myös maatalouden tulos. Sen veroa ei arvioida, koska
-  // yritystulon jako pääoma- ja ansiotuloon tehdään vasta myöhemmin (PLAN).
+  // Maatalousasiakkaan arvio kattaa metsätalouden ja maatalouden: pääomatulot yhteen 30/34 %:n rajaan
+  // ja maatalouden ansiotulo-osuuden vero arviona (src/lib/tax/agri-plan.ts, combinedTax).
+  const totalTax = agri ? agri.tax.total : r.tax.total;
+  const taxLeft = Math.round((totalTax - data.plan.withholding) * 100) / 100;
   const agriRows: [string, string][] = agri
     ? [
         ["Maatalouden tulot (lomake 2)", eur(agri.form2.income)],
         ["Maatalouden menot ja poistot", eur(-agri.form2.expense)],
         [agri.form2.result < 0 ? "Maatalouden tappio" : "Maatalouden tulos", eur(agri.form2.result)],
+        ...(agri.split.lossesUsed ? ([["Aiempien vuosien tappiot", eur(-agri.split.lossesUsed)]] as [string, string][]) : []),
+        ...(agri.split.splitBase ? ([["Maatalouden yrittäjävähennys 5 %", eur(-agri.split.entrepreneurDeduction)]] as [string, string][]) : []),
+        [`Maatalouden pääomatulo-osuus (${agri.split.capitalPct} %)`, eur(agri.split.owner.capital)],
+        ["Maatalouden ansiotulo-osuus", eur(agri.split.owner.earned)],
+        ...(agri.tax.lossToCapital ? ([["Maatalouden tappio pääomatuloista", eur(-agri.tax.lossToCapital)]] as [string, string][]) : []),
+        ["Verotettava pääomatulo yhteensä", eur(agri.tax.capital)],
+        ["Pääomatulon vero", eur(agri.tax.capitalTax.total)],
+        ["Ansiotulon vero, arvio", eur(agri.tax.earnedTax.total)],
+        ["Arvioitu vero yhteensä", eur(agri.tax.total)],
+        ...(data.plan.withholding ? ([["Ennakonpidätykset", eur(-data.plan.withholding)]] as [string, string][]) : []),
       ]
     : [];
   w.summaryTable([
@@ -328,9 +339,13 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
           ["Menot ja poistot", eur(-(data.plan.expense + dep))],
           ["Metsävähennys ja yrittäjävähennys", eur(-(data.plan.recordedDeduction + r.entrepreneurDeduction))],
           ...(r.saleResult ? ([["Luovutusvoitot ja -tappiot", eur(r.saleResult)]] as [string, string][]) : []),
-          ["Verotettava pääomatulo", eur(r.taxable)],
-          ["Arvioitu pääomatulon vero", eur(r.tax.total)],
-          ["Ennakonpidätykset", eur(-data.plan.withholding)],
+          ...((agri
+            ? [["Metsätalouden verotettava tulo", eur(r.forestryTaxable + r.saleResult)]]
+            : [
+                ["Verotettava pääomatulo", eur(r.taxable)],
+                ["Arvioitu pääomatulon vero", eur(r.tax.total)],
+                ["Ennakonpidätykset", eur(-data.plan.withholding)],
+              ]) as [string, string][]),
         ] as [string, string][])
       : []),
     ...agriRows,
@@ -338,16 +353,8 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
   const vatPayable = data.vat.year.payable;
   const vatRef = data.client.taxAccountReference;
   w.paymentBoxes(
-    !forest && agri
-      ? {
-          title: agri.form2.result < 0 ? "Maatalouden tappio" : "Maatalouden tulos",
-          amount: eur(Math.abs(agri.form2.result)),
-          tone: "none",
-          lead: "Lomakkeen 2 mukaan",
-          lines: ["Maatalouden tulo jaetaan verotuksessa pääoma- ja ansiotuloon nettovarallisuuden mukaan.", "Veroa ei ole arvioitu tässä raportissa."],
-        }
-      : {
-      title: "Pääomatulon vero",
+    {
+      title: agri ? "Tulovero, arvio" : "Pääomatulon vero",
       amount: eur(Math.abs(taxLeft)),
       tone: taxLeft > 0 ? "pay" : "refund",
       lead: taxLeft > 0 ? "Arviolta maksettavaa (jäännösvero eli mätky)" : taxLeft < 0 ? "Arviolta palautusta" : "Ei maksettavaa eikä palautusta",
@@ -361,7 +368,7 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
           : taxLeft < 0
             ? ["Ennakonpidätykset ovat arvioitua veroa suuremmat.", "Verohallinto palauttaa erotuksen, kun verotus valmistuu."]
             : ["Ennakonpidätykset kattavat arvioidun veron."],
-        },
+    },
     !data.client.vatRegistered
       ? { title: "Arvonlisävero", amount: "–", tone: "none", lead: "Asiakas ei ole arvonlisäverorekisterissä", lines: ["Arvonlisäveroa ei tilitetä."] }
       : {
@@ -384,10 +391,12 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
     "Maksutiedote on laskettu kirjanpidon tiedoista. Lopulliset verot vahvistetaan verotuksessa. Arvio ei ota huomioon asiakkaan muita pääomatuloja. Tarkista summat aina OmaVerosta ennen maksua.",
     { size: 8, color: MUTED },
   );
-  if (agri && forest) {
-    w.text("Pääomatulon vero koskee metsätaloutta. Maatalouden tulon veroa ei ole arvioitu, koska se jaetaan verotuksessa pääoma- ja ansiotuloon.", {
-      size: 8, color: MUTED,
-    });
+  if (agri) {
+    w.text(
+      "Maatalouden tulo on jaettu pääoma- ja ansiotuloon edellisen vuoden nettovarallisuuden mukaan. Ansiotulon vero on arvio keskimääräisellä kunnallisveroprosentilla ilman vähennyksiä ja muita ansiotuloja. Maksetut ennakkoverot näkyvät OmaVerossa, eikä niitä ole vähennetty.",
+      { size: 8, color: MUTED },
+    );
+    if (agri.split.spouse) w.text("Puolison osuudet maatalouden tulosta verotetaan puolisolla, eikä niitä ole tässä arviossa.", { size: 8, color: MUTED });
   }
   if (agri) {
     w.text("Arvonlisävero on laskettu metsä- ja maataloudesta yhdessä, koska ne ilmoitetaan samalla ilmoituksella.", { size: 8, color: MUTED });
@@ -642,7 +651,7 @@ function renderAgriculture(w: Writer, year: number, agri: NonNullable<ReportData
     for (const t of form.warnings) w.text(t, { size: 8, color: MUTED });
   }
   w.space(2);
-  w.text("Maatalouden tulos on laskettu maksuperusteella. Yritystulon jako pääoma- ja ansiotuloon tehdään verotuksessa.", { size: 8, color: MUTED });
+  w.text("Maatalouden tulos on laskettu maksuperusteella. Yritystulon jako on arvio; lopullinen jako tehdään verotuksessa.", { size: 8, color: MUTED });
 }
 
 /** Tumma kansilehti kuten vanhassa raportissa, Skogin sinisellä. */

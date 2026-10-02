@@ -5,9 +5,8 @@ import { requireStaff } from "@/lib/auth/current-user";
 import { getClient } from "@/lib/clients/queries";
 import { defaultYear, listYears } from "@/lib/ledger/queries";
 import { loadPlanData } from "@/lib/tax/load";
-import { loadForm2 } from "@/lib/tax/agri-form-load";
+import { loadAgriPlanData } from "@/lib/tax/agri-form-load";
 import Link from "next/link";
-import { formatEur } from "@/lib/format";
 import { ClientTabs } from "../../ClientTabs";
 import { YearNav } from "../../YearNav";
 import { PlanForm } from "./PlanForm";
@@ -34,8 +33,8 @@ export default async function TaxPlanPage({
     const year = years.some((y) => y.year === requested) ? requested : defaultYear(years);
     return {
       client, years, year, plan: year ? await loadPlanData(tx, id, year) : null,
-      // Maatalousasiakkaalle näytetään maatalouden tulos tiedoksi (lomake 2). Yritystulon jako on myöhemmin.
-      form2: year && client.has_agriculture ? await loadForm2(tx, id, year) : null,
+      // Maatalousasiakkaalle suunnitelma kattaa myös maatalouden (lomake 2, yritystulon jako).
+      agri: year && client.has_agriculture ? await loadAgriPlanData(tx, id, year) : null,
     };
   });
   if (!data) notFound();
@@ -57,14 +56,14 @@ export default async function TaxPlanPage({
               <Notice tone="ok" title={sp.vahvistettu === "suljettu" ? `Suunnitelma vahvistettu ja vuosi ${year} suljettu.` : "Suunnitelma vahvistettu."} />
             </div>
           ) : null}
-          {data.form2 ? (
+          {data.agri ? (
             <div className="mb-5">
-              <Notice tone="info" title={`Maatalouden ${data.form2.result < 0 ? "tappio" : "tulos"} ${year}: ${formatEur(Math.abs(data.form2.result))}`}>
-                Tämä suunnitelma koskee metsätaloutta. Maatalouden tulos lasketaan lomakkeen 2 mukaan, ja sen poistot valitaan{" "}
-                <Link href={`/asiakkaat/${id}/maatalous?vuosi=${year}#poistot`} className="font-semibold text-sky">
+              <Notice tone="info" title="Suunnitelma kattaa metsä- ja maatalouden.">
+                Maatalouden poistot, tasausvaraus ja jakovaatimus tallentuvat samoihin tietoihin kuin{" "}
+                <Link href={`/asiakkaat/${id}/maatalous?vuosi=${year}`} className="font-semibold text-sky">
                   Lomake 2 -välilehdellä
                 </Link>
-                . Yritystulon jako pääoma- ja ansiotuloon tulee myöhemmin.
+                , joten voit muuttaa niitä kummassa tahansa.
               </Notice>
             </div>
           ) : null}
@@ -72,15 +71,27 @@ export default async function TaxPlanPage({
             <div className="mb-5">
               <Notice tone="warn" title={`Verovuosi ${year} on suljettu.`}>Suunnitelma näkyy vahvistetuilla luvuilla eikä sitä voi muuttaa.</Notice>
             </div>
-          ) : plan.confirmed ? (
+          ) : plan.confirmed || data.agri?.depreciationConfirmed ? (
             <div className="mb-5">
               <Notice tone="info" title="Vuodelle on vahvistettu suunnitelma.">Näet vahvistetut luvut. Voit muuttaa niitä ja vahvistaa uudelleen.</Notice>
             </div>
           ) : null}
-          <PlanForm action={confirmPlanAction} clientId={id} year={year} data={plan} readOnly={closed} canClose={ctx.can("owner")} />
+          <PlanForm
+            action={confirmPlanAction}
+            clientId={id}
+            year={year}
+            data={plan}
+            readOnly={closed}
+            canClose={ctx.can("owner")}
+            agri={data.agri}
+            forestry={c.has_forestry}
+          />
           <p className="mt-6 max-w-3xl text-xs text-ink/55">
             Säännöt perustuvat Verohallinnon ohjeisiin (tarkistettu 27.9.2026): metsävähennys enintään 60 % tai vuodesta 2026 75 % metsätalouden tuloista,
             poistot vapaaehtoisina menojäännöspoistoina ja koneiden myynnit luovutusvoittoina.
+            {data.agri
+              ? " Maatalouden yritystulo jaetaan pääoma- ja ansiotuloon edellisen vuoden nettovarallisuuden mukaan (tarkistettu 2.10.2026)."
+              : null}
           </p>
         </>
       )}

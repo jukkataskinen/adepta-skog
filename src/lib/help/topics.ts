@@ -659,7 +659,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Ostot jaetaan veroilmoituksella verokannan mukaan: 25,5 %, alennettu kanta ja 0 %.",
           "Avaa Lomakkeen 2 kentät, niin näet jokaisen kentän ja sen summan.",
           "Punainen huomautus kertoo virheestä, joka pitää korjata ennen veroilmoitusta. Keltainen huomautus kannattaa tarkistaa.",
-          "Verosuunnitelma koskee metsätaloutta. Siellä näkyy maatalouden tulos tiedoksi.",
+          "Verosuunnitelma laskee metsän ja maatalouden veron yhdessä. Siellä voit valita poistot, tasausvarauksen ja pääomatulo-osuuden.",
         ],
       },
       {
@@ -670,6 +670,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Katso taulukosta Poistot ryhmittäin ryhmän poistopohja ja enimmäismäärä.",
           "Kirjoita poisto jokaiselle ryhmälle. Poisto voi olla pienempi kuin enimmäismäärä tai nolla.",
           "Valitse Tallenna poistot.",
+          "Voit valita poistot myös Verosuunnitelma-välilehdellä liukusäätimellä. Molemmat tallentavat samat poistot.",
         ],
         bullets: [
           "Menojäännös siirtyy seuraavalle vuodelle tallennetulla poistolla.",
@@ -684,6 +685,8 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Rakennusten ja koneiden arvot tulevat poistoista.",
           "Puolison osuudet täytetään vain, jos puolisot harjoittavat maataloutta yhdessä. Yrittäjän osuus on loppu.",
           "Jos maatalous on tappiollinen, voit kirjoittaa, paljonko tappiosta vähennetään pääomatuloista.",
+          "Edellisen vuoden nettovarallisuus tarvitaan vain, jos edellinen vuosi ei ole Skogissa. Kirjoita se edellisen vuoden verotuksesta.",
+          "Vaatimus yritystulon jaosta ja tappion vähennys pääomatuloista voidaan valita myös verosuunnitelmassa.",
         ],
       },
       {
@@ -695,7 +698,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
         bullets: [
           "Purkamaton määrä näkyy taulukossa ja veroilmoituksella vuosittain.",
-          "Tasausvarauksen laskuri tehdään myöhemmin. Nyt määrä kirjoitetaan käsin.",
+          "Verosuunnitelma laskee tämän vuoden tasausvarauksen enimmäismäärän. Siellä voit valita varauksen ja aiempien varausten tuloutuksen liukusäätimellä.",
         ],
       },
       {
@@ -710,7 +713,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: "Veroilmoitustiedosto",
         text: "Skog tekee maatalouden veroilmoituksesta (lomake 2) tiedoston. Jos asiakkaalla on myös metsää, metsätalouden 2C tulee samaan tiedostoon.",
         steps: [
-          "Tallenna ensin maatalouden poistot Lomake 2 -välilehdellä ja vahvista metsän verosuunnitelma.",
+          "Vahvista ensin verosuunnitelma. Se tallentaa metsän ja maatalouden poistot ja valinnat.",
           "Avaa Veroraportti ja arkisto -välilehti ja valitse vuosi.",
           "Katso kohdasta Lomake 2: maatalous, mitkä luvut menevät mihinkin kohtaan. Korjaa punaiset virheet.",
           "Kirjoita henkilötunnus, jos asiakkaalla ei ole Y-tunnusta.",
@@ -780,8 +783,13 @@ export const HELP_TOPICS: HelpTopic[] = [
     group: "Verotus ja raportit",
     icon: "coins",
     title: "Verosuunnitelma",
-    summary: "Arvio vuoden verotettavasta tulosta. Valitse, paljonko metsävähennystä ja poistoja käytetään.",
-    highlights: ["Verotettava pääomatulo ja vero", "Metsävähennyksen rajat valmiina", "Vahvistus tallentaa poistot ja vähennyksen"],
+    summary: "Arvio vuoden verosta. Valitse, paljonko metsävähennystä, poistoja ja tasausvarausta käytetään.",
+    highlights: [
+      "Verotettava pääomatulo ja vero",
+      "Metsävähennyksen rajat valmiina",
+      "Maatalousasiakkaalla myös maatalous: poistot, tasausvaraus ja yritystulon jako",
+      "Vahvistus tallentaa valinnat",
+    ],
     sections: [
       {
         title: "Suunnitelman teko",
@@ -806,6 +814,41 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        title: "Maatalousasiakkaan suunnitelma",
+        text: "Jos asiakkaalla on maatalous, sama sivu laskee metsän ja maatalouden yhdessä. Yläosassa näet arvioidun veron yhteensä ja säästön.",
+        steps: [
+          "Valitse maatalouden poistot ryhmittäin liukusäätimellä tai kirjoita summa.",
+          "Valitse tasausvaraus. Sivu näyttää, paljonko varausta voi tänä vuonna tehdä.",
+          "Jos aiemmilta vuosilta on purkamatta varausta, valitse, paljonko siitä tuloutetaan tänä vuonna.",
+          "Valitse pääomatulo-osuus: 20 %, 10 % tai 0 %.",
+          "Jos maatalous on tappiollinen, valitse, vähennetäänkö tappio tämän vuoden pääomatuloista.",
+          "Katso laskelma oikealla. Voit kirjoittaa asiakkaan muut ansiotulot ja kunnan veroprosentin, niin arvio tarkentuu. Niitä ei tallenneta.",
+          "Valitse Vahvista suunnitelma. Poistot, tasausvaraus, tuloutukset ja valinta tallentuvat Lomake 2 -välilehdelle.",
+        ],
+      },
+      {
+        title: "Yritystulon jako",
+        bullets: [
+          "Maatalouden tuloksesta vähennetään ensin aiempien vuosien vahvistetut tappiot.",
+          "Siitä vähennetään 5 % yrittäjävähennys.",
+          "Pääomatuloa on 20 % edellisen vuoden lopun nettovarallisuudesta. Asiakas voi vaatia 10 % tai 0 %.",
+          "Nettovarallisuuteen lisätään 30 % maatalouden palkoista. Jos velkoja on enemmän kuin varoja, kaikki on ansiotuloa.",
+          "Loppu on ansiotuloa. Puolisoilla pääomatulo jaetaan varallisuusosuuksien ja ansiotulo työosuuksien mukaan.",
+          "Nettovarallisuus tulee edellisen vuoden lomakkeesta 2, jos se vuosi on Skogissa. Muuten kirjoita se Lomake 2 -välilehden vuoden tietoihin.",
+          "Metsätalouden ja maatalouden pääomatulot lasketaan yhteen. Yli 30 000 euron osasta vero on 34 %.",
+          "Ansiotulon vero on arvio. Siinä ei ole vähennyksiä, kirkollisveroa eikä sairausvakuutusmaksuja.",
+        ],
+      },
+      {
+        title: "Tasausvaraus",
+        bullets: [
+          "Varaus on enintään 40 % maatalouden puhtaasta tuloksesta ennen korkoja.",
+          "Varaus on 800–25 000 euroa, täysinä satoina euroina.",
+          "Varaus käytetään investointiin tai tuloutetaan viimeistään kolmantena vuonna. Käyttö investointiin kirjataan Lomake 2 -välilehdellä.",
+          "Jos vuodelle on varaus usealle maatilalle, muuta niitä Lomake 2 -välilehdellä.",
+        ],
+      },
+      {
         title: "Metsätilan myynti",
         text: "Jos tila tai sen osa on myyty tänä vuonna, suunnitelmassa on laskelma jokaisesta kaupasta: kauppahinta, hankintameno tai olettama, tie- ja ojamenot, myyntikulut, metsävähennyksen lisäys ja luovutusvoitto. Voitto tai tappio ilmoitetaan lomakkeella 9. Luovutukset kirjataan metsätilan sivulla.",
       },
@@ -817,9 +860,10 @@ export const HELP_TOPICS: HelpTopic[] = [
     tips: [
       "Pääomatulon vero on 30 prosenttia 30 000 euroon asti ja 34 prosenttia sen yli.",
       "Yrittäjävähennys: 5 prosenttia metsätalouden tuloksesta metsävähennyksen jälkeen jää verottamatta. Laskelma tekee sen itse.",
-      "Vero on arvio. Asiakkaan muut pääomatulot ja aiempien vuosien tappiot eivät ole mukana.",
+      "Vero on arvio. Asiakkaan muut pääomatulot eivät ole mukana.",
+      "Maatalouden poistot ja varaukset voi muuttaa myös Lomake 2 -välilehdellä. Molemmat näyttävät samat luvut.",
     ],
-    related: ["investoinnit", "metsatilat"],
+    related: ["investoinnit", "metsatilat", "maatalous"],
   },
   {
     slug: "veroraportti",
@@ -849,7 +893,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Investoinnit ja poistot.",
           "Metsävähennys tiloittain.",
           "Maatalousasiakkaalla osa Maatalous (lomake 2): tulot ja menot luokittain, lomakkeen 2 kentät, poistot ryhmittäin ja huomautukset.",
-          "Maatalousasiakkaan yhteenvedossa on myös maatalouden tulos. Arvonlisävero on metsästä ja maataloudesta yhteensä.",
+          "Maatalousasiakkaan yhteenvedossa on myös maatalouden tulos, pääomatulo- ja ansiotulo-osuus sekä arvioitu vero yhteensä. Arvonlisävero on metsästä ja maataloudesta yhteensä.",
           "Jos asiakkaalla on vain maatalous, metsätalouden osat jäävät pois.",
           "Kaikki vuoden kirjaukset.",
           "Jos kirjauksesta vain osa kuuluu metsätaloudelle, kirjausluettelossa on sarake Osuus. Summa on koko kuitin, mutta tuloissa, menoissa ja verolaskelmassa on vain metsätalouden osuus.",

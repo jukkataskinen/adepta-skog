@@ -6,8 +6,9 @@ import { computePlan, type PlanResult } from "@/lib/tax/plan";
 import { vatRowsFrom, vatSummary, type VatPeriod } from "@/lib/tax/vat";
 import { pageLabel, parsePagesColumn } from "@/lib/ai/receipts/schema";
 import { listAttachmentDocuments } from "./attachments";
-import { loadForm2 } from "@/lib/tax/agri-form-load";
-import { loadAgriDepreciation } from "@/lib/tax/agri-load";
+import { loadAgriPlanData } from "@/lib/tax/agri-form-load";
+import { combinedTax, computeAgriPlan, recordedChoices, type AgriPlanResult, type CombinedTax } from "@/lib/tax/agri-plan";
+import type { IncomeSplitResult } from "@/lib/tax/income-split";
 import type { Form2Result } from "@/lib/tax/agriculture";
 import type { AgriDepreciationResult } from "@/lib/tax/agri-depreciation";
 
@@ -70,7 +71,11 @@ export interface ReportData {
   properties: { name: string; remainingBefore: number | null; deduction: number }[];
   confirmed: boolean;
   /** Maatalousosa (lomake 2), vain maatalousasiakkaalle. */
-  agri: { form2: Form2Result; depreciation: AgriDepreciationResult; categories: ReportCategoryRow[] } | null;
+  agri: {
+    form2: Form2Result; depreciation: AgriDepreciationResult; categories: ReportCategoryRow[];
+    /** Yritystulon jako vahvistetuilla valinnoilla ja henkilön verot yhteensä (metsä + maatalous). */
+    split: IncomeSplitResult; tax: CombinedTax;
+  } | null;
 }
 
 const joinAddress = (street: string | null, postal: string | null, city: string | null) =>
@@ -154,7 +159,7 @@ export async function loadReportData(
 
   const plan = await loadPlanData(tx, clientId, year);
   // Maatalouden luokkasummat maatalouden osuuksina (activityRows), lomake 2 ja ryhmäpoistot.
-  let agri: ReportData["agri"] = null;
+  let agriCalc: (AgriPlanResult & { categories: ReportCategoryRow[] }) | null = null;
   if (c.has_agriculture) {
     const byAgriCat = new Map<string, ReportCategoryRow>();
     for (const r of activityRows(
@@ -171,8 +176,12 @@ export async function loadReportData(
       e.gross = Math.round((e.gross + s.gross) * 100) / 100;
       byAgriCat.set(label, e);
     }
-    const form2 = await loadForm2(tx, clientId, year);
-    if (form2) agri = { form2, depreciation: await loadAgriDepreciation(tx, clientId, year), categories: [...byAgriCat.values()] };
+    const agriPlan = await loadAgriPlanData(tx, clientId, year);
+    if (agriPlan) {
+      // Vahvistetut valinnat: sama laskenta kuin verosuunnitelmassa ja Lomake 2 -välilehdellä.
+      const a = computeAgriPlan(agriPlan, recordedChoices(agriPlan));
+      agriCalc = { ...a, categories: [...byAgriCat.values()] };
+    }
   }
   // Raportissa käytetään vahvistettuja lukuja, ei laskurin oletuksia.
   const depreciation = plan.assets.map((a) => {
@@ -202,6 +211,11 @@ export async function loadReportData(
     salePrices: depreciation.reduce((s, d) => s + d.salePrice, 0) + plan.forestSales.reduce((s, f) => s + f.salePrice, 0),
     forestDeduction: plan.recordedDeduction,
   });
+
+  // Henkilön verot yhteensä: metsätalouden ja maatalouden pääomatulo samaan 30/34 %:n rajaan.
+  const agri: ReportData["agri"] = agriCalc
+    ? { form2: agriCalc.form2, depreciation: agriCalc.depreciation, categories: agriCalc.categories, split: agriCalc.split, tax: combinedTax(year, result, agriCalc.split) }
+    : null;
 
   return {
     year,

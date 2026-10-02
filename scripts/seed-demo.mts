@@ -190,7 +190,9 @@ async function seedFarm(tx: Sql, org: string, staff: string) {
     [org, c],
   );
   await tx.query(
-    "insert into sk_agri_years (organization_id, client_id, tax_year, liabilities, shares_value, wages_subject_to_withholding) values ($1,$2,2025,150000,8000,3000)",
+    // Edellisen vuoden (2024) nettovarallisuus syötetään, koska vuotta 2024 ei ole Skogissa: verosuunnitelma jakaa yritystulon sen mukaan.
+    `insert into sk_agri_years (organization_id, client_id, tax_year, liabilities, shares_value, wages_subject_to_withholding, prior_net_wealth)
+     values ($1,$2,2025,150000,8000,3000,180000)`,
     [org, c],
   );
   // Poistot 2025 enimmäismäärin, jotta raportissa ja tiedostossa on luvut heti.
