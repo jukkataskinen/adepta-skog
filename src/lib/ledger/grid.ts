@@ -5,6 +5,7 @@ import {
   ASSET_CLASS_PCTS,
   categoriesFor,
   category,
+  categoryActivity,
   categoryByNo,
   defaultVatRate,
   FORESTRY_CATEGORIES,
@@ -17,6 +18,7 @@ import {
   type Category,
   type ClientActivities,
   type TransactionKind,
+  viewCategories,
 } from "@/lib/tax/rules";
 import { netFromGross, percentOf } from "@/lib/tax/amounts";
 import { formatSharePct, ownShare, type ShareAmounts } from "@/lib/tax/share";
@@ -210,7 +212,7 @@ export function rowFromStored(t: StoredTransaction): GridRow {
  * Metsätalouden osuus on aina 100 % (tyhjä): tositteesta ei voi päätellä,
  * kuuluuko osa muulle toiminnalle, joten kirjanpitäjä muuttaa sen tarvittaessa.
  */
-export function rowsFromSuggestion(s: PendingSuggestion, opts: { vatRegistered: boolean; defaultDate: string; year?: number }): GridRow[] {
+export function rowsFromSuggestion(s: Pick<PendingSuggestion, "id" | "document_id" | "file_name" | "lines">, opts: { vatRegistered: boolean; defaultDate: string; year?: number }): GridRow[] {
   const compilation = isCompilation(s.lines);
   return s.lines.map((l, i) => {
     const cat = category(l.category);
@@ -534,8 +536,8 @@ export const MENU_CATEGORIES = FORESTRY_CATEGORIES;
  * kuten ennen, maatalousasiakas myös maatalouden luokat. Järjestys on
  * CATEGORIES-listan järjestys (ensin metsä, sitten maatalous ryhmittäin).
  */
-export function menuCategories(c: ClientActivities): Category[] {
-  return categoriesFor(c);
+export function menuCategories(c: ClientActivities, view: Activity | null = null): Category[] {
+  return view ? viewCategories(c, view) : categoriesFor(c);
 }
 
 /** Valikon ryhmän otsikko: kun molemmat toiminnot ovat käytössä, metsän ryhmissä näkyy toiminto. */
@@ -568,10 +570,24 @@ export interface GridValidateOptions {
   activities?: Activity[];
   /** Investoinnin toiminto: myynnin luokan on oltava saman toiminnon. Puuttuva = metsätalous. */
   assetActivity?: (assetId: string) => Activity | null;
+  /** Kirjanpidon näkymä: rivin luokan on oltava tämän toiminnon. Puuttuva = ei rajausta. */
+  view?: Activity | null;
 }
 
 export const ACTIVITY_MESSAGE = "Asiakas ei harjoita maataloutta. Valitse metsätalouden luokka tai lisää maatalous asiakkaan tietoihin.";
 export const FORESTRY_OFF_MESSAGE = "Asiakas ei harjoita metsätaloutta. Valitse maatalouden luokka tai lisää metsätalous asiakkaan tietoihin.";
+
+/** Rivi on väärän toiminnon kirjanpidossa (näkymä rajattu toiminnolle). */
+export function viewMessage(view: Activity): string {
+  return view === "agriculture"
+    ? "Tämä on maatalouden kirjanpito. Valitse maatalouden luokka (21–59), tai kirjaa rivi metsätalouden kirjanpitoon."
+    : "Tämä on metsätalouden kirjanpito. Valitse metsätalouden luokka (1–12), tai kirjaa rivi maatalouden kirjanpitoon.";
+}
+
+/** Kirjaus kuuluu näkymään: rajaamaton näkymä näyttää kaikki. */
+export function inView(categoryCode: string, view: Activity | null): boolean {
+  return !view || categoryActivity(categoryCode) === view;
+}
 
 export interface ValidGridRow {
   key: string;
@@ -624,6 +640,7 @@ export function validateGridRow(r: GridRow, opts: GridValidateOptions): { ok: tr
   const cat = category(v.category)!;
   const activities = opts.activities ?? ["forestry"];
   if (!activities.includes(cat.activity)) errors.category = cat.activity === "agriculture" ? ACTIVITY_MESSAGE : FORESTRY_OFF_MESSAGE;
+  else if (opts.view && cat.activity !== opts.view) errors.category = viewMessage(opts.view);
   const vatRate = v.vatRate ?? defaultVatRate(cat.code, v.bookedOn, { vatRegistered: opts.vatRegistered });
   if (v.forestPropertyId && !opts.propertyIds.includes(v.forestPropertyId)) errors.forestPropertyId = "Valitse asiakkaan metsätila.";
   if (v.otherSharePct && !allowsOtherShare(cat.code)) errors.otherSharePct = OTHER_SHARE_MESSAGE;

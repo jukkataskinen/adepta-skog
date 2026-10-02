@@ -8,10 +8,10 @@ import { defaultYear, listAssets, listPropertyOptions, listTransactions, listYea
 import { summarize } from "@/lib/ledger/summary";
 import { vatOf } from "@/lib/tax/amounts";
 import { activityRows, formatSharePct, isPartialShare } from "@/lib/tax/share";
-import { rowFromStored, rowsFromSuggestion, withDuplicateWarnings } from "@/lib/ledger/grid";
+import { inView, rowFromStored, rowsFromSuggestion, withDuplicateWarnings } from "@/lib/ledger/grid";
 import { listPendingSuggestions } from "@/lib/documents/receipt-suggestions";
 import { receiptRecognizer } from "@/lib/ai/receipts";
-import { ACTIVITY_LABEL, activitiesOf, category } from "@/lib/tax/rules";
+import { ACTIVITY_LABEL, ACTIVITY_PARAM, activitiesOf, category, ledgerView, type Activity } from "@/lib/tax/rules";
 import { formatDate, formatEur } from "@/lib/format";
 import { ClientTabs } from "../../ClientTabs";
 import { YearNav } from "../../YearNav";
@@ -29,13 +29,14 @@ export const metadata = { title: "Kirjanpito" };
 export const maxDuration = 120;
 
 const KIND_LABEL = { income: "Tulo", expense: "Meno", investment: "Investointi" } as const;
+const VIEW_TITLE: Record<Activity, string> = { forestry: "Metsätalouden kirjanpito", agriculture: "Maatalouden kirjanpito" };
 
 export default async function LedgerPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ vuosi?: string; virhe?: string; lisatty?: string; syotto?: string }>;
+  searchParams: Promise<{ vuosi?: string; virhe?: string; lisatty?: string; syotto?: string; toiminta?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -47,50 +48,79 @@ export default async function LedgerPage({
     const years = await listYears(tx, id);
     const requested = Number(sp.vuosi);
     const year = years.some((y) => y.year === requested) ? requested : defaultYear(years);
+    // Kirjanpito toiminnoittain: pelkällä metsäasiakkaalla ei rajausta (null).
+    const view = ledgerView({ hasForestry: client.has_forestry, hasAgriculture: client.has_agriculture }, sp.toiminta);
     return {
       client,
       years,
       year,
+      view,
       rows: year ? await listTransactions(tx, id, year) : [],
       assets: await listAssets(tx, id),
       properties: await listPropertyOptions(tx, id),
       receipts: year ? await listYearReceipts(tx, id, year) : [],
-      suggestions: year ? await listPendingSuggestions(tx, id, year) : [],
+      suggestions: year ? await listPendingSuggestions(tx, id, year, view) : [],
     };
   });
   if (!data) notFound();
-  const { client: c, years, year, rows } = data;
+  const { client: c, years, year, view, rows: allRows } = data;
+  // Näkymä näyttää vain oman toimintonsa kirjaukset. Kortit lasketaan kaikista riveistä, koska
+  // toisen toiminnon menosta voi kuulua osuus tälle toiminnolle (activityRows).
+  const rows = allRows.filter((r) => inView(r.category, view));
   const status = years.find((y) => y.year === year)?.status;
   const closed = status === "closed";
   // Kortit ja summat ovat metsätalouden osuuksia (src/lib/tax/share.ts). Maatalousasiakkaalle
   // kortit näytetään toiminnoittain: kummankin toiminnon oma osuus ja toiselta saatu osuus.
-  const inputs = rows.map((r) => ({
+  const inputs = allRows.map((r) => ({
     ...r, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), withholding: Number(r.withholding),
     businessSharePct: Number(r.business_share_pct), otherSharePct: Number(r.other_share_pct),
   }));
-  const sum = summarize(inputs);
-  const activities = activitiesOf({ hasForestry: c.has_forestry, hasAgriculture: c.has_agriculture });
+  const sum = summarize(inputs.filter((r) => inView(r.category, view)));
+  const activities = view ? [view] : activitiesOf({ hasForestry: c.has_forestry, hasAgriculture: c.has_agriculture });
   const byActivity = c.has_agriculture
     ? activities.map((a) => ({ activity: a, sum: summarize(activityRows(inputs, a).map((r) => ({ ...r, withholding: r.cross ? 0 : r.withholding }))) }))
     : null;
+  const both = c.has_forestry && c.has_agriculture;
+  const viewParam = view === "agriculture" && both ? `&toiminta=${ACTIVITY_PARAM.agriculture}` : "";
+  const otherView: Activity | null = both && view ? (view === "agriculture" ? "forestry" : "agriculture") : null;
+  const viewHref = (a: Activity) => `/asiakkaat/${id}/kirjanpito?vuosi=${year}${a === "agriculture" ? `&toiminta=${ACTIVITY_PARAM.agriculture}` : ""}`;
   const today = new Date().toISOString().slice(0, 10);
   const defaultDate = year && today.startsWith(String(year)) ? today : `${year}-01-01`;
   // Avoimen vuoden oletusnäkymä on taulukko, jossa kaikki vuoden rivit ovat muokattavina
   // kuten vanhassa sovelluksessa. Lomake on vaihtoehto rivi kerrallaan kirjaamiseen.
   const gridMode = !closed && sp.syotto !== "lomake";
-  const modeHref = (grid: boolean) => `/asiakkaat/${id}/kirjanpito?vuosi=${year}${grid ? "" : "&syotto=lomake"}`;
+  const modeHref = (grid: boolean) => `/asiakkaat/${id}/kirjanpito?vuosi=${year}${grid ? "" : "&syotto=lomake"}${viewParam}`;
 
   return (
     <>
-      <PageHeader title={`${c.first_name} ${c.last_name}`.trim()} subtitle="Kirjanpito" back={{ href: "/asiakkaat", label: "Asiakkaat" }} />
-      <ClientTabs clientId={id} active="kirjanpito" year={year} agriculture={c.has_agriculture} />
+      <PageHeader
+        title={`${c.first_name} ${c.last_name}`.trim()}
+        subtitle={view ? VIEW_TITLE[view] : "Kirjanpito"}
+        back={{ href: "/asiakkaat", label: "Asiakkaat" }}
+      />
+      <ClientTabs
+        clientId={id}
+        active={view === "agriculture" && both ? "kirjanpito-maatalous" : "kirjanpito"}
+        year={year}
+        agriculture={c.has_agriculture}
+        forestry={c.has_forestry}
+      />
       <FormError message={sp.virhe} />
 
       {year === null ? (
         <EmptyState title="Ei verovuosia">Avaa verovuosi asiakkaan tiedoissa.</EmptyState>
       ) : (
         <>
-          <YearNav years={years} year={year} basePath={`/asiakkaat/${id}/kirjanpito`} />
+          <YearNav years={years} year={year} basePath={`/asiakkaat/${id}/kirjanpito`} query={viewParam ? viewParam.slice(1) : undefined} />
+
+          {otherView ? (
+            <p className="-mt-2 mb-5 text-sm text-ink/70">
+              Näet vain {view === "agriculture" ? "maatalouden" : "metsätalouden"} kirjaukset ja luokat.{" "}
+              <Link href={viewHref(otherView)} className="font-semibold text-sky hover:underline">
+                Siirry {otherView === "agriculture" ? "maatalouden" : "metsätalouden"} kirjanpitoon
+              </Link>
+            </p>
+          ) : null}
 
           {closed ? (
             <div className="mb-5">
@@ -108,7 +138,7 @@ export default async function LedgerPage({
           {byActivity ? (
             byActivity.map((b) => (
               <div key={b.activity} className="mb-4">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink/55">{ACTIVITY_LABEL[b.activity]}</p>
+                {byActivity.length > 1 ? <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink/55">{ACTIVITY_LABEL[b.activity]}</p> : null}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <Stat label="Tulot ilman alv" value={formatEur(b.sum.income.net)} />
                   <Stat label="Menot ilman alv" value={formatEur(b.sum.expense.net)} />
@@ -125,10 +155,14 @@ export default async function LedgerPage({
               <Stat label="Tulos ennen poistoja" value={formatEur(sum.netResult)} tone={sum.netResult < 0 ? "alert" : undefined} />
             </div>
           )}
-          {byActivity ? (
+          {byActivity && both ? (
             <p className="mb-6 text-sm text-ink/70">
-              Luvuissa on kummankin toiminnon osuus. Yhteiset menot jaetaan rivin osuuksilla, ja yksityinen osuus jää pois.
+              {view === "agriculture"
+                ? "Luvuissa on maatalouden osuus, myös metsätalouden kirjauksista maataloudelle annettu osuus. Yksityinen osuus jää pois."
+                : "Luvuissa on metsätalouden osuus, myös maatalouden kirjauksista metsätaloudelle annettu osuus. Yksityinen osuus jää pois."}
             </p>
+          ) : byActivity ? (
+            <div className="mb-2" />
           ) : sum.partialCount ? (
             <p className="-mt-3 mb-6 text-sm text-ink/70">
               {sum.partialCount === 1 ? "Yhdestä kirjauksesta" : `${sum.partialCount} kirjauksesta`} vain osa kuuluu metsätaloudelle. Luvuissa on vain
@@ -144,6 +178,8 @@ export default async function LedgerPage({
             testMode={receiptRecognizer().mode === "mock"}
             gridMode={gridMode}
             gridHref={modeHref(true)}
+            view={view}
+            otherViewHref={otherView ? viewHref(otherView) : null}
           />
 
           {!closed ? (
@@ -165,14 +201,15 @@ export default async function LedgerPage({
               initialRows={rows.map(rowFromStored)}
               suggestionRows={withDuplicateWarnings(
                 data.suggestions.flatMap((sg) => rowsFromSuggestion(sg, { vatRegistered: c.vat_registered, defaultDate: toFinnishDate(defaultDate), year })),
-                rows,
+                allRows,
               )}
-              properties={data.properties}
-              assets={data.assets}
+              properties={view === "agriculture" ? [] : data.properties}
+              assets={data.assets.filter((a) => !view || a.activity === view)}
               vatRegistered={c.vat_registered}
               defaultDate={toFinnishDate(defaultDate)}
               hasForestry={c.has_forestry}
               hasAgriculture={c.has_agriculture}
+              activity={view}
             />
           ) : rows.length === 0 ? (
             <EmptyState title="Ei kirjauksia">{closed ? "Vuodelle ei ole kirjauksia." : "Lisää ensimmäinen kirjaus alla olevalla lomakkeella."}</EmptyState>
@@ -259,12 +296,13 @@ export default async function LedgerPage({
                   action={saveTransactionAction}
                   clientId={id}
                   assets={data.assets}
-                  properties={data.properties}
+                  properties={view === "agriculture" ? [] : data.properties}
                   defaultDate={defaultDate}
                   submitLabel="Lisää kirjaus"
                   vatRegistered={c.vat_registered}
                   hasForestry={c.has_forestry}
                   hasAgriculture={c.has_agriculture}
+                  activity={view}
                   compact
                 />
               </Panel>

@@ -127,6 +127,7 @@ Suunnitelma: `docs/maatalous-suunnitelma-2026-10-02.md`. Verovuodet 2025 ja 2026
 - [x] 7. Lomakkeen 2 laskenta puhtaana funktiona (`src/lib/tax/agriculture.ts`): tulot ja menot kentittäin alv-kannan mukaan, osingot ja osuuskunnan ylijäämä, kotieläinten jaksotukset kolmelta vuodelta, varaukset, ryhmäpoistot ja 2025:n erittely, varallisuuslaskelma, puoliso-osuudet ja tarkistukset; tulos Maatalous-välilehdellä ja tiedoksi verosuunnitelmassa (2.10.2026)
 - [x] 8. Veroraportin maatalousosa: sisällysluettelossa Maatalous (lomake 2), tulot ja menot luokittain, lomakkeen 2 kentät, ryhmäpoistot; yhteenvedossa maatalouden tulos, alv yhteinen erittelyineen; pelkälle maatalousasiakkaalle ei metsän osia (2.10.2026)
 - [x] 9. VSY002-tiedosto (`src/lib/filing/vsy002.ts`, tietuekuvaukset 2025 ja 2026): kentät ja tarkistukset, esikatselu Veroraportti ja arkisto -välilehdellä, sama latauspolku kuin 2C, yksi tiedosto (ensin lomake 2, sitten 2C), tyhjä lomake 967:1; Ilmoitin.fi:n aineiston tarkastus odottaa (BLOCKERS 13) (2.10.2026)
+- [x] 10. Maatalouden kirjanpito omana näkymänään (Jukan palaute 2.10.2026): välilehdet Metsätalouden ja Maatalouden kirjanpito (`?toiminta=maatalous`), samat työkalut (taulukko, lomake, Excel, kortit, vuoden tositteet, tunnistus), näkymä näyttää ja tallentaa vain oman toimintonsa; tositteiden tunnistus maatalouden luokilla ja asiakirjalajeilla, oletustoiminto näkymästä, ehdotus jaetaan toiminnoittain (migraatio 0016); Maatalous-välilehti on nyt Lomake 2; kirjausluettelo toiminnoittain; ohje Maatalouden kirjanpito (2.10.2026)
 
 ### 9. Maatalous, myöhemmin
 - [ ] Lomakkeen 2 tiedosto Ilmoitin.fi:n aineiston tarkastukseen ja VSY002 tuotantokäytön aloitusilmoitukseen (Jukka, BLOCKERS 13)
@@ -135,10 +136,10 @@ Suunnitelma: `docs/maatalous-suunnitelma-2026-10-02.md`. Verovuodet 2025 ja 2026
 - [ ] Tasausvarauksen laskuri tiloittain: enimmäismäärä (40 % puhtaasta tulosta ennen korkoja, 800–25 000 €, alas sataan), käyttö investointiin, tuloutus kolmantena vuonna, jälleenhankintavaraus
 - [ ] Kotieläinten jaksotus kirjauksista automaattisesti ja vapaa jako kolmelle vuodelle
 - [ ] Yritystulon jako ja pääomatulo-osuus verosuunnitelmaan (puolisot, 20/10/0 %, 30 % palkoista, vahvistetut tappiot) ja maatalouden vero veroraportin maksutiedotteeseen
-- [ ] Maatalouden poistojen valinta verosuunnitelman laskuriin (nyt Maatalous-välilehdellä)
-- [ ] Tositteiden tunnistus: maatalouden luokat ja asiakirjalajit (meijeri- ja teurastamotilitys, tukipäätös, lainan vuosi-ilmoitus)
+- [ ] Maatalouden poistojen valinta verosuunnitelman laskuriin (nyt Lomake 2 -välilehdellä)
+- [ ] Tositteiden tunnistus: lainan vuosi-ilmoitus (korot ja lyhennykset) ja investointituen tunnistus investoinnille (meijeri, teurastamo, tuet ja ostot tehty 2.10.2026); oikea koe maatilan aineistolla
 - [ ] Ajoneuvo- ja matkaselvitys laskettuna (281–288, 401–425) ja tulolähdesiirto 2C:n kohtaan 630
-- [ ] Taulukon suodatin Kaikki / Metsä / Maatalous ja kirjauksen maatila (`farm_id`)
+- [ ] Kirjauksen maatila (`farm_id`) (toiminnoittainen näkymä tehty 2.10.2026)
 - [ ] Rakennusten pieni menojäännös rakennuksittain (nyt ryhmän summasta)
 - [ ] Alv-ilmoitus tiedostona (VSRALVKV) tai Vero API:lla, ja erillinen alv-päivä vuodenvaihteen tilityksille
 - [ ] Pankkitiliotteen sisäänluku (CSV tai camt.053)

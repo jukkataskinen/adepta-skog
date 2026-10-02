@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { FORESTRY_CATEGORIES as CATEGORIES, TIMBER_SALE_CODES } from "@/lib/tax/rules";
+import { CATEGORIES, categoryActivity, FORESTRY_CATEGORIES, TIMBER_SALE_CODES, type Activity } from "@/lib/tax/rules";
 
 /**
  * Tositteen tunnistuksen tulos: yksi tai useampi kirjausehdotus.
@@ -14,9 +14,26 @@ import { FORESTRY_CATEGORIES as CATEGORIES, TIMBER_SALE_CODES } from "@/lib/tax/
  * rivillä on lähdeasiakirjan järjestysnumero, kuvaus, laji ja sivut.
  */
 
-// Tunnistus ehdottaa vain metsätalouden luokkia: ohje on kirjoitettu metsätalouden tositteille,
-// ja maatalouden asiakirjalajit (meijeri, teurastamo, tuet) tehdään myöhemmin (PLAN, maatalous).
-export const RECEIPT_CATEGORY_CODES = CATEGORIES.map((c) => c.code) as [string, ...string[]];
+/**
+ * Tunnistuksen luokat asiakkaan toiminnoista (DECISIONS 2.10.2026, maatalouden
+ * kirjanpito). Pelkän metsäasiakkaan tunnistus on ennallaan: vain metsätalouden
+ * luokat ja asiakirjalajit. Maatalousasiakkaalle tulevat maatalouden luokat ja
+ * lajit (meijeri, teurastamo, tuet), ja luokka kertoo rivin toiminnon.
+ */
+export const RECEIPT_CATEGORY_CODES = FORESTRY_CATEGORIES.map((c) => c.code) as [string, ...string[]];
+/** Kaikki luokat: tallennetun ehdotuksen rivi voi olla kumman tahansa toiminnon. */
+export const ALL_RECEIPT_CATEGORY_CODES = CATEGORIES.map((c) => c.code) as [string, ...string[]];
+
+export function receiptCategoryCodes(activities: Activity[]): [string, ...string[]] {
+  const codes = CATEGORIES.filter((c) => activities.includes(c.activity)).map((c) => c.code);
+  return (codes.length ? codes : RECEIPT_CATEGORY_CODES) as [string, ...string[]];
+}
+
+/** Rivin toiminto tulee luokasta kuten kirjauksella (kanta valvoo saman säännön). */
+export const lineActivity = (l: Pick<SuggestionLine, "category">): Activity => categoryActivity(l.category);
+
+/** Pelkkä metsätalous: sama skeema ja ohje kuin ennen maataloutta. */
+export const isForestryOnly = (activities: Activity[]) => !activities.includes("agriculture");
 
 /**
  * Enintään näin monta riviä yhdestä tositteesta. Koko vuoden aineisto luetaan
@@ -26,7 +43,10 @@ export const MAX_SUGGESTION_LINES = 400;
 
 /** Asiakirjan laji. Vuosi-ilmoitus on ostajan koko vuoden yhteenveto, ei yksittäinen kauppa. */
 export const DOCUMENT_TYPES = ["invoice", "receipt", "timber_settlement", "timber_annual_summary", "other"] as const;
-export type DocumentType = (typeof DOCUMENT_TYPES)[number];
+/** Maatalouden asiakirjalajit: vain maatalousasiakkaan tunnistuksessa. */
+export const AGRI_DOCUMENT_TYPES = ["dairy_settlement", "slaughter_settlement", "crop_settlement", "subsidy_decision", "subsidy_payment"] as const;
+export const ALL_DOCUMENT_TYPES = [...DOCUMENT_TYPES, ...AGRI_DOCUMENT_TYPES] as const;
+export type DocumentType = (typeof ALL_DOCUMENT_TYPES)[number];
 
 export const DOCUMENT_TYPE_LABEL: Record<DocumentType, string> = {
   invoice: "Lasku",
@@ -34,12 +54,40 @@ export const DOCUMENT_TYPE_LABEL: Record<DocumentType, string> = {
   timber_settlement: "Puukaupan tilitys",
   timber_annual_summary: "Puukaupan vuosi-ilmoitus (yhteenveto)",
   other: "Muu asiakirja",
+  dairy_settlement: "Meijerin tilitys",
+  slaughter_settlement: "Teurastamon tilitys",
+  crop_settlement: "Viljan tai muun tuotteen myynti",
+  subsidy_decision: "Tukipäätös",
+  subsidy_payment: "Tuen maksuilmoitus",
 };
 
 /**
  * Palvelulle annettava skeema. Lukurajoja ei ole tässä, koska rakenteinen
  * tuloste ei tue niitä kaikkia; rajat tarkistetaan validateRecognition-funktiossa.
+ * Luokat ja asiakirjalajit tulevat asiakkaan toiminnoista (recognitionOutputSchemaFor);
+ * tämä on pelkän metsäasiakkaan skeema.
  */
+export function recognitionOutputSchemaFor(activities: Activity[]) {
+  if (isForestryOnly(activities)) return recognitionOutputSchema;
+  const codes = receiptCategoryCodes(activities);
+  const shape = recognitionOutputSchema.shape.lines.element.shape;
+  return z.object({
+    lines: z
+      .array(
+        z.object({
+          ...shape,
+          document_type: z.enum(ALL_DOCUMENT_TYPES).describe("Lähdeasiakirjan laji."),
+          category: z.enum(codes).describe("Luokan tunnus luokkalistasta. Luokka kertoo myös toiminnon: agri_-alkuiset ovat maataloutta."),
+          vat_rate: z
+            .number()
+            .describe("Arvonlisäveroprosentti tositteen mukaan, esimerkiksi 25.5, 24, 14, 13.5, 10 tai 0. Elintarvikkeet ja rehut 14 (2025) tai 13.5 (2026)."),
+          withholding: z.number().describe("Ennakonpidätys euroina puukaupan tulorivillä, muuten 0."),
+        }),
+      )
+      .describe("Kirjausehdotukset asiakirjoittain. Kunkin asiakirjan pääasiallinen rivi ensin."),
+  });
+}
+
 export const recognitionOutputSchema = z.object({
   lines: z
     .array(
@@ -126,7 +174,7 @@ function cleanNumber(s: string | null | undefined): string | null {
 export const suggestionLineSchema = z.object({
   date: z.string().nullable(),
   description: z.string().max(200),
-  category: z.enum(RECEIPT_CATEGORY_CODES),
+  category: z.enum(ALL_RECEIPT_CATEGORY_CODES),
   amountGross: z.number().positive().max(100_000_000),
   vatRate: z.number().min(0).max(100),
   withholding: z.number().min(0),
@@ -134,7 +182,7 @@ export const suggestionLineSchema = z.object({
   reasoning: z.string().max(300),
   documentIndex: z.number().int().min(1).max(1000).default(1),
   sourceDocument: z.string().max(120).default(""),
-  documentType: z.enum(DOCUMENT_TYPES).default("other"),
+  documentType: z.enum(ALL_DOCUMENT_TYPES).default("other"),
   pages: z.array(z.number()).default([]),
   contractNumber: z.string().max(40).nullable().default(null),
   invoiceNumber: z.string().max(40).nullable().default(null),
@@ -210,8 +258,8 @@ export function removeDuplicatePaymentLines(lines: LineWithTotal[]): SuggestionL
  * kirjanpitäjä täyttää sen. Ennakonpidätys hyväksytään vain puukaupan riville.
  * Maksuosan toistava rivi poistetaan (removeDuplicatePaymentLines).
  */
-export function validateRecognition(raw: unknown): RecognitionResult {
-  const lines = validateLines(raw);
+export function validateRecognition(raw: unknown, activities: Activity[] = ["forestry"]): RecognitionResult {
+  const lines = validateLines(raw, activities);
   if (!lines) return { ok: false };
   const out = removeDuplicatePaymentLines(lines);
   return out.length ? { ok: true, lines: out } : { ok: false };
@@ -221,8 +269,8 @@ export function validateRecognition(raw: unknown): RecognitionResult {
  * Rivien tarkistus ilman maksurivien poistoa. Palat käyttävät tätä, ja poisto
  * tehdään vasta yhdistetylle tulokselle (merge.ts). null = vastaus ei kelpaa.
  */
-export function validateLines(raw: unknown): ChunkLine[] | null {
-  const parsed = recognitionOutputSchema.safeParse(raw);
+export function validateLines(raw: unknown, activities: Activity[] = ["forestry"]): ChunkLine[] | null {
+  const parsed = recognitionOutputSchemaFor(activities).safeParse(raw);
   if (!parsed.success) return null;
   const lines: ChunkLine[] = [];
   for (const l of parsed.data.lines.slice(0, MAX_SUGGESTION_LINES)) {

@@ -132,7 +132,7 @@ export function PriorAssetForm({
       </div>
       <p className="text-sm text-ink/65">
         {agri
-          ? `Menojäännös siirtyy maatalouden poistoryhmään vuoden ${y ? y + 1 : "seuraavan"} alkuun. Ryhmän poiston valitset Maatalous-välilehdellä.`
+          ? `Menojäännös siirtyy maatalouden poistoryhmään vuoden ${y ? y + 1 : "seuraavan"} alkuun. Ryhmän poiston valitset Lomake 2 -välilehdellä.`
           : `Poisto lasketaan menojäännöksestä vuodesta ${y ? y + 1 : "seuraavasta"} alkaen, enintään ${rate} % vuodessa. Poiston määrän valitset verosuunnitelmassa.`}
       </p>
       <div className="flex flex-wrap items-center gap-4">

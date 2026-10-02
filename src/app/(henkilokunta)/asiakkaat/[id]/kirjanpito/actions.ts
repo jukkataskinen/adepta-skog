@@ -8,9 +8,9 @@ import { requireStaff, type StaffContext } from "@/lib/auth/current-user";
 import { emptyToNull, fail, parseForm } from "@/lib/forms";
 import { audit } from "@/lib/audit";
 import type { Sql } from "@/lib/db/types";
-import { activitiesOf, allowsOtherShare, ASSET_CLASS_PCTS, category, isAssetSale } from "@/lib/tax/rules";
+import { ACTIVITY_PARAM, activitiesOf, allowsOtherShare, ASSET_CLASS_PCTS, category, isAssetSale, ledgerView, type Activity } from "@/lib/tax/rules";
 import { effectiveVatRate, OTHER_SHARE_MESSAGE, SALE_ASSET_MESSAGE, transactionFieldsSchema } from "@/lib/ledger/transaction-input";
-import { ACTIVITY_MESSAGE, FORESTRY_OFF_MESSAGE } from "@/lib/ledger/grid";
+import { ACTIVITY_MESSAGE, FORESTRY_OFF_MESSAGE, inView, viewMessage } from "@/lib/ledger/grid";
 import { deleteTransaction, LedgerError, saveTransaction } from "@/lib/ledger/write";
 import { GridSaveError, saveLedgerGrid } from "@/lib/ledger/grid-save";
 import { MAX_GRID_ROWS, rowFromStored, type GridSaveState } from "@/lib/ledger/grid";
@@ -42,6 +42,19 @@ function friendly(err: unknown): string | null {
   return null;
 }
 
+/** Näkymän osoiteosa: ?toiminta=maatalous. Metsätalous on oletus, joten sille ei tarvita parametria. */
+const viewQuery = (view: Activity | null) => (view === "agriculture" ? `&toiminta=${ACTIVITY_PARAM.agriculture}` : "");
+
+/** Lomakkeen tai taulukon lähettämä näkymä (toiminta) asiakkaan toiminnoista, kuten sivulla. */
+async function clientView(tx: Sql, clientId: string, param: FormDataEntryValue | null) {
+  const [client] = await tx.query<{ vat_registered: boolean; has_forestry: boolean; has_agriculture: boolean }>(
+    "select vat_registered, has_forestry, has_agriculture from sk_clients where id = $1",
+    [clientId],
+  );
+  if (!client) return null;
+  return { client, view: ledgerView({ hasForestry: client.has_forestry, hasAgriculture: client.has_agriculture }, typeof param === "string" ? param : null) };
+}
+
 async function requireOpenYear(tx: Sql, clientId: string, year: number, back: string) {
   const [y] = await tx.query<{ status: string }>("select status from sk_tax_years where client_id = $1 and year = $2", [clientId, year]);
   if (!y) fail(back, `Verovuotta ${year} ei ole avattu. Avaa vuosi asiakkaan sivulla.`);
@@ -53,24 +66,32 @@ export async function saveTransactionAction(formData: FormData) {
   const clientId = uuid.parse(formData.get("clientId"));
   const editing = typeof formData.get("transactionId") === "string" && formData.get("transactionId") !== "";
   const year = Number(String(formData.get("bookedOn") ?? "").slice(0, 4)) || new Date().getFullYear();
-  const back = editing ? `/asiakkaat/${clientId}/kirjanpito/${formData.get("transactionId")}` : `/asiakkaat/${clientId}/kirjanpito?vuosi=${year}&syotto=lomake`;
+  // Uusi kirjaus lomakkeelta saa näkymän toiminnon: lomake tarjoaa vain sen luokat, ja palvelin tarkistaa sen.
+  const param = editing ? null : formData.get("toiminta");
+  const paramView = param === ACTIVITY_PARAM.agriculture ? "agriculture" : null;
+  const back = editing
+    ? `/asiakkaat/${clientId}/kirjanpito/${formData.get("transactionId")}`
+    : `/asiakkaat/${clientId}/kirjanpito?vuosi=${year}&syotto=lomake${viewQuery(paramView)}`;
   const input = parseForm(transactionSchema, formData, back);
   if (isAssetSale(input.category) && !input.saleAssetId && !editing) fail(back, SALE_ASSET_MESSAGE);
 
   const actor = { organizationId: ctx.org.organizationId, userId: ctx.user.id };
+  let view: Activity | null = null;
   try {
     await ctx.run(async (tx) => {
       await requireOpenYear(tx, clientId, Number(input.bookedOn.slice(0, 4)), back);
-      const [client] = await tx.query<{ vat_registered: boolean; has_forestry: boolean; has_agriculture: boolean }>(
-        "select vat_registered, has_forestry, has_agriculture from sk_clients where id = $1",
-        [clientId],
-      );
-      if (!client) fail(back, "Asiakasta ei löytynyt.");
+      const found = await clientView(tx, clientId, param);
+      if (!found) fail(back, "Asiakasta ei löytynyt.");
+      const { client } = found;
       // Luokan on kuuluttava asiakkaan toiminnoille, kuten taulukossa (grid.ts validateGridRow).
       const cat = category(input.category)!;
       if (!activitiesOf({ hasForestry: client.has_forestry, hasAgriculture: client.has_agriculture }).includes(cat.activity)) {
         fail(back, cat.activity === "agriculture" ? ACTIVITY_MESSAGE : FORESTRY_OFF_MESSAGE);
       }
+      // Uusi kirjaus: luokan on oltava näkymän toiminnon. Muokkauksessa luokkaa voi vaihtaa toiseen toimintoon.
+      if (!editing && found.view && cat.activity !== found.view) fail(back, viewMessage(found.view));
+      // Paluu kirjauksen toiminnon näkymään (myös muokkauksen jälkeen).
+      view = found.view ? cat.activity : null;
       if (input.otherSharePct && !allowsOtherShare(cat.code)) fail(back, OTHER_SHARE_MESSAGE);
       if (input.otherSharePct + input.businessSharePct > 100) fail(back, "Osuudet ovat yhteensä yli 100 %.");
       // Tallennus ja investoinnin säännöt ovat samat kuin taulukossa (src/lib/ledger/write.ts).
@@ -98,7 +119,7 @@ export async function saveTransactionAction(formData: FormData) {
     throw err;
   }
   revalidatePath(`/asiakkaat/${clientId}/kirjanpito`);
-  redirect(`/asiakkaat/${clientId}/kirjanpito?vuosi=${input.bookedOn.slice(0, 4)}${editing ? "" : "&syotto=lomake&lisatty=1"}`);
+  redirect(`/asiakkaat/${clientId}/kirjanpito?vuosi=${input.bookedOn.slice(0, 4)}${editing ? "" : "&syotto=lomake&lisatty=1"}${viewQuery(view)}`);
 }
 
 const gridRowSchema = z.object({
@@ -147,11 +168,18 @@ export async function saveLedgerGridAction(formData: FormData): Promise<GridSave
     return { status: "error", message: "Taulukon tietoja ei voitu lukea. Tarkista rivit.", rowErrors: {} };
   }
   const actor = { organizationId: ctx.org.organizationId, userId: ctx.user.id };
+  const param = formData.get("toiminta");
   try {
-    const counts = await ctx.run((tx) =>
-      saveLedgerGrid(tx, { actor, clientId, year, rows: payload.rows, deletedIds: payload.deletedIds, dismissedSuggestionIds: payload.dismissedSuggestionIds }),
-    );
-    const rows = await ctx.run((tx) => listTransactions(tx, clientId, year));
+    const { counts, view } = await ctx.run(async (tx) => {
+      // Näkymä lasketaan asiakkaan toiminnoista samoin kuin sivulla, ei pelkästä selaimen tiedosta.
+      const found = await clientView(tx, clientId, param);
+      const v = found?.view ?? null;
+      const c = await saveLedgerGrid(tx, {
+        actor, clientId, year, rows: payload.rows, deletedIds: payload.deletedIds, dismissedSuggestionIds: payload.dismissedSuggestionIds, view: v,
+      });
+      return { counts: c, view: v };
+    });
+    const rows = (await ctx.run((tx) => listTransactions(tx, clientId, year))).filter((t) => inView(t.category, view));
     revalidatePath(`/asiakkaat/${clientId}/kirjanpito`);
     revalidatePath(`/asiakkaat/${clientId}/raportti`);
     return { status: "saved", ...counts, rows: rows.map(rowFromStored) };
@@ -169,8 +197,15 @@ export async function deleteTransactionAction(formData: FormData) {
   const id = uuid.parse(formData.get("transactionId"));
   const back = `/asiakkaat/${clientId}/kirjanpito/${id}`;
   let year = 0;
+  let view: Activity | null = null;
   try {
-    year = await ctx.run((tx) => deleteTransaction(tx, { organizationId: ctx.org.organizationId, userId: ctx.user.id }, clientId, id));
+    year = await ctx.run(async (tx) => {
+      // Paluu poistetun kirjauksen toiminnon kirjanpitoon.
+      const [t] = await tx.query<{ category: string }>("select category from sk_transactions where id = $1 and client_id = $2", [id, clientId]);
+      const found = await clientView(tx, clientId, null);
+      view = found?.view && t && !inView(t.category, found.view) ? "agriculture" : null;
+      return deleteTransaction(tx, { organizationId: ctx.org.organizationId, userId: ctx.user.id }, clientId, id);
+    });
   } catch (err) {
     if (err instanceof LedgerError) fail(back, err.message);
     const f = friendly(err);
@@ -178,7 +213,7 @@ export async function deleteTransactionAction(formData: FormData) {
     throw err;
   }
   revalidatePath(`/asiakkaat/${clientId}/kirjanpito`);
-  redirect(`/asiakkaat/${clientId}/kirjanpito?vuosi=${year}`);
+  redirect(`/asiakkaat/${clientId}/kirjanpito?vuosi=${year}${viewQuery(view)}`);
 }
 
 // ---------------------------------------------------------------------------

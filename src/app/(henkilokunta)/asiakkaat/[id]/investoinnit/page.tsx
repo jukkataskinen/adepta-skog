@@ -41,7 +41,7 @@ export default async function AssetsPage({
         back={{ href: "/asiakkaat", label: "Asiakkaat" }}
         actions={<LinkButton href={`/asiakkaat/${id}/investoinnit/uusi`}>Lisää aiempi investointi</LinkButton>}
       />
-      <ClientTabs clientId={id} active="investoinnit" year={year} agriculture={data.client.has_agriculture} />
+      <ClientTabs clientId={id} active="investoinnit" year={year} agriculture={data.client.has_agriculture} forestry={data.client.has_forestry} />
       <FormError message={sp.virhe} />
       {sp.tallennettu ? (
         <div className="mb-5">
@@ -58,7 +58,7 @@ export default async function AssetsPage({
 
       {data.client.has_agriculture ? (
         <p className="mb-5 max-w-3xl text-sm text-ink/70">
-          Maatalouden investoinnit poistetaan ryhmittäin (lomake 2). Ryhmien menojäännökset, investointituet ja poistot ovat Maatalous-välilehdellä.
+          Maatalouden investoinnit poistetaan ryhmittäin (lomake 2). Ryhmien menojäännökset, investointituet ja poistot ovat Lomake 2 -välilehdellä.
         </p>
       ) : null}
       {data.assets.length === 0 ? (

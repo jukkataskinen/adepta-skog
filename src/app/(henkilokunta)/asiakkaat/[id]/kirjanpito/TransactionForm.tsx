@@ -1,5 +1,5 @@
 import { Button, Field, Input, Select } from "@/components/ui";
-import { ACTIVITY_LABEL, agriAssetChoices, ASSET_CLASSES, categoriesFor, isAssetPurchase, isAssetSale } from "@/lib/tax/rules";
+import { ACTIVITY_LABEL, ACTIVITY_PARAM, agriAssetChoices, ASSET_CLASSES, isAssetPurchase, isAssetSale, viewCategories, type Activity } from "@/lib/tax/rules";
 import type { AssetOption, PropertyOption, TransactionRow } from "@/lib/ledger/queries";
 import { isPartialShare } from "@/lib/tax/share";
 import { DeliveryWorkCalculator } from "./DeliveryWorkCalculator";
@@ -22,6 +22,7 @@ export function TransactionForm({
   vatRegistered,
   hasForestry = true,
   hasAgriculture = false,
+  activity = null,
 }: {
   action: (formData: FormData) => Promise<void>;
   clientId: string;
@@ -36,18 +37,23 @@ export function TransactionForm({
   /** Asiakkaan toiminnot (0015): maatalouden luokat näkyvät vain maatalousasiakkaalle. */
   hasForestry?: boolean;
   hasAgriculture?: boolean;
+  /** Kirjanpidon näkymä: uusi kirjaus saa vain tämän toiminnon luokat. null = asiakkaan kaikki luokat. */
+  activity?: Activity | null;
 }) {
-  const saleOptions = assets.filter((a) => !a.disposed_on || a.id === transaction?.asset_id);
+  const saleOptions = assets.filter((a) => (!a.disposed_on || a.id === transaction?.asset_id) && (!activity || a.activity === activity));
   const partial = transaction ? isPartialShare(transaction.business_share_pct) : false;
   const other = transaction && Number(transaction.other_share_pct) ? fi(transaction.other_share_pct) : "";
   const both = hasForestry && hasAgriculture;
-  const categories = categoriesFor({ hasForestry, hasAgriculture });
+  const categories = viewCategories({ hasForestry, hasAgriculture }, activity);
+  const forestryFields = activity ? activity === "forestry" : hasForestry || !hasAgriculture;
+  const agriFields = activity ? activity === "agriculture" : hasAgriculture;
   const groups = [...new Set(categories.map((c) => c.group))];
   const year = Number((transaction?.booked_on ?? defaultDate).slice(0, 4));
   return (
     <form action={action} className="grid gap-4">
       <input type="hidden" name="clientId" value={clientId} />
       {transaction ? <input type="hidden" name="transactionId" value={transaction.id} /> : null}
+      {activity ? <input type="hidden" name="toiminta" value={ACTIVITY_PARAM[activity]} /> : null}
       <div className="grid gap-4 sm:grid-cols-[9rem_minmax(0,1.3fr)_minmax(0,2fr)_8rem]">
         <Field label="Päivä" htmlFor="bookedOn">
           <Input id="bookedOn" name="bookedOn" type="date" required defaultValue={transaction?.booked_on ?? defaultDate} />
@@ -58,7 +64,7 @@ export function TransactionForm({
               Valitse
             </option>
             {groups.map((g) => (
-              <optgroup key={g} label={both && !g.startsWith(ACTIVITY_LABEL.agriculture) ? `${ACTIVITY_LABEL.forestry}: ${g}` : g}>
+              <optgroup key={g} label={both && !activity && !g.startsWith(ACTIVITY_LABEL.agriculture) ? `${ACTIVITY_LABEL.forestry}: ${g}` : g}>
                 {categories.filter((c) => c.group === g).map((c) => (
                   <option key={c.code} value={c.code}>
                     {c.label}
@@ -104,7 +110,7 @@ export function TransactionForm({
           {partial ? ` (${fi(transaction?.business_share_pct)} %)` : ""}
         </summary>
         <div className={`mt-3 grid gap-4 ${both ? "sm:grid-cols-[10rem_10rem_minmax(0,1fr)]" : "sm:grid-cols-[10rem_minmax(0,1fr)]"}`}>
-          <Field label={hasAgriculture ? "Oman toiminnon osuus %" : "Metsätalouden osuus %"} htmlFor="businessSharePct" hint="Tyhjä = 100 %.">
+          <Field label={activity === "agriculture" ? "Maatalouden osuus %" : activity === "forestry" ? "Metsätalouden osuus %" : hasAgriculture ? "Oman toiminnon osuus %" : "Metsätalouden osuus %"} htmlFor="businessSharePct" hint="Tyhjä = 100 %.">
             <Input
               id="businessSharePct"
               name="businessSharePct"
@@ -128,7 +134,7 @@ export function TransactionForm({
           </p>
         </div>
       </details>
-      <DeliveryWorkCalculator year={Number((transaction?.booked_on ?? defaultDate).slice(0, 4))} />
+      {forestryFields ? <DeliveryWorkCalculator year={Number((transaction?.booked_on ?? defaultDate).slice(0, 4))} /> : null}
       <details className="rounded-xl border border-line bg-cloud/40 px-4 py-3 text-sm" open={Boolean(transaction?.asset_id)}>
         <summary className="cursor-pointer font-semibold">Investointi (hankinta tai myynti)</summary>
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
@@ -136,7 +142,7 @@ export function TransactionForm({
             <p className="text-ink/70 sm:col-span-2">Kirjaus on investoinnin {transaction.asset_description} hankinta. Summan ja päivän muutos päivittää investoinnin.</p>
           ) : (
             <>
-              {hasForestry ? (
+              {forestryFields ? (
                 <Field label="Hyödykkeen laji (metsätalouden hankinta)" htmlFor="assetRatePct" hint="Poisto enintään lajin prosentti joka vuosi.">
                   <Select id="assetRatePct" name="assetRatePct" defaultValue="">
                     <option value="">Ei valittu</option>
@@ -148,7 +154,7 @@ export function TransactionForm({
                   </Select>
                 </Field>
               ) : null}
-              {hasAgriculture ? (
+              {agriFields ? (
                 <Field label="Poistoryhmä (maatalouden investointi)" htmlFor="agriAssetChoice" hint="Lomakkeen 2 poistoryhmä. Uuden koneen korotettu poisto vain vuoteen 2025.">
                   <Select id="agriAssetChoice" name="agriAssetChoice" defaultValue="">
                     <option value="">Ei valittu</option>
@@ -165,7 +171,7 @@ export function TransactionForm({
                   <option value="">Ei valittu</option>
                   {saleOptions.map((a) => (
                     <option key={a.id} value={a.id}>
-                      {a.description} ({a.acquired_on.slice(0, 4)}){both ? `, ${ACTIVITY_LABEL[a.activity].toLowerCase()}` : ""}
+                      {a.description} ({a.acquired_on.slice(0, 4)}){both && !activity ? `, ${ACTIVITY_LABEL[a.activity].toLowerCase()}` : ""}
                     </option>
                   ))}
                 </Select>

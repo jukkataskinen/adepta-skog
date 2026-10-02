@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { helpFor } from "@/lib/help/routes";
 
 /**
@@ -10,7 +10,8 @@ import { helpFor } from "@/lib/help/routes";
  */
 export function HelpLink() {
   const pathname = usePathname();
-  const help = helpFor(pathname);
+  const search = useSearchParams();
+  const help = helpFor(pathname, search?.toString() ?? "");
   if (!help) return null;
   const pill = "inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-3 py-1 text-sm font-semibold text-sky hover:border-sky/40";
   return (

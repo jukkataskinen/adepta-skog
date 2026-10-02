@@ -53,7 +53,7 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
   return (
     <>
       <PageHeader title={`${c.first_name} ${c.last_name}`.trim()} subtitle="Veroraportti ja arkisto" back={{ href: "/asiakkaat", label: "Asiakkaat" }} />
-      <ClientTabs clientId={id} active="raportti" year={year} agriculture={c.has_agriculture} />
+      <ClientTabs clientId={id} active="raportti" year={year} agriculture={c.has_agriculture} forestry={c.has_forestry} />
       {year === null ? (
         <EmptyState title="Ei verovuosia">Avaa verovuosi asiakkaan tiedoissa.</EmptyState>
       ) : (
@@ -95,7 +95,7 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
             <h2 className="text-lg font-bold">{title}</h2>
             <p className="mt-1 text-sm text-ink/70">
               {c.has_agriculture
-                ? `Skog tekee ${forestry ? "maatalouden (lomake 2) ja metsätalouden (lomake 2C) veroilmoituksista yhden tiedoston" : "maatalouden veroilmoituksesta (lomake 2) tiedoston"}. Lataat tiedoston itse Ilmoitin.fi-palveluun, joka välittää sen Verohallinnolle. Maatalouden luvut ovat samat kuin Maatalous-välilehdellä ja veroraportissa.`
+                ? `Skog tekee ${forestry ? "maatalouden (lomake 2) ja metsätalouden (lomake 2C) veroilmoituksista yhden tiedoston" : "maatalouden veroilmoituksesta (lomake 2) tiedoston"}. Lataat tiedoston itse Ilmoitin.fi-palveluun, joka välittää sen Verohallinnolle. Maatalouden luvut ovat samat kuin Lomake 2 -välilehdellä ja veroraportissa.`
                 : "Skog tekee metsätalouden veroilmoituksesta (lomake 2C) tiedoston. Lataat tiedoston itse Ilmoitin.fi-palveluun, joka välittää sen Verohallinnolle."}
               {forestry ? " Metsätalouden luvut ovat samat kuin veroraportissa: poistot ja metsävähennys tulevat vahvistetusta verosuunnitelmasta." : ""}
             </p>

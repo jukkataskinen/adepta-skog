@@ -4,7 +4,7 @@ import { listPropertyOptions, listTransactions } from "@/lib/ledger/queries";
 import { DEPRECIATED_MESSAGE } from "@/lib/ledger/transaction-input";
 import { deleteTransaction, LedgerError, saveTransaction, type Actor } from "@/lib/ledger/write";
 import { acceptSuggestion, dismissSuggestion, lockPendingSuggestions, SuggestionError, type CreatedFromSuggestion, type LockedSuggestion } from "@/lib/documents/receipt-suggestions";
-import { MAX_GRID_ROWS, planGridChanges, rowFromStored, validateGridRow, type GridRow, type RowErrors, type ValidGridRow } from "@/lib/ledger/grid";
+import { inView, MAX_GRID_ROWS, planGridChanges, rowFromStored, validateGridRow, type GridRow, type RowErrors, type ValidGridRow } from "@/lib/ledger/grid";
 
 /**
  * Kirjanpidon taulukon tallennus käyttäjän RLS-transaktiossa. Kaikki tai ei
@@ -12,6 +12,10 @@ import { MAX_GRID_ROWS, planGridChanges, rowFromStored, validateGridRow, type Gr
  * investoinnin linkki säilyvät), uudet lisätään ja poistetut poistetaan samoilla
  * säännöillä kuin lomakkeella (src/lib/ledger/write.ts). Virhe heitetään
  * GridSaveErrorina, jolloin koko transaktio perutaan ja virheet näytetään riveittäin.
+ *
+ * Näkymä (view) rajaa tallennuksen yhteen toimintoon: taulukko näyttää vain sen
+ * kirjaukset, joten vain niitä voi muuttaa tai poistaa, ja uuden rivin luokan on
+ * oltava saman toiminnon. Toisen toiminnon kirjaukset jäävät koskematta.
  */
 
 export class GridSaveError extends Error {
@@ -33,7 +37,7 @@ const plural = (n: number) => (n === 1 ? "Yhdellä rivillä on virhe." : `${n} r
 
 export async function saveLedgerGrid(
   tx: Sql,
-  input: { actor: Actor; clientId: string; year: number; rows: GridRow[]; deletedIds: string[]; dismissedSuggestionIds?: string[] },
+  input: { actor: Actor; clientId: string; year: number; rows: GridRow[]; deletedIds: string[]; dismissedSuggestionIds?: string[]; view?: Activity | null },
 ): Promise<GridSaveResult> {
   const { actor, clientId, year } = input;
   if (input.rows.length > MAX_GRID_ROWS) throw new GridSaveError(`Taulukossa voi olla enintään ${MAX_GRID_ROWS} riviä.`);
@@ -48,7 +52,8 @@ export async function saveLedgerGrid(
   if (!client) throw new GridSaveError("Asiakasta ei löytynyt.");
 
   // Vertailu tehdään kannan nykytilaa vasten, ei selaimen muistamaa alkuperäistä.
-  const stored = await listTransactions(tx, clientId, year);
+  // Toisen toiminnon kirjaukset eivät ole taulukossa: niihin viittaava rivi on vanhentunut.
+  const stored = (await listTransactions(tx, clientId, year)).filter((t) => inView(t.category, input.view ?? null));
   const original = stored.map(rowFromStored);
   const storedById = new Map(stored.map((t) => [t.id, t]));
   // Investoinnin linkki tulee kannasta, ei selaimelta.
@@ -90,6 +95,7 @@ export async function saveLedgerGrid(
     saleableAssetIds: (r: GridRow) => (r.assetId ? [...unsold, r.assetId] : unsold),
     activities: activitiesOf({ hasForestry: client.has_forestry, hasAgriculture: client.has_agriculture }),
     assetActivity: (id: string) => assetActivity.get(id) ?? null,
+    view: input.view ?? null,
   };
 
   const rowErrors: Record<string, RowErrors> = {};

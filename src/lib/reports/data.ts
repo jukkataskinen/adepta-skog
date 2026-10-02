@@ -36,7 +36,9 @@ export interface ReportTransaction {
   vatRate: number;
   gross: number;
   withholding: number;
-  /** Metsätalouden osuus prosentteina ja sen veroton summa. */
+  /** Kirjauksen toiminto (0015). Puuttuva = metsätalous. Kirjausluettelo eritellään tämän mukaan. */
+  activity?: Activity;
+  /** Oman toiminnon osuus prosentteina ja sen veroton summa (metsäasiakkaalla metsätalouden osuus). */
   sharePct: number;
   shareNet: number;
   /** Viittaus raportin liitteeseen, esimerkiksi "3" tai "3, s. 2". null, jos tositetta ei ole tai liitteitä ei tulosteta. */
@@ -128,7 +130,7 @@ export async function loadReportData(
     const rate = Number(r.vat_rate);
     const share = shareOf(r);
     return {
-      bookedOn: r.booked_on, kind: r.kind, category: category(r.category)?.label ?? r.category, description: r.description, net, vatRate: rate,
+      bookedOn: r.booked_on, kind: r.kind, activity: r.activity, category: category(r.category)?.label ?? r.category, description: r.description, net, vatRate: rate,
       gross: Number(r.amount_gross), withholding: Number(r.withholding), sharePct: share.sharePct, shareNet: share.net, attachment: attachmentRef(r),
     };
   });

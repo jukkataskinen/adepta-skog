@@ -45,7 +45,7 @@ export default async function TaxPlanPage({
   return (
     <>
       <PageHeader title={`${c.first_name} ${c.last_name}`.trim()} subtitle="Verosuunnitelma" back={{ href: "/asiakkaat", label: "Asiakkaat" }} />
-      <ClientTabs clientId={id} active="verosuunnitelma" year={year} agriculture={c.has_agriculture} />
+      <ClientTabs clientId={id} active="verosuunnitelma" year={year} agriculture={c.has_agriculture} forestry={c.has_forestry} />
       <FormError message={sp.virhe} />
       {year === null || !plan ? (
         <EmptyState title="Ei verovuosia">Avaa verovuosi asiakkaan tiedoissa.</EmptyState>
@@ -62,7 +62,7 @@ export default async function TaxPlanPage({
               <Notice tone="info" title={`Maatalouden ${data.form2.result < 0 ? "tappio" : "tulos"} ${year}: ${formatEur(Math.abs(data.form2.result))}`}>
                 Tämä suunnitelma koskee metsätaloutta. Maatalouden tulos lasketaan lomakkeen 2 mukaan, ja sen poistot valitaan{" "}
                 <Link href={`/asiakkaat/${id}/maatalous?vuosi=${year}#poistot`} className="font-semibold text-sky">
-                  Maatalous-välilehdellä
+                  Lomake 2 -välilehdellä
                 </Link>
                 . Yritystulon jako pääoma- ja ansiotuloon tulee myöhemmin.
               </Notice>

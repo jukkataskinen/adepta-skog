@@ -1,6 +1,7 @@
 import type { Sql } from "@/lib/db/types";
 import { audit } from "@/lib/audit";
-import { isCompilation, parseStoredLines, type SuggestionLine } from "@/lib/ai/receipts/schema";
+import { isCompilation, lineActivity, parseStoredLines, type SuggestionLine } from "@/lib/ai/receipts/schema";
+import type { Activity } from "@/lib/tax/rules";
 
 /**
  * Tositteiden tunnistuksen ehdotukset kannassa (migraatio 0010). Tunnistus
@@ -45,27 +46,47 @@ export async function recognizableDocument(tx: Sql, input: { clientId: string; y
   return d;
 }
 
-/** Tallentaa ehdotuksen. Tositteen edellinen odottava ehdotus hylätään, koska uusi korvaa sen. */
+/**
+ * Ehdotuksen rivit toiminnoittain (0016): rivin toiminto tulee sen luokasta.
+ * Oletustoiminnon ryhmä on ensin, jos siinä on rivejä. Rivien järjestys säilyy
+ * ryhmän sisällä. Tyhjiä ryhmiä ei palauteta.
+ */
+export function splitByActivity(lines: SuggestionLine[], first: Activity = "forestry"): { activity: Activity; lines: SuggestionLine[] }[] {
+  const order: Activity[] = first === "agriculture" ? ["agriculture", "forestry"] : ["forestry", "agriculture"];
+  return order.map((activity) => ({ activity, lines: lines.filter((l) => lineActivity(l) === activity) })).filter((g) => g.lines.length > 0);
+}
+
+/**
+ * Tallentaa ehdotuksen. Tositteen edellinen odottava ehdotus hylätään, koska uusi korvaa sen.
+ * Rivit jaetaan toiminnoittain omiksi ehdotuksiksi kuten osissa luetussa tunnistuksessa.
+ * Palauttaa ensimmäisen (oletustoiminnon) ehdotuksen tunnisteen.
+ */
 export async function storeSuggestion(
   tx: Sql,
-  input: { actor: Actor; clientId: string; year: number; documentId: string; lines: SuggestionLine[]; model: string },
+  input: { actor: Actor; clientId: string; year: number; documentId: string; lines: SuggestionLine[]; model: string; activity?: Activity },
 ): Promise<string> {
   await requireOpenYear(tx, input.clientId, input.year);
   await tx.query(
     "update sk_receipt_suggestions set status = 'dismissed', decided_by = $2, decided_at = now() where document_id = $1 and status = 'pending'",
     [input.documentId, input.actor.userId],
   );
-  const [row] = await tx.query<{ id: string }>(
-    `insert into sk_receipt_suggestions (organization_id, client_id, document_id, tax_year, lines, model, created_by)
-     values ($1,$2,$3,$4,$5,$6,$7) returning id`,
-    [input.actor.organizationId, input.clientId, input.documentId, input.year, JSON.stringify(input.lines), input.model.slice(0, 100), input.actor.userId],
-  );
-  // Lokiin vain tunnisteet ja määrä, ei summia eikä selitteitä.
-  await audit(tx, {
-    organizationId: input.actor.organizationId, userId: input.actor.userId, action: "receipt_suggestion.create", entity: "sk_receipt_suggestions",
-    entityId: row.id, details: { document: input.documentId, lines: input.lines.length, model: input.model },
-  });
-  return row.id;
+  // Tyhjä rivilista menee kantaan sellaisenaan, jotta kannan tarkistus hylkää sen kuten ennen.
+  const groups = input.lines.length ? splitByActivity(input.lines, input.activity) : [{ activity: input.activity ?? "forestry", lines: [] }];
+  const ids: string[] = [];
+  for (const g of groups) {
+    const [row] = await tx.query<{ id: string }>(
+      `insert into sk_receipt_suggestions (organization_id, client_id, document_id, tax_year, lines, model, created_by, activity)
+       values ($1,$2,$3,$4,$5,$6,$7,$8) returning id`,
+      [input.actor.organizationId, input.clientId, input.documentId, input.year, JSON.stringify(g.lines), input.model.slice(0, 100), input.actor.userId, g.activity],
+    );
+    // Lokiin vain tunnisteet ja määrä, ei summia eikä selitteitä.
+    await audit(tx, {
+      organizationId: input.actor.organizationId, userId: input.actor.userId, action: "receipt_suggestion.create", entity: "sk_receipt_suggestions",
+      entityId: row.id, details: { document: input.documentId, lines: g.lines.length, model: input.model, activity: g.activity },
+    });
+    ids.push(row.id);
+  }
+  return ids[0];
 }
 
 export interface PendingSuggestion {
@@ -73,16 +94,20 @@ export interface PendingSuggestion {
   document_id: string;
   file_name: string;
   model: string;
+  /** Ehdotuksen toiminto (0016): kaikki rivit ovat tämän toiminnon. */
+  activity: Activity;
   lines: SuggestionLine[];
 }
 
-export async function listPendingSuggestions(tx: Sql, clientId: string, year: number): Promise<PendingSuggestion[]> {
+/** Vuoden odottavat ehdotukset. Näkymä (activity) rajaa ne yhteen toimintoon; null = kaikki. */
+export async function listPendingSuggestions(tx: Sql, clientId: string, year: number, activity: Activity | null = null): Promise<PendingSuggestion[]> {
   const rows = await tx.query<Omit<PendingSuggestion, "lines"> & { lines: unknown }>(
-    `select s.id, s.document_id, d.file_name, s.model, s.lines from sk_receipt_suggestions s
+    `select s.id, s.document_id, d.file_name, s.model, s.activity, s.lines from sk_receipt_suggestions s
        join sk_documents d on d.id = s.document_id
       where s.client_id = $1 and s.tax_year = $2 and s.status = 'pending' and d.transaction_id is null
+        and ($3::text is null or s.activity = $3::text)
       order by s.created_at, s.id`,
-    [clientId, year],
+    [clientId, year, activity],
   );
   return rows
     .map((r) => ({ ...r, lines: parseStoredLines(typeof r.lines === "string" ? JSON.parse(r.lines) : r.lines) }))
@@ -151,7 +176,13 @@ export async function acceptSuggestion(
   tx: Sql,
   input: { actor: Actor; clientId: string; suggestionId: string; documentId: string; lines: SuggestionLine[]; created: CreatedFromSuggestion[] },
 ): Promise<{ compilation: boolean }> {
-  const compilation = isCompilation(input.lines);
+  // Tiedosto, jonka rivit jaettiin toiminnoittain kahdeksi ehdotukseksi, käsitellään kuten
+  // kokoomatiedosto: se jää vuoden tositteeksi, ja kummankin toiminnon kirjaukset viittaavat siihen.
+  const [sibling] = await tx.query(
+    "select 1 from sk_receipt_suggestions where document_id = $1 and id <> $2 and status in ('pending', 'accepted') and activity <> (select activity from sk_receipt_suggestions where id = $2) limit 1",
+    [input.documentId, input.suggestionId],
+  );
+  const compilation = isCompilation(input.lines) || Boolean(sibling);
   const [first, ...rest] = input.created;
   if (first && !compilation) {
     await tx.query("update sk_documents set transaction_id = $1 where id = $2 and client_id = $3 and transaction_id is null", [

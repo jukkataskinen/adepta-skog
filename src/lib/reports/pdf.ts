@@ -1,9 +1,9 @@
 import { degrees, PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } from "pdf-lib";
 import { forestSaleLines } from "@/lib/tax/forest-sale";
-import { ADDITIONAL_PREPAYMENT_MIN, additionalPrepaymentDueDate, annualVatDueDate } from "@/lib/tax/rules";
+import { ACTIVITY_LABEL, ADDITIONAL_PREPAYMENT_MIN, additionalPrepaymentDueDate, annualVatDueDate } from "@/lib/tax/rules";
 import { formatSharePct } from "@/lib/tax/share";
 import { priorOpeningText } from "@/lib/tax/load";
-import type { ReportData } from "./data";
+import type { ReportData, ReportTransaction } from "./data";
 import { FORM2_ORDER, form2Label } from "@/lib/filing/vsy002-fields";
 
 /**
@@ -546,20 +546,35 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
     ...(shares ? [{ width: 14, align: "right" } as Col] : []),
     ...(refs ? [{ width: 14, align: "right" } as Col] : []),
   ];
-  w.head(["Päivä", "Luokka", "Selite", "Ilman alv", "Alv %", "Yhteensä", ...(shares ? ["Osuus"] : []), ...(refs ? ["Liite"] : [])], t6, 7);
-  for (const t of data.transactions) {
-    const cells = [date(t.bookedOn), t.category, t.description, eur(t.net), t.vatRate.toLocaleString("fi-FI"), eur(t.gross)];
-    if (shares) cells.push(t.sharePct < 100 ? `${formatSharePct(t.sharePct)} %` : "");
-    w.row(refs ? [...cells, t.attachment ?? "–"] : cells, t6, {
-      size: 8, tone: t.kind === "income" ? "income" : t.kind === "expense" ? "expense" : undefined,
-    });
+  // Maatalousasiakkaan luettelo on eritelty toiminnoittain kuten kirjanpito (metsätalous, maatalous).
+  // Pelkän metsäasiakkaan luettelo on ennallaan.
+  const byActivity = data.client.hasAgriculture;
+  const groups: { title: string | null; rows: ReportTransaction[] }[] = byActivity
+    ? (["forestry", "agriculture"] as const)
+        .map((a) => ({ title: ACTIVITY_LABEL[a], rows: data.transactions.filter((t) => (t.activity ?? "forestry") === a) }))
+        .filter((g) => g.rows.length > 0)
+    : [{ title: null, rows: data.transactions }];
+  for (const g of groups) {
+    if (g.title) w.subheading(`${g.title}: ${g.rows.length === 1 ? "1 kirjaus" : `${g.rows.length} kirjausta`}`);
+    w.head(["Päivä", "Luokka", "Selite", "Ilman alv", "Alv %", "Yhteensä", ...(shares ? ["Osuus"] : []), ...(refs ? ["Liite"] : [])], t6, 7);
+    for (const t of g.rows) {
+      const cells = [date(t.bookedOn), t.category, t.description, eur(t.net), t.vatRate.toLocaleString("fi-FI"), eur(t.gross)];
+      if (shares) cells.push(t.sharePct < 100 ? `${formatSharePct(t.sharePct)} %` : "");
+      w.row(refs ? [...cells, t.attachment ?? "–"] : cells, t6, {
+        size: 8, tone: t.kind === "income" ? "income" : t.kind === "expense" ? "expense" : undefined,
+      });
+    }
+    if (g.title) w.space(4);
   }
   if (!data.transactions.length) w.text("Ei kirjauksia.", { size: 9, color: MUTED });
   if (shares) {
     w.space(3);
-    w.text("Osuus on metsätalouden osuus kirjauksesta. Summat ovat koko tositteen, mutta tuloissa, menoissa ja verolaskelmassa on vain metsätalouden osuus.", {
-      size: 8, color: MUTED,
-    });
+    w.text(
+      byActivity
+        ? "Osuus on kirjauksen oman toiminnon osuus. Summat ovat koko tositteen, mutta toiminnon tuloissa, menoissa ja laskelmissa on vain sen osuus."
+        : "Osuus on metsätalouden osuus kirjauksesta. Summat ovat koko tositteen, mutta tuloissa, menoissa ja verolaskelmassa on vain metsätalouden osuus.",
+      { size: 8, color: MUTED },
+    );
   }
 
   // Kansilehti ja sisällysluettelo viimeisenä, kun sivunumerot tiedetään.

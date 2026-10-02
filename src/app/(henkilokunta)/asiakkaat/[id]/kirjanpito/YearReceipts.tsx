@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { YearReceipt } from "@/lib/documents/year-receipts";
+import type { Activity } from "@/lib/tax/rules";
 import { CHUNK_PARALLEL } from "@/lib/ai/receipts/config";
 import { estimateText, failedPagesText, pageRangeText } from "@/lib/ai/receipts/chunks";
 import {
@@ -16,6 +17,9 @@ import {
   type StartedRecognition,
 } from "./receipt-actions";
 
+/** Toiminnon kirjanpidon nimi genetiivissä: "maatalouden kirjanpitoon". */
+const VIEW_NAME: Record<Activity, string> = { forestry: "metsätalouden", agriculture: "maatalouden" };
+
 const size = (b: number) =>
   b >= 1024 * 1024 ? `${(b / 1024 / 1024).toLocaleString("fi-FI", { maximumFractionDigits: 1 })} Mt` : `${Math.max(1, Math.round(b / 1024))} kt`;
 
@@ -23,6 +27,11 @@ const size = (b: number) =>
  * Vuoden tositteet kirjanpidon sivulla: lisäys (useita tiedostoja kerralla,
  * myös vetämällä) ja lista. Tiedostot ladataan suoraan tallennukseen
  * palvelimen antamilla osoitteilla, joten isokin skannaus onnistuu.
+ *
+ * Tositteet ovat asiakkaan ja vuoden yhteisiä: metsä- ja maatalouden
+ * kirjanpito näyttävät saman listan (DECISIONS 2.10.2026). Tunnistus
+ * aloitetaan näkymän toiminnolla, ja toisen toiminnon rivit menevät sen
+ * näkymän taulukkoon, mikä kerrotaan tositteen kohdalla.
  */
 export function YearReceipts({
   clientId,
@@ -32,6 +41,8 @@ export function YearReceipts({
   testMode = false,
   gridMode = true,
   gridHref,
+  view = null,
+  otherViewHref = null,
 }: {
   clientId: string;
   year: number;
@@ -42,7 +53,14 @@ export function YearReceipts({
   /** Taulukko on näkyvissä: ehdotukset näkyvät siinä. */
   gridMode?: boolean;
   gridHref?: string;
+  /** Kirjanpidon näkymä (toiminto). null = pelkkä metsäasiakas. */
+  view?: Activity | null;
+  /** Toisen toiminnon kirjanpito, kun asiakkaalla on molemmat. */
+  otherViewHref?: string | null;
 }) {
+  const otherView: Activity | null = view && otherViewHref ? (view === "agriculture" ? "forestry" : "agriculture") : null;
+  const pendingHere = (r: YearReceipt) => (view ? r.pending_activities.includes(view) : r.pending_suggestion);
+  const pendingOther = (r: YearReceipt) => (otherView ? r.pending_activities.includes(otherView) : false);
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(() => receipts.some((r) => r.recognition));
@@ -60,7 +78,12 @@ export function YearReceipts({
    * tallentaa jokaisen palan tuloksen, joten keskeytyksen jälkeen jatketaan
    * siitä, mihin jäätiin. Lopuksi palat yhdistetään yhdeksi ehdotukseksi.
    */
-  async function runJob(job: StartedRecognition, name: string, many: string, allowPartial = false): Promise<{ ok: true; lines: number } | { ok: false; error: string }> {
+  async function runJob(
+    job: StartedRecognition,
+    name: string,
+    many: string,
+    allowPartial = false,
+  ): Promise<{ ok: true; lines: number; other: number } | { ok: false; error: string }> {
     // Luetuista sivuista tehtäessä epäonnistuneita paloja ei yritetä enää.
     const todo = job.chunks.map((c, index) => ({ ...c, index })).filter((c) => (allowPartial ? c.status === "waiting" : c.status !== "done"));
     const total = job.chunks.length;
@@ -95,7 +118,7 @@ export function YearReceipts({
     const fin = await finishRecognitionAction({ clientId, jobId: job.jobId, allowPartial });
     if (!fin.ok) return fin;
     if (fin.value.status === "incomplete") return { ok: false, error: `${fin.value.message ?? "Kaikkia sivuja ei voitu lukea."} Voit yrittää uudelleen tai tehdä ehdotuksen luetuista sivuista.` };
-    return { ok: true, lines: fin.value.lines };
+    return { ok: true, lines: fin.value.lines, other: otherView ? (fin.value.byActivity[otherView] ?? 0) : 0 };
   }
 
   async function recognize(docs: YearReceipt[], opts: { restart?: boolean; allowPartial?: boolean } = {}) {
@@ -107,7 +130,7 @@ export function YearReceipts({
     setStatus({ tone: "info", text: docs.length === 1 ? `Valmistellaan ${docs[0].file_name}…` : `Valmistellaan ${docs.length} tositetta…` });
     const jobs: { doc: YearReceipt; job: StartedRecognition }[] = [];
     for (const d of docs) {
-      const res = await startRecognitionAction({ clientId, year, documentId: d.id, restart: opts.restart });
+      const res = await startRecognitionAction({ clientId, year, documentId: d.id, restart: opts.restart, activity: view });
       if (res.ok) jobs.push({ doc: d, job: res.value });
       else errors[d.id] = res.error;
     }
@@ -127,19 +150,26 @@ export function YearReceipts({
     }
     // 3. Palat tiedosto kerrallaan.
     let ok = 0;
+    let other = 0;
     for (let i = 0; i < jobs.length; i++) {
       const { doc, job } = jobs[i];
       setRecognizing(doc.id);
       const res = await runJob(job, doc.file_name, jobs.length > 1 ? `${i + 1}/${jobs.length}: ` : "", opts.allowPartial);
-      if (res.ok) ok++;
-      else errors[doc.id] = res.error;
+      if (res.ok) {
+        ok++;
+        other += res.other;
+      } else errors[doc.id] = res.error;
     }
     setRecognizing(null);
     setProgress(null);
     setFailed(errors);
     setBusy(false);
     const failCount = Object.keys(errors).length;
-    const where = gridMode ? "Ehdotukset ovat taulukossa sinisellä. Tarkista ne ja tallenna." : "Ehdotukset näkyvät taulukossa.";
+    const otherText =
+      other && otherView
+        ? ` ${other === 1 ? "Yksi rivi on" : `${other} riviä on`} ${VIEW_NAME[otherView]} tositteita, ja ne odottavat ${VIEW_NAME[otherView]} kirjanpidossa.`
+        : "";
+    const where = (gridMode ? "Ehdotukset ovat taulukossa sinisellä. Tarkista ne ja tallenna." : "Ehdotukset näkyvät taulukossa.") + otherText;
     if (ok && !failCount) setStatus({ tone: "ok", text: `${ok === 1 ? "Tosite tunnistettu." : `${ok} tositetta tunnistettu.`} ${where}` });
     else if (ok) setStatus({ tone: "error", text: `${ok} tunnistettu, ${failCount} ei voitu tunnistaa kokonaan. ${where}` });
     else setStatus({ tone: "error", text: docs.length === 1 ? Object.values(errors)[0] : "Tositteita ei voitu tunnistaa. Voit kirjata ne käsin taulukkoon." });
@@ -196,6 +226,7 @@ export function YearReceipts({
           <p className="text-sm text-ink/65">
             {receipts.length === 1 ? "1 tiedosto. " : receipts.length ? `${receipts.length} tiedostoa. ` : "Ei vielä tositteita. "}
             Tositteet liitetään lopullisen veroraportin loppuun, kun vuosi suljetaan.
+            {otherView ? " Tositteet ovat yhteiset metsä- ja maataloudelle: sama lista näkyy kummassakin kirjanpidossa." : ""}
             {!readOnly && receipts.length ? " Tunnista-painike tekee tositteesta kirjausehdotuksen taulukkoon." : ""}
           </p>
         </div>
@@ -278,7 +309,12 @@ export function YearReceipts({
                     {recognizing === r.id ? <span className="text-xs text-ink/60">{progress ?? "Tunnistetaan…"}</span> : null}
                     {failed[r.id] ? <span className="text-xs text-coral">{failed[r.id]}</span> : null}
                     {r.recognition && recognizing !== r.id && !failed[r.id] ? <RecognitionState recognition={r.recognition} /> : null}
-                    {r.pending_suggestion && recognizing !== r.id ? <span className="text-xs font-semibold text-sky">Ehdotus taulukossa</span> : null}
+                    {pendingHere(r) && recognizing !== r.id ? <span className="text-xs font-semibold text-sky">Ehdotus taulukossa</span> : null}
+                    {pendingOther(r) && otherView && otherViewHref && recognizing !== r.id ? (
+                      <a href={otherViewHref} className="text-xs font-semibold text-sky hover:underline">
+                        Ehdotus odottaa {VIEW_NAME[otherView]} kirjanpidossa
+                      </a>
+                    ) : null}
                     {r.booked_count ? (
                       <span className="text-xs font-semibold text-moss">
                         Kirjattu: {r.booked_count === 1 ? "yksi kirjaus" : `${r.booked_count} kirjausta`}. Tiedosto on vuoden tositeaineistona raportin liitteissä.

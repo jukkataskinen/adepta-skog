@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition, type ClipboardEvent, type KeyboardEvent } from "react";
 import { Button, Notice } from "@/components/ui";
-import { agriAssetChoices, allowsOtherShare, ASSET_CLASSES, category, deliveryWorkRates, DELIVERY_WORK_TAX_FREE_M3, isAssetPurchase, isAssetSale, smallAssetLimit } from "@/lib/tax/rules";
+import { ACTIVITY_PARAM, agriAssetChoices, allowsOtherShare, ASSET_CLASSES, category, deliveryWorkRates, DELIVERY_WORK_TAX_FREE_M3, isAssetPurchase, isAssetSale, smallAssetLimit, type Activity } from "@/lib/tax/rules";
 import { formatEur } from "@/lib/format";
 import { normalizeDate, parseAmount, parseClipboard, toFinnishDate } from "@/lib/ledger/transaction-input";
 import {
@@ -85,6 +85,7 @@ export function LedgerGrid({
   defaultDate,
   hasForestry = true,
   hasAgriculture = false,
+  activity = null,
 }: {
   action: (formData: FormData) => Promise<GridSaveState>;
   clientId: string;
@@ -100,10 +101,16 @@ export function LedgerGrid({
   /** Asiakkaan toiminnot (0015): maatalousasiakas näkee maatalouden luokat ja toisen toiminnon osuuden. */
   hasForestry?: boolean;
   hasAgriculture?: boolean;
+  /**
+   * Kirjanpidon näkymä (metsätalous tai maatalous): taulukossa ovat vain sen
+   * kirjaukset, ja valikko tarjoaa vain sen luokat, joten uusi rivi saa näkymän
+   * toiminnon. null = pelkkä metsäasiakas, kaikki kuten ennen.
+   */
+  activity?: Activity | null;
 }) {
   const client = useMemo(() => ({ vatRegistered }), [vatRegistered]);
   const both = hasForestry && hasAgriculture;
-  const menuList = useMemo(() => menuCategories({ hasForestry, hasAgriculture }), [hasForestry, hasAgriculture]);
+  const menuList = useMemo(() => menuCategories({ hasForestry, hasAgriculture }, activity), [hasForestry, hasAgriculture, activity]);
   const menuNumbers = useMemo(() => menuList.map((c) => c.no), [menuList]);
   const columns = useMemo(() => gridColumns(properties.length > 0, both), [properties.length, both]);
   const col = (f: GridField) => columns.indexOf(f);
@@ -499,6 +506,7 @@ export function LedgerGrid({
     const fd = new FormData();
     fd.set("clientId", clientId);
     fd.set("year", String(year));
+    if (activity) fd.set("toiminta", ACTIVITY_PARAM[activity]);
     const payload = rowsRef.current
       .filter((r) => r.id || !isBlankGridRow(r))
       .map((r) => ({
@@ -527,7 +535,7 @@ export function LedgerGrid({
         suggestionSnapshot.current = new Map();
       }
     });
-  }, [action, clientId, year, deleted, defaultDate, pending]);
+  }, [action, clientId, year, deleted, defaultDate, pending, activity]);
 
   function revert() {
     const sugg = [...suggestionSnapshot.current.values()].filter((r) => knownSuggestions.current.has(r.suggestionId!));
@@ -1039,7 +1047,7 @@ export function LedgerGrid({
             const groupStart = idx === 0 || menuList[idx - 1].group !== c.group;
             return (
               <div key={c.code}>
-                {groupStart ? <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-ink/45">{menuGroupLabel(c, both)}</div> : null}
+                {groupStart ? <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-ink/45">{menuGroupLabel(c, both && !activity)}</div> : null}
                 <div
                   role="option"
                   aria-selected={menu.hi === idx}
@@ -1084,7 +1092,7 @@ export function LedgerGrid({
         <p className="mb-1 font-semibold text-ink/80">Näppäimet</p>
         <p>
           <b>Enter</b> tai <b>Tab</b> seuraavaan kenttään, rivin lopussa seuraavalle tai uudelle riville. Enter ohittaa osuussarakkeet, Tab vie niihin. <b>Shift</b> takaisin. <b>Nuolet ylös ja alas</b> samaan
-          sarakkeeseen toisella rivillä (ei selitteessä). Luokka: <b>numero</b> valitsee suoraan ({hasAgriculture ? "metsä 1–12, maatalous 21–59" : "1–12"}), nuolet ja Enter valikossa, Esc sulkee. <b>T</b> vaihtaa tulon
+          sarakkeeseen toisella rivillä (ei selitteessä). Luokka: <b>numero</b> valitsee suoraan ({activity === "agriculture" ? "21–59" : activity === "forestry" ? "1–12" : hasAgriculture ? "metsä 1–12, maatalous 21–59" : "1–12"}), nuolet ja Enter valikossa, Esc sulkee. <b>T</b> vaihtaa tulon
           ja menon. <b>Delete</b> tyyppisarakkeessa poistaa rivin, <b>Ctrl + Z</b> palauttaa sen. <b>Ctrl + S</b> tallentaa. <b>Ctrl + N</b> tai Lisää rivi lisää rivin. Voit liittää
           rivejä Excelistä (summat arvonlisäveron kanssa).
         </p>

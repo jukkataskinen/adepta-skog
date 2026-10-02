@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { Brand } from "./Brand";
 import { NavIcon } from "./NavIcon";
 import { NavLink } from "./NavLink";
@@ -68,7 +68,10 @@ export function StaffShell({ ctx, children }: { ctx: StaffContext; children: Rea
       <main className="mx-auto w-full min-w-0 max-w-[var(--container-wide)] px-5 py-8 sm:px-8">
         {/* Jokaisella sivulla linkki sivun toiminnon ohjeeseen. */}
         <div className="no-print -mt-4 mb-2 flex justify-end">
-          <HelpLink />
+          {/* Ohje voi riippua osoitteen parametrista (maatalouden kirjanpito), joka luetaan selaimessa. */}
+          <Suspense fallback={null}>
+            <HelpLink />
+          </Suspense>
         </div>
         {children}
       </main>

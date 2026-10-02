@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Sql } from "@/lib/db/types";
 import { audit } from "@/lib/audit";
 import { documentPath, getStorage } from "@/lib/storage";
+import type { Activity } from "@/lib/tax/rules";
 
 /**
  * Vuoden tositteet: kirjanpitäjän lisäämä tositeaineisto (esimerkiksi
@@ -99,6 +100,12 @@ export interface YearReceipt {
   created_at: string;
   /** Tositteesta on tunnistettu ehdotus, joka odottaa taulukossa. */
   pending_suggestion: boolean;
+  /**
+   * Toiminnot, joiden taulukossa ehdotus odottaa (0016). Tositteet ovat asiakkaan
+   * ja vuoden yhteisiä, joten molemmat kirjanpidon näkymät näyttävät saman listan,
+   * ja tästä näkee, kummassa näkymässä ehdotus on.
+   */
+  pending_activities: Activity[];
   /** Kirjaukset, jotka viittaavat tähän tiedostoon (kokoomatiedosto, 0011). */
   booked_count: number;
   /** Kesken oleva tunnistus osissa (0012): palojen tila ilman tuloksia, tai null. */
@@ -106,9 +113,12 @@ export interface YearReceipt {
 }
 
 export async function listYearReceipts(tx: Sql, clientId: string, year: number): Promise<YearReceipt[]> {
-  const rows = await tx.query<Omit<YearReceipt, "recognition"> & { job_id: string | null; job_pages: number | null; job_chunks: unknown }>(
+  const rows = await tx.query<
+    Omit<YearReceipt, "recognition" | "pending_activities"> & { job_id: string | null; job_pages: number | null; job_chunks: unknown; pending_acts: unknown }
+  >(
     `select d.id, d.file_name, d.content_type, d.size_bytes, d.created_at::text,
             exists (select 1 from sk_receipt_suggestions s where s.document_id = d.id and s.status = 'pending') as pending_suggestion,
+            (select jsonb_agg(distinct s.activity) from sk_receipt_suggestions s where s.document_id = d.id and s.status = 'pending') as pending_acts,
             (select count(*)::int from sk_transactions t where t.source_document_id = d.id) as booked_count,
             j.id as job_id, j.page_count as job_pages,
             -- Vain palojen tila selaimelle, ei palojen rivejä.
@@ -119,8 +129,10 @@ export async function listYearReceipts(tx: Sql, clientId: string, year: number):
       where d.client_id = $1 and d.tax_year = $2 and d.kind = 'receipt' and d.transaction_id is null order by d.created_at`,
     [clientId, year],
   );
-  return rows.map(({ job_id, job_pages, job_chunks, ...r }) => {
+  return rows.map(({ job_id, job_pages, job_chunks, pending_acts, ...r }) => {
     const chunks = typeof job_chunks === "string" ? JSON.parse(job_chunks) : job_chunks;
-    return { ...r, recognition: job_id && Array.isArray(chunks) ? { jobId: job_id, pageCount: job_pages ?? 0, chunks } : null };
+    const acts = typeof pending_acts === "string" ? JSON.parse(pending_acts) : pending_acts;
+    const pending_activities = (Array.isArray(acts) ? acts : []).filter((a): a is Activity => a === "forestry" || a === "agriculture");
+    return { ...r, pending_activities, recognition: job_id && Array.isArray(chunks) ? { jobId: job_id, pageCount: job_pages ?? 0, chunks } : null };
   });
 }

@@ -5,14 +5,16 @@ import { HELP_TOPICS, sectionId } from "./topics";
  * sivulla linkin sivun ohjeeseen tämän kartan perusteella. Tarkempi sääntö on
  * ensin. Uusi sivu lisätään tähän samassa muutoksessa: testi
  * tests/unit/help-routes.test.ts käy läpi kaikki henkilökunnan sivut ja kaatuu,
- * jos jollekin puuttuu ohje.
+ * jos jollekin puuttuu ohje. query rajaa säännön osoitteen parametreihin
+ * (maatalouden kirjanpito on sama sivu parametrilla toiminta=maatalous).
  */
-const ROUTES: { pattern: RegExp; slug: string; section?: string }[] = [
+const ROUTES: { pattern: RegExp; query?: RegExp; slug: string; section?: string }[] = [
   { pattern: /^\/tyopoyta/, slug: "tyopoyta" },
   { pattern: /^\/asiakkaat\/uusi/, slug: "asiakkaat", section: "Uusi asiakas" },
   { pattern: /^\/asiakkaat\/[^/]+\/metsatilat\/uusi/, slug: "metsatilat", section: "Uusi metsätila" },
   { pattern: /^\/asiakkaat\/[^/]+\/metsatilat/, slug: "metsatilat" },
   { pattern: /^\/asiakkaat\/[^/]+\/kirjanpito\/[^/]+/, slug: "kirjanpito", section: "Muokkaus ja poisto" },
+  { pattern: /^\/asiakkaat\/[^/]+\/kirjanpito\/?$/, query: /(^|&)toiminta=maatalous(&|$)/, slug: "maatalouden-kirjanpito" },
   { pattern: /^\/asiakkaat\/[^/]+\/kirjanpito/, slug: "kirjanpito" },
   { pattern: /^\/asiakkaat\/[^/]+\/investoinnit\/[^/]+/, slug: "investoinnit", section: "Aiemmin hankittu investointi ja menojäännös" },
   { pattern: /^\/asiakkaat\/[^/]+\/investoinnit/, slug: "investoinnit" },
@@ -26,8 +28,9 @@ const ROUTES: { pattern: RegExp; slug: string; section?: string }[] = [
 ];
 
 /** Sivun ohje: otsikko ja osoite (osioon asti, jos sivu vastaa ohjeen osiota). */
-export function helpFor(pathname: string): { slug: string; title: string; href: string } | null {
-  const route = ROUTES.find((r) => r.pattern.test(pathname));
+export function helpFor(pathname: string, search = ""): { slug: string; title: string; href: string } | null {
+  const query = search.replace(/^\?/, "");
+  const route = ROUTES.find((r) => r.pattern.test(pathname) && (!r.query || r.query.test(query)));
   const topic = route ? HELP_TOPICS.find((t) => t.slug === route.slug) : null;
   if (!route || !topic) return null;
   const section = route.section && topic.sections.some((s) => s.title === route.section) ? `#${sectionId(route.section)}` : "";

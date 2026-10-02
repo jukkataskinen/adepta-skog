@@ -1,4 +1,5 @@
 import { CHUNK_OVERLAP, CHUNK_PAGES, CHUNK_PARALLEL, CHUNK_SECONDS } from "./config";
+import type { Activity } from "@/lib/tax/rules";
 import { cleanPages, validateLines, type ChunkLine } from "./schema";
 
 /**
@@ -63,8 +64,8 @@ export function mapChunkPages<T extends { pages: number[] }>(lines: T[], chunk: 
  * Palan vastaus tarkistetuiksi riveiksi koko tiedoston sivuin. Maksurivejä ei
  * poisteta tässä, vaan yhdistämisessä, kun kaikki palat ovat mukana.
  */
-export function validateChunkRecognition(raw: unknown, chunk: ChunkRange): { ok: true; lines: ChunkLine[] } | { ok: false } {
-  const lines = validateLines(raw);
+export function validateChunkRecognition(raw: unknown, chunk: ChunkRange, activities: Activity[] = ["forestry"]): { ok: true; lines: ChunkLine[] } | { ok: false } {
+  const lines = validateLines(raw, activities);
   if (!lines?.length) return { ok: false };
   return { ok: true, lines: mapChunkPages(lines, chunk) };
 }

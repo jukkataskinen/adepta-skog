@@ -5,6 +5,7 @@ import { isWholeFile, type ChunkRange } from "./chunks";
 import { CHUNK_TIMEOUT_MS } from "./config";
 import { extractPdfPages } from "./pdf";
 import type { RecognitionResult } from "./schema";
+import type { Activity } from "@/lib/tax/rules";
 
 /**
  * Tositteiden tunnistus (tekoäly). Tilat ympäristömuuttujasta AI_MODE:
@@ -24,6 +25,18 @@ export interface ReceiptFile {
   fileName: string;
 }
 
+/**
+ * Asiakkaan toiminnot ja oletustoiminto (näkymä, josta tunnistus aloitettiin).
+ * Palveluun lähtee vain tämä tieto, ei asiakkaan nimeä eikä muita tietoja.
+ * Puuttuva = pelkkä metsätalous kuten ennen.
+ */
+export interface RecognitionContext {
+  activities: Activity[];
+  defaultActivity: Activity;
+}
+
+export const FORESTRY_CONTEXT: RecognitionContext = { activities: ["forestry"], defaultActivity: "forestry" };
+
 export interface ReceiptRecognizer {
   mode: "mock" | "anthropic";
   /** Tallennetaan ehdotukseen, jotta tiedetään, mikä malli ehdotuksen teki. */
@@ -33,7 +46,7 @@ export interface ReceiptRecognizer {
    * Palan kanssa: tiedosto on palan sivut, sivut palautetaan koko tiedoston
    * numeroinnissa ja asiakirjan loppusumma säilyy yhdistämistä varten.
    */
-  recognize(file: ReceiptFile, signal?: AbortSignal, chunk?: ChunkRange): Promise<RecognitionResult>;
+  recognize(file: ReceiptFile, signal?: AbortSignal, chunk?: ChunkRange, context?: RecognitionContext): Promise<RecognitionResult>;
 }
 
 /**
@@ -61,6 +74,7 @@ export async function recognizeReceipt(
   file: ReceiptFile,
   timeoutMs = CHUNK_TIMEOUT_MS + 3_000,
   chunk?: ChunkRange,
+  context?: RecognitionContext,
 ): Promise<RecognizeOutcome> {
   const max = RECOGNIZE_MAX_BYTES[file.contentType];
   if (!max) return { ok: false, reason: "unsupported" };
@@ -75,7 +89,7 @@ export async function recognizeReceipt(
     }, timeoutMs);
   });
   try {
-    return await Promise.race([recognizer.recognize(file, controller.signal, chunk).catch(() => ({ ok: false }) as const), timeout]);
+    return await Promise.race([recognizer.recognize(file, controller.signal, chunk, context).catch(() => ({ ok: false }) as const), timeout]);
   } finally {
     clearTimeout(timer);
   }
@@ -85,7 +99,7 @@ export async function recognizeReceipt(
  * Yhden palan tunnistus: PDF:stä erotetaan palan sivut, ja pala lähetetään
  * tunnistukseen palan tiedoin. Koko tiedoston pala lähetetään sellaisenaan.
  */
-export async function recognizeChunk(recognizer: ReceiptRecognizer, file: ReceiptFile, chunk: ChunkRange): Promise<RecognizeOutcome> {
+export async function recognizeChunk(recognizer: ReceiptRecognizer, file: ReceiptFile, chunk: ChunkRange, context?: RecognitionContext): Promise<RecognizeOutcome> {
   let bytes = file.bytes;
   if (file.contentType === "application/pdf" && !isWholeFile(chunk)) {
     try {
@@ -95,7 +109,7 @@ export async function recognizeChunk(recognizer: ReceiptRecognizer, file: Receip
       return { ok: false };
     }
   }
-  return recognizeReceipt(recognizer, { ...file, bytes }, CHUNK_TIMEOUT_MS + 3_000, chunk);
+  return recognizeReceipt(recognizer, { ...file, bytes }, CHUNK_TIMEOUT_MS + 3_000, chunk, context);
 }
 
 export type { RecognitionResult, SuggestionLine } from "./schema";

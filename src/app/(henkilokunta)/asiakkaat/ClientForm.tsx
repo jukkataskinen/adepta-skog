@@ -79,7 +79,7 @@ export function ClientForm({
           <input type="checkbox" name="hasAgriculture" defaultChecked={client?.has_agriculture ?? false} className="size-4" />
           Harjoittaa maataloutta (lomake 2)
         </label>
-        <p className="text-xs text-ink/55">Maatalouden luokat ja Maatalous-välilehti näkyvät vain, kun maatalous on valittu.</p>
+        <p className="text-xs text-ink/55">Maatalouden kirjanpito ja Lomake 2 -välilehti näkyvät vain, kun maatalous on valittu.</p>
       </fieldset>
       <div className="grid items-end gap-5 sm:grid-cols-2">
         <label className="flex items-center gap-2 pb-3 text-sm">

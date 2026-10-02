@@ -138,6 +138,25 @@ export function activitiesOf(c: ClientActivities): Activity[] {
   return out;
 }
 
+/**
+ * Kirjanpidon näkymä toiminnoittain (osoitteen ?toiminta=maatalous). Pelkällä
+ * metsäasiakkaalla näkymää ei rajata (null), jolloin kaikki on kuten ennen.
+ * Pelkkä maatalousasiakas näkee aina maatalouden; molempia harjoittavan
+ * oletus on metsätalous, ja maatalous valitaan välilehdeltä.
+ */
+export const ACTIVITY_PARAM: Record<Activity, string> = { forestry: "metsatalous", agriculture: "maatalous" };
+
+export function ledgerView(c: ClientActivities, param?: string | null): Activity | null {
+  if (!c.hasAgriculture) return null;
+  if (!c.hasForestry) return "agriculture";
+  return param === ACTIVITY_PARAM.agriculture ? "agriculture" : "forestry";
+}
+
+/** Näkymän luokat: rajatussa näkymässä vain sen toiminnon luokat, muuten asiakkaan luokat. */
+export function viewCategories(c: ClientActivities, view: Activity | null): Category[] {
+  return view ? CATEGORIES.filter((x) => x.activity === view) : categoriesFor(c);
+}
+
 /** Asiakkaan luokat: pelkkä metsäasiakas näkee vain metsätalouden luokat kuten ennen. */
 export function categoriesFor(c: ClientActivities): Category[] {
   const acts = activitiesOf(c);

@@ -66,6 +66,8 @@ describe("lomake 2 kannasta", () => {
     const data = (await asStaff((tx) => loadReportData(tx, a.id, a.client, 2025)))!;
     expect(data.agri?.form2.fields["214"]).toBe(20000);
     expect(data.agri?.categories.find((c) => c.label === "MYEL-maksut")?.net).toBe(3500);
+    // Kirjausluettelo eritellään toiminnoittain: jokaisella kirjauksella on toiminto.
+    expect([...new Set(data.transactions.map((t) => t.activity))].sort()).toEqual(["agriculture", "forestry"]);
     const both = await PDFDocument.load(await renderTaxReport(data));
     const onlyAgri = await PDFDocument.load(await renderTaxReport({ ...data, client: { ...data.client, hasForestry: false } }));
     expect(onlyAgri.getPageCount()).toBeLessThan(both.getPageCount());

@@ -10,12 +10,24 @@ import { getStorage } from "@/lib/storage";
 import { confirmYearReceipts, planYearReceipts, ReceiptError, type PlannedUpload } from "@/lib/documents/year-receipts";
 import { dismissSuggestion, recognizableDocument, SuggestionError } from "@/lib/documents/receipt-suggestions";
 import { cancelRecognitionJob, findRecognitionJob, finishRecognitionJob, jobChunk, startRecognitionJob, storeChunkResult, type JobChunk } from "@/lib/documents/recognition-jobs";
-import { receiptRecognizer, recognizeChunk, RECOGNIZE_MAX_BYTES, type RecognizeOutcome } from "@/lib/ai/receipts";
+import { receiptRecognizer, recognizeChunk, RECOGNIZE_MAX_BYTES, type RecognitionContext, type RecognizeOutcome } from "@/lib/ai/receipts";
+import type { Sql } from "@/lib/db/types";
+import { activitiesOf, ledgerView, type Activity } from "@/lib/tax/rules";
 import { estimateText, failedPagesText, planChunks } from "@/lib/ai/receipts/chunks";
 import { countPdfPages } from "@/lib/ai/receipts/pdf";
 
 const uuid = z.string().uuid();
 const yearSchema = z.number().int().min(2000).max(2100);
+const activitySchema = z.enum(["forestry", "agriculture"]).nullable().optional();
+
+/** Asiakkaan toiminnot tunnistusta varten. Oletus on näkymä, jos asiakkaalla on se toiminto. */
+async function recognitionContext(tx: Sql, clientId: string, requested: Activity | null | undefined): Promise<RecognitionContext> {
+  const [c] = await tx.query<{ has_forestry: boolean; has_agriculture: boolean }>("select has_forestry, has_agriculture from sk_clients where id = $1", [clientId]);
+  const client = { hasForestry: c?.has_forestry ?? true, hasAgriculture: c?.has_agriculture ?? false };
+  const activities = activitiesOf(client);
+  const view = ledgerView(client, requested === "agriculture" ? "maatalous" : null);
+  return { activities, defaultActivity: requested && activities.includes(requested) ? requested : (view ?? "forestry") };
+}
 
 type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -123,7 +135,14 @@ export interface StartedRecognition {
  * tunnistus jatkuu, ellei restart ole annettu. Tiedosto haetaan vasta
  * oikeuksien ja avoimen vuoden tarkistuksen jälkeen.
  */
-export async function startRecognitionAction(input: { clientId: string; year: number; documentId: string; restart?: boolean }): Promise<Result<StartedRecognition>> {
+export async function startRecognitionAction(input: {
+  clientId: string;
+  year: number;
+  documentId: string;
+  restart?: boolean;
+  /** Näkymä, josta tunnistus aloitettiin: epäselvä tosite ehdotetaan tälle toiminnolle. */
+  activity?: Activity | null;
+}): Promise<Result<StartedRecognition>> {
   const ctx = await requireStaff();
   const actor = { organizationId: ctx.org.organizationId, userId: ctx.user.id };
   try {
@@ -155,9 +174,11 @@ export async function startRecognitionAction(input: { clientId: string; year: nu
     }
     const chunks = planChunks(pageCount);
     const recognizer = receiptRecognizer();
-    const { job, resumed } = await ctx.run((tx) =>
-      startRecognitionJob(tx, { actor, clientId, year, documentId, pageCount, chunks, model: recognizer.model, restart: input.restart }),
-    );
+    const requested = activitySchema.parse(input.activity);
+    const { job, resumed } = await ctx.run(async (tx) => {
+      const context = await recognitionContext(tx, clientId, requested);
+      return startRecognitionJob(tx, { actor, clientId, year, documentId, pageCount, chunks, model: recognizer.model, restart: input.restart, activity: context.defaultActivity });
+    });
     revalidatePath(`/asiakkaat/${clientId}/kirjanpito`);
     return { ok: true, value: { jobId: job.id, pageCount: job.pageCount, chunks: job.chunks, resumed, estimate: estimateText(job.pageCount, job.chunks.length) } };
   } catch (err) {
@@ -178,15 +199,16 @@ export async function recognizeChunkAction(input: { clientId: string; year: numb
     const year = yearSchema.parse(input.year);
     const jobId = uuid.parse(input.jobId);
     const index = z.number().int().min(0).max(400).parse(input.index);
-    const { chunk, status, attempts, doc } = await ctx.run(async (tx) => {
+    const { chunk, status, attempts, doc, context } = await ctx.run(async (tx) => {
       const c = await jobChunk(tx, { clientId, jobId, index });
-      return { ...c, doc: await recognizableDocument(tx, { clientId, year, documentId: c.documentId }) };
+      // Oletustoiminto on tallennettu tunnistukseen, joten jatko toisesta näkymästä käyttää samaa.
+      return { ...c, doc: await recognizableDocument(tx, { clientId, year, documentId: c.documentId }), context: await recognitionContext(tx, clientId, c.activity) };
     });
     if (status === "done") return { ok: true, value: { first: chunk.first, last: chunk.last, status, attempts } };
     let result: RecognizeOutcome;
     try {
       const bytes = await getStorage().get(doc.storage_path);
-      result = await recognizeChunk(receiptRecognizer(), { bytes, contentType: doc.content_type, fileName: doc.file_name }, chunk);
+      result = await recognizeChunk(receiptRecognizer(), { bytes, contentType: doc.content_type, fileName: doc.file_name }, chunk, context);
     } catch {
       console.error("Tositteen tiedostoa ei saatu tunnistukseen", { documentId: doc.id });
       result = { ok: false };
@@ -198,7 +220,9 @@ export async function recognizeChunkAction(input: { clientId: string; year: numb
   }
 }
 
-export type FinishedRecognition = { status: "done"; lines: number } | { status: "incomplete"; chunks: JobChunk[]; message: string | null };
+export type FinishedRecognition =
+  | { status: "done"; lines: number; byActivity: Partial<Record<Activity, number>> }
+  | { status: "incomplete"; chunks: JobChunk[]; message: string | null };
 
 /**
  * Vaihe 3: palat yhdeksi ehdotukseksi. Jos pala epäonnistui, palautetaan
@@ -215,7 +239,7 @@ export async function finishRecognitionAction(input: { clientId: string; jobId: 
     revalidatePath(`/asiakkaat/${clientId}/kirjanpito`);
     if (out.status === "empty") return { ok: false, error: NOT_RECOGNIZED };
     if (out.status === "incomplete") return { ok: true, value: { status: "incomplete", chunks: out.chunks, message: failedPagesText(out.chunks) } };
-    return { ok: true, value: { status: "done", lines: out.lines } };
+    return { ok: true, value: { status: "done", lines: out.lines, byActivity: out.byActivity } };
   } catch (err) {
     return { ok: false, error: recognitionError(err) };
   }

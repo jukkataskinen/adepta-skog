@@ -66,5 +66,12 @@ describe("ohjelinkit", () => {
     expect(helpFor("/asiakkaat/00000000-0000-0000-0000-000000000000/verosuunnitelma")?.slug).toBe("verosuunnitelma");
     expect(helpFor("/asiakkaat/00000000-0000-0000-0000-000000000000/alv")?.slug).toBe("alv");
     expect(helpFor("/asiakkaat/00000000-0000-0000-0000-000000000000/kirjanpito/00000000-0000-0000-0000-000000000000")?.slug).toBe("kirjanpito");
+    // Maatalouden kirjanpito on sama sivu parametrilla, ja sillä on oma ohjeensa.
+    const ledger = "/asiakkaat/00000000-0000-0000-0000-000000000000/kirjanpito";
+    expect(helpFor(ledger, "vuosi=2025&toiminta=maatalous")?.slug).toBe("maatalouden-kirjanpito");
+    expect(helpFor(ledger, "?toiminta=maatalous")?.slug).toBe("maatalouden-kirjanpito");
+    expect(helpFor(ledger, "vuosi=2025")?.slug).toBe("kirjanpito");
+    expect(helpFor(`${ledger}/00000000-0000-0000-0000-000000000000`, "toiminta=maatalous")?.slug).toBe("kirjanpito");
+    expect(helpFor("/asiakkaat/00000000-0000-0000-0000-000000000000/maatalous")?.title).toBe("Lomake 2 (maatalous)");
   });
 });

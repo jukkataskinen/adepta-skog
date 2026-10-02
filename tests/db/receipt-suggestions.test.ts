@@ -79,7 +79,7 @@ describe("tositteen tunnistus", () => {
     expect(receipts.find((r) => r.id === doc)?.pending_suggestion).toBe(true);
     const [log] = await q<{ details: Record<string, unknown> }>("select details from sk_audit_log where action = 'receipt_suggestion.create' and entity_id = $1", [id]);
     // Lokiin ei tule summia eikä selitteitä.
-    expect(Object.keys(log.details).sort()).toEqual(["document", "lines", "model"]);
+    expect(Object.keys(log.details).sort()).toEqual(["activity", "document", "lines", "model"]);
   });
 
   it("uusi tunnistus korvaa odottavan ehdotuksen", async () => {

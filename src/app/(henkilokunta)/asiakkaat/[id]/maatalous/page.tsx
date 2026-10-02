@@ -29,7 +29,7 @@ import {
   setExtraAction,
 } from "./actions";
 
-export const metadata = { title: "Maatalous" };
+export const metadata = { title: "Lomake 2" };
 
 /** Luku lomakkeen kenttään suomalaisittain; tyhjä, jos arvoa ei ole. */
 const fi = (n: number | null | undefined) => (n === null || n === undefined ? "" : String(n).replace(".", ","));
@@ -87,8 +87,8 @@ export default async function AgriculturePage({
 
   return (
     <>
-      <PageHeader title={`${c.first_name} ${c.last_name}`.trim()} subtitle="Maatalous" back={{ href: "/asiakkaat", label: "Asiakkaat" }} />
-      <ClientTabs clientId={id} active="maatalous" year={year} agriculture={c.has_agriculture} />
+      <PageHeader title={`${c.first_name} ${c.last_name}`.trim()} subtitle="Lomake 2 (maatalouden veroilmoitus)" back={{ href: "/asiakkaat", label: "Asiakkaat" }} />
+      <ClientTabs clientId={id} active="maatalous" year={year} agriculture={c.has_agriculture} forestry={c.has_forestry} />
       <FormError message={sp.virhe} />
       {!c.has_agriculture ? (
         <EmptyState title="Asiakas ei harjoita maataloutta" action={<LinkButton href={`/asiakkaat/${id}/muokkaa`}>Muokkaa asiakasta</LinkButton>}>

@@ -6,6 +6,7 @@ import { getClient } from "@/lib/clients/queries";
 import { getTransaction, listAssets, listPropertyOptions, listTransactionDocuments, listYears } from "@/lib/ledger/queries";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { documentHref, parsePagesColumn, sourceDocumentLabel } from "@/lib/ai/receipts/schema";
+import { ACTIVITY_PARAM, ledgerView } from "@/lib/tax/rules";
 import { TransactionForm } from "../TransactionForm";
 import { deleteDocumentAction, deleteTransactionAction, saveTransactionAction, uploadReceiptAction } from "../actions";
 
@@ -41,7 +42,11 @@ export default async function TransactionPage({
   const { transaction: t } = data;
   const closed = data.years.find((y) => y.year === t.tax_year)?.status === "closed";
   const sourcePages = parsePagesColumn(t.source_pages);
-  const back = { href: `/asiakkaat/${id}/kirjanpito?vuosi=${t.tax_year}`, label: `Kirjanpito ${t.tax_year}` };
+  // Paluu kirjauksen toiminnon kirjanpitoon (metsätalous tai maatalous).
+  const view = ledgerView({ hasForestry: data.client.has_forestry, hasAgriculture: data.client.has_agriculture }, ACTIVITY_PARAM[t.activity]);
+  const viewQuery = view === "agriculture" && data.client.has_forestry ? `&toiminta=${ACTIVITY_PARAM.agriculture}` : "";
+  const viewLabel = view && data.client.has_forestry ? (view === "agriculture" ? "Maatalouden kirjanpito" : "Metsätalouden kirjanpito") : "Kirjanpito";
+  const back = { href: `/asiakkaat/${id}/kirjanpito?vuosi=${t.tax_year}${viewQuery}`, label: `${viewLabel} ${t.tax_year}` };
 
   return (
     <>
