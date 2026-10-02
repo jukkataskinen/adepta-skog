@@ -73,12 +73,15 @@ export default async function PriorAssetPage({
               action={savePriorAssetAction}
               clientId={id}
               asset={{
-                id: a.id, description: a.description, ratePct: Number(a.declining_rate_pct), balanceYear, acquired,
+                id: a.id, description: a.description, balanceYear, acquired,
+                kind: a.activity === "agriculture" ? (a.accelerated ? "agri_machinery_accelerated" : (a.asset_class ?? "agri_machinery")) : String(Number(a.declining_rate_pct)),
                 acquisitionCost: fi(a.acquisition_cost), accumulatedDepreciation: fi(a.opening_accumulated_depreciation), forestPropertyId: a.forest_property_id,
               }}
               defaultBalanceYear={balanceYear}
               properties={data.properties}
               submitLabel="Tallenna"
+              hasForestry={data.client.has_forestry}
+              hasAgriculture={data.client.has_agriculture}
             />
           </Panel>
           <p className="mt-3 max-w-4xl text-xs text-ink/55">

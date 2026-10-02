@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Button, Field, Input, Select } from "@/components/ui";
-import { ASSET_CLASSES } from "@/lib/tax/rules";
+import { agriAssetChoices, ASSET_CLASSES } from "@/lib/tax/rules";
 
 export interface PriorAssetValues {
   id: string;
   description: string;
-  ratePct: number;
+  /** Metsätalouden prosentti ("15") tai maatalouden poistoryhmä ("agri_machinery"). */
+  kind: string;
   balanceYear: number;
   acquired: string;
   acquisitionCost: string;
@@ -34,6 +35,8 @@ export function PriorAssetForm({
   defaultBalanceYear,
   properties,
   submitLabel,
+  hasForestry = true,
+  hasAgriculture = false,
 }: {
   action: (formData: FormData) => Promise<void>;
   clientId: string;
@@ -41,11 +44,14 @@ export function PriorAssetForm({
   defaultBalanceYear: number;
   properties: { id: string; name: string }[];
   submitLabel: string;
+  hasForestry?: boolean;
+  hasAgriculture?: boolean;
 }) {
   const [cost, setCost] = useState(asset?.acquisitionCost ?? "");
   const [accumulated, setAccumulated] = useState(asset?.accumulatedDepreciation ?? "");
   const [year, setYear] = useState(String(asset?.balanceYear ?? defaultBalanceYear));
-  const [rate, setRate] = useState(String(asset?.ratePct ?? 15));
+  const [rate, setRate] = useState(asset?.kind ?? (hasForestry || !hasAgriculture ? "15" : "agri_machinery"));
+  const agri = rate.startsWith("agri_");
 
   const c = parse(cost);
   const a = parse(accumulated);
@@ -58,16 +64,29 @@ export function PriorAssetForm({
       <input type="hidden" name="clientId" value={clientId} />
       {asset ? <input type="hidden" name="assetId" value={asset.id} /> : null}
       <div className="grid gap-5 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <Field label="Kuvaus" htmlFor="description" hint="Esimerkiksi Metsäautotie tai Metsäperävaunu.">
+        <Field label="Kuvaus" htmlFor="description" hint={hasAgriculture ? "Esimerkiksi Metsäautotie, Navetta tai Koneet ja kalusto yhteensä." : "Esimerkiksi Metsäautotie tai Metsäperävaunu."}>
           <Input id="description" name="description" defaultValue={asset?.description} required maxLength={200} />
         </Field>
-        <Field label="Laji" htmlFor="ratePct" hint="Laji ratkaisee, paljonko vuodessa saa poistaa.">
-          <Select id="ratePct" name="ratePct" value={rate} onChange={(e) => setRate(e.target.value)}>
-            {ASSET_CLASSES.map((k) => (
-              <option key={k.pct} value={k.pct}>
-                {k.label}, enintään {k.pct} %
-              </option>
-            ))}
+        <Field label="Laji" htmlFor="assetKind" hint="Laji ratkaisee, paljonko vuodessa saa poistaa.">
+          <Select id="assetKind" name="assetKind" value={rate} onChange={(e) => setRate(e.target.value)}>
+            {hasForestry || !hasAgriculture || !agri ? (
+              <optgroup label="Metsätalous">
+                {ASSET_CLASSES.map((k) => (
+                  <option key={k.pct} value={k.pct}>
+                    {k.label}, enintään {k.pct} %
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+            {hasAgriculture || agri ? (
+              <optgroup label="Maatalous">
+                {agriAssetChoices(y ? y + 1 : 2025).map((k) => (
+                  <option key={k.id} value={k.id}>
+                    {k.label}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
           </Select>
         </Field>
       </div>
@@ -78,8 +97,8 @@ export function PriorAssetForm({
         <Field label="Hankintavuosi tai -päivä" htmlFor="acquired" hint="Vapaaehtoinen, esimerkiksi 2019 tai 1.5.2019.">
           <Input id="acquired" name="acquired" defaultValue={asset?.acquired ?? ""} placeholder={y ? String(y) : ""} />
         </Field>
-        <Field label="Metsätila" htmlFor="forestPropertyId" hint="Tie ja oja kannattaa liittää tilaan.">
-          <Select id="forestPropertyId" name="forestPropertyId" defaultValue={asset?.forestPropertyId ?? ""}>
+        <Field label="Metsätila" htmlFor="forestPropertyId" hint={agri ? "Maatalouden investointia ei liitetä metsätilaan." : "Tie ja oja kannattaa liittää tilaan."}>
+          <Select id="forestPropertyId" name="forestPropertyId" defaultValue={asset?.forestPropertyId ?? ""} disabled={agri}>
             <option value="">Ei tilaa</option>
             {properties.map((p) => (
               <option key={p.id} value={p.id}>
@@ -112,8 +131,9 @@ export function PriorAssetForm({
         </div>
       </div>
       <p className="text-sm text-ink/65">
-        Poisto lasketaan menojäännöksestä vuodesta {y ? y + 1 : "seuraavasta"} alkaen, enintään {rate} % vuodessa. Poiston määrän valitset
-        verosuunnitelmassa.
+        {agri
+          ? `Menojäännös siirtyy maatalouden poistoryhmään vuoden ${y ? y + 1 : "seuraavan"} alkuun. Ryhmän poiston valitset Maatalous-välilehdellä.`
+          : `Poisto lasketaan menojäännöksestä vuodesta ${y ? y + 1 : "seuraavasta"} alkaen, enintään ${rate} % vuodessa. Poiston määrän valitset verosuunnitelmassa.`}
       </p>
       <div className="flex flex-wrap items-center gap-4">
         <Button>{submitLabel}</Button>

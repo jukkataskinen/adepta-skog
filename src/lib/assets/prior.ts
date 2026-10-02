@@ -1,6 +1,6 @@
 import type { Sql } from "@/lib/db/types";
 import { audit } from "@/lib/audit";
-import { ASSET_CLASS_PCTS } from "@/lib/tax/rules";
+import { ASSET_CLASS_PCTS, parseAgriAssetChoice, type Activity } from "@/lib/tax/rules";
 
 /**
  * Aiemmin hankittu investointi: tie, oja, kone tai rakennus, joka on hankittu
@@ -22,8 +22,14 @@ export interface Actor {
 
 export interface PriorAssetInput {
   description: string;
-  /** Menojäännöspoiston enimmäisprosentti, joka kertoo myös lajin (ASSET_CLASSES). */
+  /** Metsätalous: menojäännöspoiston enimmäisprosentti, joka kertoo myös lajin (ASSET_CLASSES). */
   ratePct: number;
+  /**
+   * Maatalous: poistoryhmän valinta (rules.ts agriAssetChoices). Kun annettu,
+   * investointi on maataloutta ja prosentti tulee ryhmästä. Koneet voi antaa
+   * yhtenä rivinä, koska maatalouden koneilla on yhteinen menojäännös.
+   */
+  agriChoice?: string | null;
   /** Vuosi X: kertynyt poisto ja menojäännös ovat tämän vuoden lopussa. */
   balanceYear: number;
   /** Hankintapäivä; tyhjä = vuoden X viimeinen päivä. */
@@ -64,7 +70,9 @@ export function parseAcquired(value: string | null | undefined): string | null |
 /** Tarkistukset ennen tallennusta. Samat säännöt ovat kannassa, mutta tästä tulee selkeä viesti. */
 export function validatePriorAsset(input: PriorAssetInput): string | null {
   if (!input.description.trim()) return "Anna investoinnin kuvaus.";
-  if (!ASSET_CLASS_PCTS.includes(input.ratePct)) return "Valitse investoinnin laji.";
+  if (input.agriChoice) {
+    if (!parseAgriAssetChoice(input.agriChoice, input.balanceYear + 1)) return "Valitse maatalouden poistoryhmä. Korotettu poisto koskee vain vuosia 2020–2025.";
+  } else if (!ASSET_CLASS_PCTS.includes(input.ratePct)) return "Valitse investoinnin laji.";
   if (!Number.isInteger(input.balanceYear) || input.balanceYear < 1950 || input.balanceYear > 2100) return "Tarkista menojäännöksen vuosi.";
   if (!(input.acquisitionCost > 0)) return "Anna hankintahinta.";
   if (!(input.accumulatedDepreciation >= 0)) return "Anna kertynyt poisto. Jos poistoja ei ole tehty, kirjoita 0.";
@@ -90,6 +98,9 @@ export interface PriorAssetRow {
   opening_book_value: string;
   forest_property_id: string | null;
   disposed_on: string | null;
+  activity: Activity;
+  asset_class: string | null;
+  accelerated: boolean;
   /** Ensimmäinen poistovuosi on suljettu: lähtötietoja ei voi muuttaa. */
   locked: boolean;
 }
@@ -97,7 +108,7 @@ export interface PriorAssetRow {
 export async function getPriorAsset(tx: Sql, clientId: string, assetId: string): Promise<PriorAssetRow | null> {
   const [row] = await tx.query<PriorAssetRow>(
     `select id, description, acquired_on::text, acquisition_cost, declining_rate_pct, opening_year, opening_accumulated_depreciation, opening_book_value,
-            forest_property_id, disposed_on::text, sk_year_is_closed(client_id, opening_year) as locked
+            forest_property_id, disposed_on::text, activity, asset_class, accelerated, sk_year_is_closed(client_id, opening_year) as locked
        from sk_assets where id = $1 and client_id = $2 and opening_year is not null`,
     [assetId, clientId],
   );
@@ -114,18 +125,27 @@ export async function savePriorAsset(
   const bookValue = priorBookValue(input.acquisitionCost, input.accumulatedDepreciation);
   const acquiredOn = input.acquiredOn ?? `${input.balanceYear}-12-31`;
   await assertOpen(tx, clientId, openingYear);
-  const values = [input.description.trim(), acquiredOn, input.acquisitionCost, input.ratePct, bookValue, openingYear, input.accumulatedDepreciation, input.forestPropertyId];
+  // Maatalouden investointi: ryhmä, korotettu poisto ja ryhmän prosentti. Metsätilaa ei ole.
+  const agri = input.agriChoice ? parseAgriAssetChoice(input.agriChoice, openingYear) : null;
+  const ratePct = agri ? agri.pct : input.ratePct;
+  const kind = agri
+    ? { activity: "agriculture", assetClass: agri.assetClass, accelerated: agri.accelerated, propertyId: null }
+    : { activity: "forestry", assetClass: null, accelerated: false, propertyId: input.forestPropertyId };
+  const values = [
+    input.description.trim(), acquiredOn, input.acquisitionCost, ratePct, bookValue, openingYear, input.accumulatedDepreciation, kind.propertyId, kind.activity,
+    kind.assetClass, kind.accelerated,
+  ];
 
   if (!assetId) {
     const [row] = await tx.query<{ id: string }>(
       `insert into sk_assets (organization_id, client_id, description, acquired_on, acquisition_cost, method, declining_rate_pct, opening_book_value,
-                              opening_year, opening_accumulated_depreciation, forest_property_id)
-       values ($1, $2, $3, $4, $5, 'declining_balance', $6, $7, $8, $9, $10) returning id`,
+                              opening_year, opening_accumulated_depreciation, forest_property_id, activity, asset_class, accelerated)
+       values ($1, $2, $3, $4, $5, 'declining_balance', $6, $7, $8, $9, $10, $11, $12, $13) returning id`,
       [actor.organizationId, clientId, ...values],
     );
     await audit(tx, {
       organizationId: actor.organizationId, userId: actor.userId, action: "asset.prior.create", entity: "sk_assets", entityId: row.id,
-      details: { openingYear, ratePct: input.ratePct },
+      details: { openingYear, ratePct, activity: kind.activity, assetClass: kind.assetClass },
     });
     return { id: row.id, removedDepreciations: 0 };
   }
@@ -138,7 +158,8 @@ export async function savePriorAsset(
   // laji muuttuu, ne poistetaan, ja verosuunnitelma vahvistetaan uudelleen.
   const valueChanged =
     Number(prev.acquisition_cost) !== input.acquisitionCost || Number(prev.opening_accumulated_depreciation) !== input.accumulatedDepreciation ||
-    Number(prev.declining_rate_pct) !== input.ratePct || Number(prev.opening_year) !== openingYear;
+    Number(prev.declining_rate_pct) !== ratePct || Number(prev.opening_year) !== openingYear || prev.asset_class !== kind.assetClass ||
+    prev.accelerated !== kind.accelerated;
   let removed = 0;
   if (valueChanged) {
     const rows = await tx.query("delete from sk_depreciations where asset_id = $1 returning id", [assetId]);
@@ -146,13 +167,13 @@ export async function savePriorAsset(
   }
   await tx.query(
     `update sk_assets set description = $3, acquired_on = $4, acquisition_cost = $5, declining_rate_pct = $6, opening_book_value = $7,
-            opening_year = $8, opening_accumulated_depreciation = $9, forest_property_id = $10
+            opening_year = $8, opening_accumulated_depreciation = $9, forest_property_id = $10, activity = $11, asset_class = $12, accelerated = $13
       where id = $1 and client_id = $2`,
     [assetId, clientId, ...values],
   );
   await audit(tx, {
     organizationId: actor.organizationId, userId: actor.userId, action: "asset.prior.update", entity: "sk_assets", entityId: assetId,
-    details: { openingYear, ratePct: input.ratePct, depreciationsRemoved: removed },
+    details: { openingYear, ratePct, activity: kind.activity, assetClass: kind.assetClass, depreciationsRemoved: removed },
   });
   return { id: assetId, removedDepreciations: removed };
 }
@@ -183,6 +204,9 @@ export interface ClientAssetRow {
   disposed_on: string | null;
   legacy_id: string | null;
   property_name: string | null;
+  activity: Activity;
+  asset_class: string | null;
+  accelerated: boolean;
   locked: boolean;
 }
 
@@ -191,10 +215,11 @@ export async function listClientAssets(tx: Sql, clientId: string): Promise<Clien
   return tx.query<ClientAssetRow>(
     `select a.id, a.description, a.acquired_on::text, a.acquisition_cost, a.method, a.declining_rate_pct, a.opening_year,
             a.opening_accumulated_depreciation, a.opening_book_value, a.disposed_on::text, a.legacy_id, p.name as property_name,
+            a.activity, a.asset_class, a.accelerated,
             coalesce(sk_year_is_closed(a.client_id, a.opening_year), false) as locked
        from sk_assets a left join sk_forest_properties p on p.id = a.forest_property_id
       where a.client_id = $1
-      order by a.disposed_on nulls first, a.acquired_on desc, a.description`,
+      order by a.activity, a.disposed_on nulls first, a.acquired_on desc, a.description`,
     [clientId],
   );
 }

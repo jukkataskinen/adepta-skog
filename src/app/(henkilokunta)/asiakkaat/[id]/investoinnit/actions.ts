@@ -19,7 +19,8 @@ const schema = z.object({
   clientId: uuid,
   assetId: z.preprocess(emptyToNull, uuid.nullable()),
   description: z.string().min(1, "Anna investoinnin kuvaus.").max(200),
-  ratePct: z.coerce.number({ message: "Valitse investoinnin laji." }),
+  // Laji: metsätalouden prosentti ("25") tai maatalouden poistoryhmä ("agri_machinery").
+  assetKind: z.string({ message: "Valitse investoinnin laji." }).min(1, "Valitse investoinnin laji.").max(40),
   balanceYear: z.coerce.number({ message: "Tarkista menojäännöksen vuosi." }).int("Tarkista menojäännöksen vuosi."),
   acquired: z.string().max(20).optional(),
   acquisitionCost: amount("Anna hankintahinta."),
@@ -53,7 +54,8 @@ export async function savePriorAssetAction(formData: FormData) {
         { organizationId: ctx.org.organizationId, userId: ctx.user.id },
         clientId,
         {
-          description: input.description, ratePct: input.ratePct, balanceYear: input.balanceYear, acquiredOn,
+          description: input.description, balanceYear: input.balanceYear, acquiredOn,
+          ...(input.assetKind.startsWith("agri_") ? { ratePct: 0, agriChoice: input.assetKind } : { ratePct: Number(input.assetKind), agriChoice: null }),
           acquisitionCost: input.acquisitionCost, accumulatedDepreciation: input.accumulatedDepreciation, forestPropertyId: input.forestPropertyId,
         },
         assetId,

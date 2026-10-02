@@ -500,8 +500,26 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Jos vuoden myynnit ovat yhteensä enintään 1 000 euroa, voitto on verovapaa.",
         ],
       },
+      {
+        title: "Maatalouden investoinnit",
+        text: "Maatalouden investoinnit poistetaan ryhmittäin, kuten lomakkeella 2. Esimerkiksi kaikilla koneilla on yksi yhteinen menojäännös. Poiston valitset ryhmälle Maatalous-välilehdellä.",
+        steps: [
+          "Kirjaa uusi investointi kirjanpitoon luokalla Maatalouden investointi (58) ja valitse poistoryhmä.",
+          "Jos kone on uusi ja otettu käyttöön vuonna 2025, voit valita korotetun poiston 50 %.",
+          "Ennen Skogia hankitut investoinnit lisäät Investoinnit-sivulla: valitse Lisää aiempi investointi ja laji Maatalous-ryhmästä.",
+          "Koneet ja kalusto voi lisätä yhtenä rivinä: kirjoita kuvaukseksi Koneet ja kalusto yhteensä, hankintahinta ja kertynyt poisto. Menojäännös on edellisen vuoden veroilmoituksen kohdassa Menojäännös verovuoden lopussa.",
+          "Avaa Maatalous-välilehti. Ryhmien menojäännökset ja enimmäispoistot näkyvät siellä.",
+        ],
+        bullets: [
+          "Poistoryhmät: tuotantorakennus 10 %, asuinrakennus 6 %, kasvihuone 20 %, ympäristönsuojelun rakennelma 25 %, koneet ja kalusto 25 %, sillat ja asfaltointi 10 %, salaojat 20 %.",
+          "Enintään 1 200 euron maatalouden hankinta kirjataan menona.",
+          "Jos koneiden ryhmässä on enintään 1 200 euroa, sen saa poistaa kerralla. Rakennuksissa raja on 1 000 euroa.",
+          "Kun myyt maatalouden koneen, myyntihinta vähennetään ryhmän menojäännöksestä. Luovutusvoittoa ei lasketa.",
+          "Investointituki ja investointiin käytetty tasausvaraus pienentävät poistopohjaa. Ne kirjataan Maatalous-välilehdellä.",
+        ],
+      },
     ],
-    related: ["kirjanpito", "verosuunnitelma"],
+    related: ["kirjanpito", "verosuunnitelma", "maatalous"],
   },
   {
     slug: "alv",

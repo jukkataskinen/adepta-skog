@@ -7,7 +7,7 @@ import { getClient } from "@/lib/clients/queries";
 import { defaultYear, listYears } from "@/lib/ledger/queries";
 import { listClientAssets, type ClientAssetRow } from "@/lib/assets/prior";
 import { priorOpening } from "@/lib/tax/load";
-import { assetClassLabel } from "@/lib/tax/rules";
+import { ACTIVITY_LABEL, agriAssetClass, agriAssetLabel, assetClassLabel } from "@/lib/tax/rules";
 import { formatDate, formatEur } from "@/lib/format";
 import { ClientTabs } from "../../ClientTabs";
 
@@ -56,6 +56,11 @@ export default async function AssetsPage({
         </div>
       ) : null}
 
+      {data.client.has_agriculture ? (
+        <p className="mb-5 max-w-3xl text-sm text-ink/70">
+          Maatalouden investoinnit poistetaan ryhmittäin (lomake 2). Ryhmien menojäännökset, investointituet ja poistot ovat Maatalous-välilehdellä.
+        </p>
+      ) : null}
       {data.assets.length === 0 ? (
         <EmptyState
           title="Ei investointeja"
@@ -79,7 +84,7 @@ export default async function AssetsPage({
             </thead>
             <tbody>
               {data.assets.map((a) => (
-                <AssetItem key={a.id} a={a} clientId={id} />
+                <AssetItem key={a.id} a={a} clientId={id} showActivity={data.client.has_agriculture} />
               ))}
             </tbody>
           </Table>
@@ -93,7 +98,7 @@ export default async function AssetsPage({
   );
 }
 
-function AssetItem({ a, clientId }: { a: ClientAssetRow; clientId: string }) {
+function AssetItem({ a, clientId, showActivity }: { a: ClientAssetRow; clientId: string; showActivity: boolean }) {
   const cost = Number(a.acquisition_cost);
   const opening = priorOpening({
     acquisitionCost: cost,
@@ -102,13 +107,19 @@ function AssetItem({ a, clientId }: { a: ClientAssetRow; clientId: string }) {
     openingAccumulated: a.opening_accumulated_depreciation === null ? null : Number(a.opening_accumulated_depreciation),
   });
   const end = opening?.year ? ` 31.12.${opening.year - 1}` : "";
-  const kind = a.method === "declining_balance" ? `${assetClassLabel(a.declining_rate_pct === null ? null : Number(a.declining_rate_pct))}, enintään ${Number(a.declining_rate_pct)} %` : "Vanha tasapoisto";
+  const kind =
+    a.activity === "agriculture"
+      ? `${agriAssetLabel(a.asset_class, a.accelerated)}, enintään ${a.accelerated ? 50 : (agriAssetClass(a.asset_class)?.pct ?? Number(a.declining_rate_pct))} %`
+      : a.method === "declining_balance"
+        ? `${assetClassLabel(a.declining_rate_pct === null ? null : Number(a.declining_rate_pct))}, enintään ${Number(a.declining_rate_pct)} %`
+        : "Vanha tasapoisto";
   const prior = a.opening_year !== null;
   return (
     <tr>
       <Td>
         <p className="font-semibold">{a.description}</p>
         <p className="text-xs text-ink/55">
+          {showActivity ? `${ACTIVITY_LABEL[a.activity]} · ` : ""}
           {kind}
           {a.property_name ? ` · ${a.property_name}` : ""}
         </p>

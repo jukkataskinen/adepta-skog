@@ -25,7 +25,7 @@ export default async function NewPriorAssetPage({ params, searchParams }: { para
     <>
       <PageHeader
         title="Lisää aiempi investointi"
-        subtitle="Tie, oja, kone tai rakennus, joka on hankittu ennen Skogia"
+        subtitle={data.client.has_agriculture ? "Tie, oja, kone, rakennus tai maatalouden poistoryhmän menojäännös ennen Skogia" : "Tie, oja, kone tai rakennus, joka on hankittu ennen Skogia"}
         back={{ href: `/asiakkaat/${id}/investoinnit`, label: `${data.client.first_name} ${data.client.last_name}`.trim() }}
       />
       <FormError message={sp.virhe} />
@@ -36,6 +36,8 @@ export default async function NewPriorAssetPage({ params, searchParams }: { para
           defaultBalanceYear={defaultBalanceYear(data.years)}
           properties={data.properties}
           submitLabel="Lisää investointi"
+          hasForestry={data.client.has_forestry}
+          hasAgriculture={data.client.has_agriculture}
         />
       </Panel>
     </>
