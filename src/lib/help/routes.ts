@@ -16,6 +16,7 @@ const ROUTES: { pattern: RegExp; slug: string; section?: string }[] = [
   { pattern: /^\/asiakkaat\/[^/]+\/kirjanpito/, slug: "kirjanpito" },
   { pattern: /^\/asiakkaat\/[^/]+\/investoinnit\/[^/]+/, slug: "investoinnit", section: "Aiemmin hankittu investointi ja menojäännös" },
   { pattern: /^\/asiakkaat\/[^/]+\/investoinnit/, slug: "investoinnit" },
+  { pattern: /^\/asiakkaat\/[^/]+\/maatalous/, slug: "maatalous" },
   { pattern: /^\/asiakkaat\/[^/]+\/alv/, slug: "alv" },
   { pattern: /^\/asiakkaat\/[^/]+\/verosuunnitelma/, slug: "verosuunnitelma" },
   { pattern: /^\/asiakkaat\/[^/]+\/raportti/, slug: "veroraportti" },

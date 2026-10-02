@@ -335,3 +335,11 @@
 **Investointituki ja käytetty tasausvaraus pienentävät pohjaa.** Tuki on `sk_asset_adjustments` (vuosi ja summa investoinnille), ja investointiin käytetty tasausvaraus on varauksen käyttö (`sk_agri_reserve_uses`, käyttötapa asset). Molemmat syötetään Maatalous-välilehdellä.
 
 **Aiempi maatalouden investointi.** Investoinnit-sivun lomakkeen lajivalinnassa on ryhmät Metsätalous ja Maatalous. Maatalouden investointia ei liitetä metsätilaan, ja korotettu poisto sallitaan, jos ensimmäinen poistovuosi on viimeistään 2025. Lukitus ja kanta toimivat kuten 0014:ssä; toiminto ja ryhmä kuuluvat lukittuihin tietoihin.
+
+**Maatalous-välilehti (tehtävä 6).** Asiakkaan uusi välilehti näkyy vain maatalousasiakkaalle. Sivulla ovat lomakkeen 2 tiedot, joita ei saa kirjauksista, jokainen omana pienenä lomakkeenaan (server action, `parseForm`, virhe `?virhe=`-parametrilla, onnistuminen palaa samaan osioon). Tulot ja menot tulevat kirjanpidosta.
+
+**Maatalouden poistot valitaan Maatalous-välilehdellä, ei verosuunnitelmassa.** Ryhmäpoistot tallennetaan omalla painikkeella (`sk_agri_depreciations`), ja palvelin tarkistaa enimmäismäärän samalla funktiolla kuin sivu. Verosuunnitelman lomake on metsätalouden laskuri, jonka tilaa selain pitää; maatalouden lisääminen siihen olisi ollut iso muutos ilman yritystulon jakoa, joka on vaihe 2. Ryhmä, jolle ei kirjoiteta poistoa, tallentuu nollana, jotta vahvistus näkyy.
+
+**Varaukset ja jaksotukset käsin.** Tasaus- ja jälleenhankintavaraus kirjoitetaan tekovuodelle, ja käyttö (investointiin tai tuloutus) lisätään varauksen kohdalle sivun vuodelle. Kanta estää käyttämästä enemmän kuin varausta on ja ennen tekovuotta. Aiempien vuosien kotieläinten jaksotukset kirjoitetaan käsin; tyhjät vuosiosat jaetaan tasan senteissä, ja ensimmäinen vuosi saa pyöristyksen erotuksen.
+
+**Harvinaiset kentät luettelosta.** Ajoneuvot (281–288, 516, 518, 519, 534), työmatkat (401–411, 423–429, 532, 533, 286), käyttöön ottamattomat (278–280) ja arvopapereiden luovutusvoitot (409) valitaan luettelosta (`src/lib/filing/vsy002-fields.ts`, nimet tietuekuvauksesta 2026), ja arvo tarkistetaan lajin mukaan (rahamäärä, kokonaisluku tai 1/2). Lokiin kirjataan kenttä, ei arvoa.

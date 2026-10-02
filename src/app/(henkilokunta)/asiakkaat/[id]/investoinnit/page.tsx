@@ -41,7 +41,7 @@ export default async function AssetsPage({
         back={{ href: "/asiakkaat", label: "Asiakkaat" }}
         actions={<LinkButton href={`/asiakkaat/${id}/investoinnit/uusi`}>Lisää aiempi investointi</LinkButton>}
       />
-      <ClientTabs clientId={id} active="investoinnit" year={year} />
+      <ClientTabs clientId={id} active="investoinnit" year={year} agriculture={data.client.has_agriculture} />
       <FormError message={sp.virhe} />
       {sp.tallennettu ? (
         <div className="mb-5">

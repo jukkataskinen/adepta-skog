@@ -38,7 +38,7 @@ export default async function TaxPlanPage({
   return (
     <>
       <PageHeader title={`${c.first_name} ${c.last_name}`.trim()} subtitle="Verosuunnitelma" back={{ href: "/asiakkaat", label: "Asiakkaat" }} />
-      <ClientTabs clientId={id} active="verosuunnitelma" year={year} />
+      <ClientTabs clientId={id} active="verosuunnitelma" year={year} agriculture={c.has_agriculture} />
       <FormError message={sp.virhe} />
       {year === null || !plan ? (
         <EmptyState title="Ei verovuosia">Avaa verovuosi asiakkaan tiedoissa.</EmptyState>

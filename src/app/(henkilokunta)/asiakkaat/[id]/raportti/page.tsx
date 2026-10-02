@@ -45,7 +45,7 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
   return (
     <>
       <PageHeader title={`${c.first_name} ${c.last_name}`.trim()} subtitle="Veroraportti ja arkisto" back={{ href: "/asiakkaat", label: "Asiakkaat" }} />
-      <ClientTabs clientId={id} active="raportti" year={year} />
+      <ClientTabs clientId={id} active="raportti" year={year} agriculture={c.has_agriculture} />
       {year === null ? (
         <EmptyState title="Ei verovuosia">Avaa verovuosi asiakkaan tiedoissa.</EmptyState>
       ) : (

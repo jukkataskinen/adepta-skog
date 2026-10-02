@@ -43,7 +43,7 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
           </LinkButton>
         }
       />
-      <ClientTabs clientId={id} active="tiedot" />
+      <ClientTabs clientId={id} active="tiedot" agriculture={c.has_agriculture} />
       <FormError message={sp.virhe} />
       {sp.ilmoitus === "tallennettu" ? (
         <div className="mb-5">

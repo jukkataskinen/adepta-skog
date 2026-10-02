@@ -33,7 +33,7 @@ export default async function VatPage({ params, searchParams }: { params: Promis
   return (
     <>
       <PageHeader title={`${c.first_name} ${c.last_name}`.trim()} subtitle="Arvonlisävero" back={{ href: "/asiakkaat", label: "Asiakkaat" }} />
-      <ClientTabs clientId={id} active="alv" year={year} />
+      <ClientTabs clientId={id} active="alv" year={year} agriculture={c.has_agriculture} />
       {year === null ? (
         <EmptyState title="Ei verovuosia">Avaa verovuosi asiakkaan tiedoissa.</EmptyState>
       ) : (

@@ -522,6 +522,105 @@ export const HELP_TOPICS: HelpTopic[] = [
     related: ["kirjanpito", "verosuunnitelma", "maatalous"],
   },
   {
+    slug: "maatalous",
+    group: "Kirjanpito",
+    icon: "building",
+    title: "Maatalous",
+    summary: "Maatila samaan kirjanpitoon metsän kanssa: maatalouden kirjaukset, poistot, varaukset ja lomake 2.",
+    highlights: [
+      "Metsä ja maatalous samassa taulukossa",
+      "Poistot ryhmittäin lomakkeen 2 mukaan",
+      "Tasausvaraus ja kotieläinten jaksotus",
+      "Yksi arvonlisäveroilmoitus",
+    ],
+    sections: [
+      {
+        title: "Maatalouden käyttöönotto asiakkaalle",
+        steps: [
+          "Avaa asiakas ja valitse Muokkaa.",
+          "Rastita Harjoittaa maataloutta. Jos asiakkaalla ei ole metsää, poista rasti kohdasta Harjoittaa metsätaloutta.",
+          "Tallenna. Asiakkaalle tulee Maatalous-välilehti, ja kirjanpidossa näkyvät maatalouden luokat.",
+          "Jos asiakkaalla on useampi maatila, lisää tilat Maatalous-välilehden alaosassa.",
+        ],
+      },
+      {
+        title: "Aloitus edellisen vuoden veroilmoituksesta",
+        text: "Kun maatila tulee Skogiin, tarvitset edellisen vuoden lomakkeen 2. Siitä saat menojäännökset, varaukset ja jaksotukset.",
+        steps: [
+          "Avaa Investoinnit ja valitse Lisää aiempi investointi.",
+          "Valitse laji Maatalous-ryhmästä, esimerkiksi Koneet ja kalusto.",
+          "Kirjoita kuvaukseksi Koneet ja kalusto yhteensä. Kirjoita hankintahinta ja kertynyt poisto niin, että menojäännös on sama kuin veroilmoituksen kohdassa Menojäännös verovuoden lopussa.",
+          "Tee sama rakennuksille, salaojille ja muille ryhmille, joissa on menojäännöstä.",
+          "Avaa Maatalous-välilehti. Lisää purkamattomat tasausvaraukset kohdassa Tasausvaraus ja jälleenhankintavaraus.",
+          "Lisää aiempien vuosien kotieläinten jaksotukset kohdassa Kotieläinten jaksotukset.",
+        ],
+      },
+      {
+        title: "Kirjaukset",
+        bullets: [
+          "Maatalouden tulot ja menot kirjataan kirjanpidon taulukkoon samalla tavalla kuin metsän. Luokat ovat numeroilla 21–59.",
+          "Ostot viedään veroilmoitukselle arvonlisäverokannan mukaan. Siksi alv-prosentin pitää olla oikein.",
+          "Jos meno kuuluu osittain metsätaloudelle, kirjoita osuudet sarakkeisiin Osuus % ja Toinen %.",
+          "MYEL-maksut kirjataan luokalla 54. Ne vähennetään maatalouden menoina.",
+          "Jaksotettava kotieläinten myynti (22) ja hankinta (50) jaetaan kolmelle vuodelle tasan.",
+        ],
+      },
+      {
+        title: "Poistot ryhmittäin",
+        text: "Maatalouden investoinnit poistetaan ryhmittäin. Maatalous-välilehdellä näet jokaisen ryhmän menojäännöksen ja enimmäispoiston.",
+        steps: [
+          "Avaa Maatalous-välilehti ja valitse vuosi.",
+          "Katso taulukosta Poistot ryhmittäin ryhmän poistopohja ja enimmäismäärä.",
+          "Kirjoita poisto jokaiselle ryhmälle. Poisto voi olla pienempi kuin enimmäismäärä tai nolla.",
+          "Valitse Tallenna poistot.",
+        ],
+        bullets: [
+          "Menojäännös siirtyy seuraavalle vuodelle tallennetulla poistolla.",
+          "Myyntihinnat, investointituet ja investointiin käytetty tasausvaraus pienentävät poistopohjaa.",
+          "Vuonna 2025 uusille koneille on oma ryhmä, jossa poisto on enintään 50 %. Vuonna 2026 ne siirtyvät koneiden ryhmään.",
+        ],
+      },
+      {
+        title: "Vuoden tiedot",
+        bullets: [
+          "Varallisuuslaskelmaan kirjoitat maatalouden velat ja ne varat, joita Skog ei laske, esimerkiksi meijeriosuudet.",
+          "Rakennusten ja koneiden arvot tulevat poistoista.",
+          "Puolison osuudet täytetään vain, jos puolisot harjoittavat maataloutta yhdessä. Yrittäjän osuus on loppu.",
+          "Jos maatalous on tappiollinen, voit kirjoittaa, paljonko tappiosta vähennetään pääomatuloista.",
+        ],
+      },
+      {
+        title: "Tasausvaraus ja jälleenhankintavaraus",
+        steps: [
+          "Kirjoita tämän vuoden tasausvaraus: laji, vuosi ja määrä. Valitse Lisää varaus.",
+          "Kun aiempi varaus käytetään investointiin, valitse varauksen kohdalla Investointiin, investointi ja määrä.",
+          "Kun varaus tuloutetaan, valitse Tuloutus ja määrä.",
+        ],
+        bullets: [
+          "Purkamaton määrä näkyy taulukossa ja veroilmoituksella vuosittain.",
+          "Tasausvarauksen laskuri tehdään myöhemmin. Nyt määrä kirjoitetaan käsin.",
+        ],
+      },
+      {
+        title: "Kotieläinten jaksotukset",
+        bullets: [
+          "Tämän vuoden jaksotettavat myynnit ja hankinnat tulevat kirjanpidosta.",
+          "Aiempien vuosien jaksotukset kirjoitetaan Maatalous-välilehdelle. Jos jätät vuosien osat tyhjiksi, summa jaetaan kolmelle vuodelle tasan.",
+          "Verovuodelle kuuluva osa lasketaan kolmen vuoden jaksotuksista.",
+        ],
+      },
+      {
+        title: "Investointituet ja muut tiedot",
+        bullets: [
+          "Investointituki kirjataan investoinnille sinä vuonna, kun tuki on saatu. Se ei ole tuloa.",
+          "Harvoin tarvittavat kentät, kuten ajoneuvojen käyttö ja työmatkat, löytyvät kohdasta Muut lomakkeen tiedot. Valitse kenttä ja kirjoita arvo.",
+        ],
+      },
+    ],
+    tips: ["Suljetun vuoden maatalouden tietoja ei voi muuttaa. Pääkäyttäjä voi avata vuoden."],
+    related: ["kirjanpito", "investoinnit", "alv", "veroraportti"],
+  },
+  {
     slug: "alv",
     group: "Verotus ja raportit",
     icon: "stamp",

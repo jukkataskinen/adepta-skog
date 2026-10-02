@@ -83,7 +83,7 @@ export default async function LedgerPage({
   return (
     <>
       <PageHeader title={`${c.first_name} ${c.last_name}`.trim()} subtitle="Kirjanpito" back={{ href: "/asiakkaat", label: "Asiakkaat" }} />
-      <ClientTabs clientId={id} active="kirjanpito" year={year} />
+      <ClientTabs clientId={id} active="kirjanpito" year={year} agriculture={c.has_agriculture} />
       <FormError message={sp.virhe} />
 
       {year === null ? (
