@@ -68,6 +68,19 @@ export function ClientForm({
           </Field>
         ) : null}
       </div>
+      <fieldset className="grid gap-2">
+        <legend className="text-sm font-semibold">Toiminnot</legend>
+        <input type="hidden" name="activitiesSent" value="1" />
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="hasForestry" defaultChecked={client?.has_forestry ?? true} className="size-4" />
+          Harjoittaa metsätaloutta (2C)
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="hasAgriculture" defaultChecked={client?.has_agriculture ?? false} className="size-4" />
+          Harjoittaa maataloutta (lomake 2)
+        </label>
+        <p className="text-xs text-ink/55">Maatalouden luokat ja Maatalous-välilehti näkyvät vain, kun maatalous on valittu.</p>
+      </fieldset>
       <div className="grid items-end gap-5 sm:grid-cols-2">
         <label className="flex items-center gap-2 pb-3 text-sm">
           <input type="checkbox" name="vatRegistered" defaultChecked={client?.vat_registered ?? false} className="size-4" />

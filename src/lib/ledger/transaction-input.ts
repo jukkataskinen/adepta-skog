@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { FORESTRY_CATEGORIES, category, defaultVatRate, SMALL_ASSET_LIMIT, type TransactionKind } from "@/lib/tax/rules";
+import { AGRI_SMALL_ASSET_LIMIT, CATEGORIES, category, defaultVatRate, SMALL_ASSET_LIMIT, type Activity, type TransactionKind } from "@/lib/tax/rules";
 
 /**
  * Kirjauksen kenttien tarkistus. Sama skeema palvelee kirjauslomaketta ja
@@ -9,7 +9,15 @@ import { FORESTRY_CATEGORIES, category, defaultVatRate, SMALL_ASSET_LIMIT, type 
 
 /** Investointien viestit: samat lomakkeella, taulukossa ja palvelimella. */
 export const SMALL_ASSET_MESSAGE = `Enintään ${SMALL_ASSET_LIMIT} euron hankinta kirjataan vuosimenona. Valitse luokka Muut vuosimenot.`;
+export const AGRI_SMALL_ASSET_MESSAGE = `Enintään ${AGRI_SMALL_ASSET_LIMIT} euron maatalouden hankinta kirjataan vuosimenona. Valitse luokka Muut ostot ja kalusto.`;
 export const ASSET_CLASS_MESSAGE = "Valitse hyödykkeen laji: kone, tie tai oja, tai rakennus.";
+export const AGRI_ASSET_CLASS_MESSAGE = "Valitse maatalouden investoinnin laji, esimerkiksi koneet ja kalusto tai tuotantorakennus.";
+export const OTHER_SHARE_MESSAGE = "Toisen toiminnon osuuden voi antaa vain menolle. Tulo ja investointi kuuluvat yhdelle toiminnolle.";
+
+/** Pienhankinnan viesti toiminnon mukaan. */
+export function smallAssetMessage(activity: Activity): string {
+  return activity === "agriculture" ? AGRI_SMALL_ASSET_MESSAGE : SMALL_ASSET_MESSAGE;
+}
 export const SALE_ASSET_MESSAGE = "Valitse myytävä investointi.";
 export const DEPRECIATED_MESSAGE = "Investoinnista on jo tehty poistoja, joten hankintaa ei voi poistaa.";
 
@@ -59,7 +67,8 @@ export function toFinnishDate(iso: string): string {
   return `${d}.${m}.${y}`;
 }
 
-export const SHARE_MESSAGE = "Anna metsätalouden osuus prosentteina: yli 0 ja enintään 100, enintään kaksi desimaalia.";
+export const SHARE_MESSAGE = "Anna osuus prosentteina: yli 0 ja enintään 100, enintään kaksi desimaalia.";
+export const OTHER_SHARE_FORMAT_MESSAGE = "Anna toisen toiminnon osuus prosentteina: 0 tai enemmän ja alle 100, enintään kaksi desimaalia.";
 
 /**
  * Metsätalouden osuus prosentteina (0013). Tyhjä = 100 %. Hyväksyy pilkun ja
@@ -71,6 +80,15 @@ export const businessShareSchema = z.preprocess(
     .number({ message: SHARE_MESSAGE })
     .refine((n) => Number.isFinite(n) && n > 0 && n <= 100, SHARE_MESSAGE)
     .refine((n) => Math.abs(Math.round(n * 100) - n * 100) < 1e-6, SHARE_MESSAGE),
+);
+
+/** Toisen toiminnon osuus (0015). Tyhjä = 0 %. */
+export const otherShareSchema = z.preprocess(
+  (v) => parseAmount(v) ?? 0,
+  z
+    .number({ message: OTHER_SHARE_FORMAT_MESSAGE })
+    .refine((n) => Number.isFinite(n) && n >= 0 && n < 100, OTHER_SHARE_FORMAT_MESSAGE)
+    .refine((n) => Math.abs(Math.round(n * 100) - n * 100) < 1e-6, OTHER_SHARE_FORMAT_MESSAGE),
 );
 
 const amount = (min: number, message: string) =>
@@ -87,6 +105,8 @@ export const transactionFieldsSchema = z.object({
   withholding: amount(0, "Tarkista ennakonpidätys."),
   // Osittain vähennettävä kulu: vain osuus kuuluu metsätaloudelle (src/lib/tax/share.ts).
   businessSharePct: businessShareSchema.default(100),
+  // Toisen toiminnon osuus (metsä ↔ maatalous); loppu on yksityistä.
+  otherSharePct: otherShareSchema.default(0),
   reference: z.preprocess(blank, z.string().max(100, "Viite on liian pitkä.").nullable()),
   // Vapaaehtoinen: kaikki menot eivät kohdistu yhdelle tilalle.
   forestPropertyId: z.preprocess(blank, z.string().uuid("Valitse metsätila.").nullable()),
@@ -132,5 +152,5 @@ export function parseClipboard(text: string): string[][] {
 export function resolveCategory(text: string): string | null {
   const t = text.trim().toLowerCase();
   if (!t) return null;
-  return FORESTRY_CATEGORIES.find((c) => c.code === t || c.label.toLowerCase() === t || c.legacyName.toLowerCase() === t)?.code ?? null;
+  return CATEGORIES.find((c) => c.code === t || c.label.toLowerCase() === t || c.legacyName.toLowerCase() === t)?.code ?? null;
 }

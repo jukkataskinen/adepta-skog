@@ -7,11 +7,11 @@ import { getClient } from "@/lib/clients/queries";
 import { defaultYear, listAssets, listPropertyOptions, listTransactions, listYears } from "@/lib/ledger/queries";
 import { summarize } from "@/lib/ledger/summary";
 import { vatOf } from "@/lib/tax/amounts";
-import { formatSharePct, isPartialShare } from "@/lib/tax/share";
+import { activityRows, formatSharePct, isPartialShare } from "@/lib/tax/share";
 import { rowFromStored, rowsFromSuggestion, withDuplicateWarnings } from "@/lib/ledger/grid";
 import { listPendingSuggestions } from "@/lib/documents/receipt-suggestions";
 import { receiptRecognizer } from "@/lib/ai/receipts";
-import { category } from "@/lib/tax/rules";
+import { ACTIVITY_LABEL, activitiesOf, category } from "@/lib/tax/rules";
 import { formatDate, formatEur } from "@/lib/format";
 import { ClientTabs } from "../../ClientTabs";
 import { YearNav } from "../../YearNav";
@@ -62,13 +62,17 @@ export default async function LedgerPage({
   const { client: c, years, year, rows } = data;
   const status = years.find((y) => y.year === year)?.status;
   const closed = status === "closed";
-  // Kortit ja summat ovat metsätalouden osuuksia (src/lib/tax/share.ts).
-  const sum = summarize(
-    rows.map((r) => ({
-      kind: r.kind, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), withholding: Number(r.withholding),
-      businessSharePct: Number(r.business_share_pct),
-    })),
-  );
+  // Kortit ja summat ovat metsätalouden osuuksia (src/lib/tax/share.ts). Maatalousasiakkaalle
+  // kortit näytetään toiminnoittain: kummankin toiminnon oma osuus ja toiselta saatu osuus.
+  const inputs = rows.map((r) => ({
+    ...r, amountNet: Number(r.amount_net), amountGross: Number(r.amount_gross), withholding: Number(r.withholding),
+    businessSharePct: Number(r.business_share_pct), otherSharePct: Number(r.other_share_pct),
+  }));
+  const sum = summarize(inputs);
+  const activities = activitiesOf({ hasForestry: c.has_forestry, hasAgriculture: c.has_agriculture });
+  const byActivity = c.has_agriculture
+    ? activities.map((a) => ({ activity: a, sum: summarize(activityRows(inputs, a).map((r) => ({ ...r, withholding: r.cross ? 0 : r.withholding }))) }))
+    : null;
   const today = new Date().toISOString().slice(0, 10);
   const defaultDate = year && today.startsWith(String(year)) ? today : `${year}-01-01`;
   // Avoimen vuoden oletusnäkymä on taulukko, jossa kaikki vuoden rivit ovat muokattavina
@@ -101,13 +105,31 @@ export default async function LedgerPage({
             </div>
           ) : null}
 
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat label="Tulot ilman alv" value={formatEur(sum.income.net)} />
-            <Stat label="Menot ilman alv" value={formatEur(sum.expense.net)} />
-            <Stat label="Investoinnit ilman alv" value={formatEur(sum.investment.net)} />
-            <Stat label="Tulos ennen poistoja" value={formatEur(sum.netResult)} tone={sum.netResult < 0 ? "alert" : undefined} />
-          </div>
-          {sum.partialCount ? (
+          {byActivity ? (
+            byActivity.map((b) => (
+              <div key={b.activity} className="mb-4">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink/55">{ACTIVITY_LABEL[b.activity]}</p>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <Stat label="Tulot ilman alv" value={formatEur(b.sum.income.net)} />
+                  <Stat label="Menot ilman alv" value={formatEur(b.sum.expense.net)} />
+                  <Stat label="Investoinnit ilman alv" value={formatEur(b.sum.investment.net)} />
+                  <Stat label="Tulos ennen poistoja" value={formatEur(b.sum.netResult)} tone={b.sum.netResult < 0 ? "alert" : undefined} />
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Stat label="Tulot ilman alv" value={formatEur(sum.income.net)} />
+              <Stat label="Menot ilman alv" value={formatEur(sum.expense.net)} />
+              <Stat label="Investoinnit ilman alv" value={formatEur(sum.investment.net)} />
+              <Stat label="Tulos ennen poistoja" value={formatEur(sum.netResult)} tone={sum.netResult < 0 ? "alert" : undefined} />
+            </div>
+          )}
+          {byActivity ? (
+            <p className="mb-6 text-sm text-ink/70">
+              Luvuissa on kummankin toiminnon osuus. Yhteiset menot jaetaan rivin osuuksilla, ja yksityinen osuus jää pois.
+            </p>
+          ) : sum.partialCount ? (
             <p className="-mt-3 mb-6 text-sm text-ink/70">
               {sum.partialCount === 1 ? "Yhdestä kirjauksesta" : `${sum.partialCount} kirjauksesta`} vain osa kuuluu metsätaloudelle. Luvuissa on vain
               metsätalouden osuus.{sum.nonDeductibleVat ? ` Ostojen verosta ${formatEur(sum.nonDeductibleVat)} kuuluu muulle toiminnalle.` : ""}
@@ -149,6 +171,8 @@ export default async function LedgerPage({
               assets={data.assets}
               vatRegistered={c.vat_registered}
               defaultDate={toFinnishDate(defaultDate)}
+              hasForestry={c.has_forestry}
+              hasAgriculture={c.has_agriculture}
             />
           ) : rows.length === 0 ? (
             <EmptyState title="Ei kirjauksia">{closed ? "Vuodelle ei ole kirjauksia." : "Lisää ensimmäinen kirjaus alla olevalla lomakkeella."}</EmptyState>
@@ -185,8 +209,11 @@ export default async function LedgerPage({
                       <Td>
                         {r.description || "–"}
                         {r.asset_description ? <span className="block text-xs text-ink/55">Investointi: {r.asset_description}</span> : null}
-                        {isPartialShare(r.business_share_pct) ? (
-                          <span className="block text-xs text-ink/55">Metsätalouden osuus {formatSharePct(Number(r.business_share_pct))} %</span>
+                        {isPartialShare(r.business_share_pct) || Number(r.other_share_pct) ? (
+                          <span className="block text-xs text-ink/55">
+                            {r.activity === "agriculture" ? "Maatalouden" : "Metsätalouden"} osuus {formatSharePct(Number(r.business_share_pct))} %
+                            {Number(r.other_share_pct) ? `, toisen toiminnon ${formatSharePct(Number(r.other_share_pct))} %` : ""}
+                          </span>
                         ) : null}
                       </Td>
                       <Td numeric className="font-semibold">
@@ -236,6 +263,8 @@ export default async function LedgerPage({
                   defaultDate={defaultDate}
                   submitLabel="Lisää kirjaus"
                   vatRegistered={c.vat_registered}
+                  hasForestry={c.has_forestry}
+                  hasAgriculture={c.has_agriculture}
                   compact
                 />
               </Panel>

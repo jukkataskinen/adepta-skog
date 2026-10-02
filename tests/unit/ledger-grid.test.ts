@@ -311,7 +311,7 @@ describe("metsätalouden osuus taulukossa", () => {
 
   it("tarkistus: kelvoton osuus on rivin virhe, investoinnin 600 euron raja koskee osuutta", () => {
     const bad = validateGridRow(row({ category: "travel", amountGross: "10", businessSharePct: "0" }), opts);
-    expect(!bad.ok && bad.errors.businessSharePct).toMatch(/metsätalouden osuus/);
+    expect(!bad.ok && bad.errors.businessSharePct).toMatch(/osuus prosentteina/);
     const small = validateGridRow(row({ category: "asset_purchase", amountGross: "1 255,00", businessSharePct: "50", assetRatePct: "25" }), opts);
     expect(!small.ok && small.errors.category).toMatch(/600/);
     const big = validateGridRow(row({ category: "asset_purchase", amountGross: "1 255,00", assetRatePct: "25" }), opts);

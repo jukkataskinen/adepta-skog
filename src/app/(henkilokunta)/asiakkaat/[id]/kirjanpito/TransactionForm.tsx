@@ -1,5 +1,5 @@
 import { Button, Field, Input, Select } from "@/components/ui";
-import { ASSET_CLASSES, FORESTRY_CATEGORIES as CATEGORIES } from "@/lib/tax/rules";
+import { ACTIVITY_LABEL, agriAssetChoices, ASSET_CLASSES, categoriesFor, isAssetPurchase, isAssetSale } from "@/lib/tax/rules";
 import type { AssetOption, PropertyOption, TransactionRow } from "@/lib/ledger/queries";
 import { isPartialShare } from "@/lib/tax/share";
 import { DeliveryWorkCalculator } from "./DeliveryWorkCalculator";
@@ -20,6 +20,8 @@ export function TransactionForm({
   submitLabel,
   compact,
   vatRegistered,
+  hasForestry = true,
+  hasAgriculture = false,
 }: {
   action: (formData: FormData) => Promise<void>;
   clientId: string;
@@ -31,9 +33,17 @@ export function TransactionForm({
   compact?: boolean;
   /** Oletusverokanta riippuu asiakkaan arvonlisäverorekisteröinnistä (rules.ts, defaultVatRate). */
   vatRegistered: boolean;
+  /** Asiakkaan toiminnot (0015): maatalouden luokat näkyvät vain maatalousasiakkaalle. */
+  hasForestry?: boolean;
+  hasAgriculture?: boolean;
 }) {
   const saleOptions = assets.filter((a) => !a.disposed_on || a.id === transaction?.asset_id);
   const partial = transaction ? isPartialShare(transaction.business_share_pct) : false;
+  const other = transaction && Number(transaction.other_share_pct) ? fi(transaction.other_share_pct) : "";
+  const both = hasForestry && hasAgriculture;
+  const categories = categoriesFor({ hasForestry, hasAgriculture });
+  const groups = [...new Set(categories.map((c) => c.group))];
+  const year = Number((transaction?.booked_on ?? defaultDate).slice(0, 4));
   return (
     <form action={action} className="grid gap-4">
       <input type="hidden" name="clientId" value={clientId} />
@@ -47,9 +57,9 @@ export function TransactionForm({
             <option value="" disabled>
               Valitse
             </option>
-            {[...new Set(CATEGORIES.map((c) => c.group))].map((g) => (
-              <optgroup key={g} label={g}>
-                {CATEGORIES.filter((c) => c.group === g).map((c) => (
+            {groups.map((g) => (
+              <optgroup key={g} label={both && !g.startsWith(ACTIVITY_LABEL.agriculture) ? `${ACTIVITY_LABEL.forestry}: ${g}` : g}>
+                {categories.filter((c) => c.group === g).map((c) => (
                   <option key={c.code} value={c.code}>
                     {c.label}
                   </option>
@@ -88,10 +98,13 @@ export function TransactionForm({
           </Field>
         ) : null}
       </div>
-      <details className="rounded-xl border border-line bg-cloud/40 px-4 py-3 text-sm" open={partial}>
-        <summary className="cursor-pointer font-semibold">Lisätiedot: vain osa kuuluu metsätaloudelle{partial ? ` (${fi(transaction?.business_share_pct)} %)` : ""}</summary>
-        <div className="mt-3 grid gap-4 sm:grid-cols-[10rem_minmax(0,1fr)]">
-          <Field label="Metsätalouden osuus %" htmlFor="businessSharePct" hint="Tyhjä = 100 %.">
+      <details className="rounded-xl border border-line bg-cloud/40 px-4 py-3 text-sm" open={partial || Boolean(other)}>
+        <summary className="cursor-pointer font-semibold">
+          Lisätiedot: vain osa kuuluu {hasAgriculture ? "tälle toiminnolle" : "metsätaloudelle"}
+          {partial ? ` (${fi(transaction?.business_share_pct)} %)` : ""}
+        </summary>
+        <div className={`mt-3 grid gap-4 ${both ? "sm:grid-cols-[10rem_10rem_minmax(0,1fr)]" : "sm:grid-cols-[10rem_minmax(0,1fr)]"}`}>
+          <Field label={hasAgriculture ? "Oman toiminnon osuus %" : "Metsätalouden osuus %"} htmlFor="businessSharePct" hint="Tyhjä = 100 %.">
             <Input
               id="businessSharePct"
               name="businessSharePct"
@@ -101,9 +114,17 @@ export function TransactionForm({
               className="text-right"
             />
           </Field>
+          {both ? (
+            <Field label="Toisen toiminnon osuus %" htmlFor="otherSharePct" hint="Vain menot. Tyhjä = 0 %.">
+              <Input id="otherSharePct" name="otherSharePct" inputMode="decimal" defaultValue={other} placeholder="0" className="text-right" />
+            </Field>
+          ) : null}
           <p className="self-center text-ink/70">
             Kirjoita summa koko kuitin mukaan. Jos esimerkiksi tiemaksusta vain puolet kuuluu metsätaloudelle, kirjoita 50. Silloin tuloihin, menoihin ja
             vähennettävään arvonlisäveroon tulee vain puolet. Myynnin arvonlisävero on aina koko myynnistä.
+            {both
+              ? " Jos menosta osa kuuluu toiselle toiminnolle (esimerkiksi sähkölaskusta 20 % metsätaloudelle), kirjoita se toisen toiminnon osuuteen. Loppu on yksityistä."
+              : ""}
           </p>
         </div>
       </details>
@@ -111,26 +132,40 @@ export function TransactionForm({
       <details className="rounded-xl border border-line bg-cloud/40 px-4 py-3 text-sm" open={Boolean(transaction?.asset_id)}>
         <summary className="cursor-pointer font-semibold">Investointi (hankinta tai myynti)</summary>
         <div className="mt-3 grid gap-4 sm:grid-cols-2">
-          {transaction?.asset_id && transaction.category === "asset_purchase" ? (
+          {transaction?.asset_id && isAssetPurchase(transaction.category) ? (
             <p className="text-ink/70 sm:col-span-2">Kirjaus on investoinnin {transaction.asset_description} hankinta. Summan ja päivän muutos päivittää investoinnin.</p>
           ) : (
             <>
-              <Field label="Hyödykkeen laji (hankinta)" htmlFor="assetRatePct" hint="Poisto enintään lajin prosentti joka vuosi.">
-                <Select id="assetRatePct" name="assetRatePct" defaultValue="">
-                  <option value="">Ei valittu</option>
-                  {ASSET_CLASSES.map((c) => (
-                    <option key={c.pct} value={c.pct}>
-                      {c.label} {c.pct} %
-                    </option>
-                  ))}
-                </Select>
-              </Field>
+              {hasForestry ? (
+                <Field label="Hyödykkeen laji (metsätalouden hankinta)" htmlFor="assetRatePct" hint="Poisto enintään lajin prosentti joka vuosi.">
+                  <Select id="assetRatePct" name="assetRatePct" defaultValue="">
+                    <option value="">Ei valittu</option>
+                    {ASSET_CLASSES.map((c) => (
+                      <option key={c.pct} value={c.pct}>
+                        {c.label} {c.pct} %
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              ) : null}
+              {hasAgriculture ? (
+                <Field label="Poistoryhmä (maatalouden investointi)" htmlFor="agriAssetChoice" hint="Lomakkeen 2 poistoryhmä. Uuden koneen korotettu poisto vain vuoteen 2025.">
+                  <Select id="agriAssetChoice" name="agriAssetChoice" defaultValue="">
+                    <option value="">Ei valittu</option>
+                    {agriAssetChoices(year).map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              ) : null}
               <Field label="Myytävä investointi (myynti)" htmlFor="saleAssetId">
-                <Select id="saleAssetId" name="saleAssetId" defaultValue={transaction?.category === "asset_sale" ? (transaction.asset_id ?? "") : ""}>
+                <Select id="saleAssetId" name="saleAssetId" defaultValue={transaction && isAssetSale(transaction.category) ? (transaction.asset_id ?? "") : ""}>
                   <option value="">Ei valittu</option>
                   {saleOptions.map((a) => (
                     <option key={a.id} value={a.id}>
-                      {a.description} ({a.acquired_on.slice(0, 4)})
+                      {a.description} ({a.acquired_on.slice(0, 4)}){both ? `, ${ACTIVITY_LABEL[a.activity].toLowerCase()}` : ""}
                     </option>
                   ))}
                 </Select>

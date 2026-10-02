@@ -56,10 +56,32 @@ export default async function TransactionPage({
       <Panel className="max-w-4xl">
         {closed ? (
           <fieldset disabled className="opacity-70">
-            <TransactionForm action={saveTransactionAction} clientId={id} transaction={{ ...t, document_count: 0 }} assets={data.assets} properties={data.properties} defaultDate={t.booked_on} submitLabel="Tallenna" vatRegistered={data.client.vat_registered} />
+            <TransactionForm
+              action={saveTransactionAction}
+              clientId={id}
+              transaction={{ ...t, document_count: 0 }}
+              assets={data.assets}
+              properties={data.properties}
+              defaultDate={t.booked_on}
+              submitLabel="Tallenna"
+              vatRegistered={data.client.vat_registered}
+              hasForestry={data.client.has_forestry}
+              hasAgriculture={data.client.has_agriculture}
+            />
           </fieldset>
         ) : (
-          <TransactionForm action={saveTransactionAction} clientId={id} transaction={{ ...t, document_count: 0 }} assets={data.assets} properties={data.properties} defaultDate={t.booked_on} submitLabel="Tallenna" vatRegistered={data.client.vat_registered} />
+          <TransactionForm
+            action={saveTransactionAction}
+            clientId={id}
+            transaction={{ ...t, document_count: 0 }}
+            assets={data.assets}
+            properties={data.properties}
+            defaultDate={t.booked_on}
+            submitLabel="Tallenna"
+            vatRegistered={data.client.vat_registered}
+            hasForestry={data.client.has_forestry}
+            hasAgriculture={data.client.has_agriculture}
+          />
         )}
       </Panel>
 

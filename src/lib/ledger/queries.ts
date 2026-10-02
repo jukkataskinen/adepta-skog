@@ -1,5 +1,5 @@
 import type { Sql } from "@/lib/db/types";
-import type { TransactionKind } from "@/lib/tax/rules";
+import type { Activity, TransactionKind } from "@/lib/tax/rules";
 
 /** Kirjanpidon kyselyt. Aina käyttäjän RLS-transaktiossa (ctx.run). */
 
@@ -13,8 +13,11 @@ export interface TransactionRow {
   amount_gross: string;
   vat_rate: string;
   withholding: string;
-  /** Metsätalouden osuus prosentteina (0013). Summat ovat koko tositteen. */
+  /** Oman toiminnon osuus prosentteina (0013). Summat ovat koko tositteen. */
   business_share_pct: string;
+  /** Toisen toiminnon osuus prosentteina (0015). */
+  other_share_pct: string;
+  activity: Activity;
   reference: string | null;
   asset_id: string | null;
   asset_description: string | null;
@@ -29,7 +32,7 @@ export interface TransactionRow {
 export async function listTransactions(tx: Sql, clientId: string, year: number): Promise<TransactionRow[]> {
   return tx.query<TransactionRow>(
     `select t.id, t.booked_on::text, t.kind, t.category, t.description, t.amount_net, t.amount_gross, t.vat_rate, t.withholding, t.business_share_pct,
-            t.reference, t.asset_id, t.forest_property_id,
+            t.other_share_pct, t.activity, t.reference, t.asset_id, t.forest_property_id,
             a.description as asset_description, t.source_document_id, t.source_pages::text as source_pages,
             (select count(*)::int from sk_documents d where d.transaction_id = t.id) as document_count
        from sk_transactions t left join sk_assets a on a.id = t.asset_id
@@ -46,7 +49,7 @@ export async function getTransaction(
 ): Promise<(TransactionRow & { tax_year: number; source_file_name: string | null }) | null> {
   const [row] = await tx.query<TransactionRow & { tax_year: number; source_file_name: string | null }>(
     `select t.id, t.booked_on::text, t.tax_year, t.kind, t.category, t.description, t.amount_net, t.amount_gross, t.vat_rate, t.withholding, t.business_share_pct,
-            t.reference, t.asset_id, t.forest_property_id,
+            t.other_share_pct, t.activity, t.reference, t.asset_id, t.forest_property_id,
             a.description as asset_description, 0 as document_count, t.source_document_id, t.source_pages::text as source_pages, sd.file_name as source_file_name
        from sk_transactions t left join sk_assets a on a.id = t.asset_id
        left join sk_documents sd on sd.id = t.source_document_id
@@ -90,6 +93,8 @@ export interface AssetOption {
   description: string;
   acquired_on: string;
   disposed_on: string | null;
+  /** Myynnin luokka valitaan toiminnon mukaan (metsän tai maatalouden käyttöomaisuuden myynti). */
+  activity: Activity;
 }
 
 export interface PropertyOption {
@@ -103,7 +108,7 @@ export async function listPropertyOptions(tx: Sql, clientId: string): Promise<Pr
 
 export async function listAssets(tx: Sql, clientId: string): Promise<AssetOption[]> {
   return tx.query<AssetOption>(
-    "select id, description, acquired_on::text, disposed_on::text from sk_assets where client_id = $1 order by acquired_on desc",
+    "select id, description, acquired_on::text, disposed_on::text, activity from sk_assets where client_id = $1 order by acquired_on desc",
     [clientId],
   );
 }

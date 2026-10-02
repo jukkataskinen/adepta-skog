@@ -43,6 +43,10 @@ const clientSchema = z.object({
   taxAccountReference: optionalText(40),
   vatRegistered: z.preprocess((v) => v === "on", z.boolean()),
   vatNumber: optionalText(20),
+  // Toiminnot (0015). Lomake lähettää piilokentän, jotta vanha lomake ilman kenttiä ei muuta niitä.
+  activitiesSent: z.preprocess((v) => v === "1", z.boolean()),
+  hasForestry: z.preprocess((v) => v === "on", z.boolean()),
+  hasAgriculture: z.preprocess((v) => v === "on", z.boolean()),
   responsibleUserId: z.preprocess(emptyToNull, uuid.nullable()),
 });
 
@@ -55,8 +59,11 @@ function clientValues(input: z.infer<typeof clientSchema>, backTo: string) {
   // ALV-numero kirjoitetaan usein välilyönneillä tai pienillä kirjaimilla, joten se yhtenäistetään.
   const vatNumber = input.vatNumber ? input.vatNumber.replace(/[\s-]/g, "").toUpperCase() : null;
   if (vatNumber && !/^[A-Z]{2}[0-9A-Z]{2,13}$/.test(vatNumber)) fail(backTo, "ALV-numero on muotoa FI12345678.");
+  // Ilman kumpaakaan toimintoa asiakas on metsäasiakas kuten ennen.
+  const hasForestry = input.activitiesSent ? input.hasForestry || !input.hasAgriculture : true;
+  const hasAgriculture = input.activitiesSent ? input.hasAgriculture : false;
   return [input.firstName, input.lastName, businessId, input.municipality, input.email, input.phone, input.street, input.postalCode, input.city,
-    input.taxAccountReference, input.vatRegistered, vatNumber];
+    input.taxAccountReference, input.vatRegistered, vatNumber, hasForestry, hasAgriculture];
 }
 
 export async function createClientAction(formData: FormData) {
@@ -70,8 +77,8 @@ export async function createClientAction(formData: FormData) {
     id = await ctx.run(async (tx) => {
       const [row] = await tx.query<{ id: string }>(
         `insert into sk_clients (organization_id, first_name, last_name, business_id, municipality, email, phone, street, postal_code, city,
-                                 tax_account_reference, vat_registered, vat_number, responsible_user_id)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning id`,
+                                 tax_account_reference, vat_registered, vat_number, has_forestry, has_agriculture, responsible_user_id)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) returning id`,
         [ctx.org.organizationId, ...clientValues(input, back), responsible],
       );
       // Uudelle asiakkaalle avataan heti kuluva verovuosi.
@@ -96,7 +103,7 @@ export async function updateClientAction(formData: FormData) {
   const updated = await ctx.run(async (tx) => {
     const rows = await tx.query(
       `update sk_clients set first_name = $3, last_name = $4, business_id = $5, municipality = $6, email = $7, phone = $8, street = $9,
-              postal_code = $10, city = $11, tax_account_reference = $12, vat_registered = $13, vat_number = $14
+              postal_code = $10, city = $11, tax_account_reference = $12, vat_registered = $13, vat_number = $14, has_forestry = $15, has_agriculture = $16
         where id = $1 and organization_id = $2 returning id`,
       [clientId, ctx.org.organizationId, ...clientValues(input, back)],
     );

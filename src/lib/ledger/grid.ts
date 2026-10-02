@@ -1,17 +1,38 @@
-import { FORESTRY_CATEGORIES, category, categoryByNo, defaultVatRate, SMALL_ASSET_LIMIT, TIMBER_SALE_CODES, type TransactionKind } from "@/lib/tax/rules";
+import {
+  ACTIVITY_LABEL,
+  agriAssetChoices,
+  allowsOtherShare,
+  ASSET_CLASS_PCTS,
+  categoriesFor,
+  category,
+  categoryByNo,
+  defaultVatRate,
+  FORESTRY_CATEGORIES,
+  isAssetPurchase,
+  isAssetSale,
+  parseAgriAssetChoice,
+  smallAssetLimit,
+  TIMBER_SALE_CODES,
+  type Activity,
+  type Category,
+  type ClientActivities,
+  type TransactionKind,
+} from "@/lib/tax/rules";
 import { netFromGross, percentOf } from "@/lib/tax/amounts";
-import { forestryShare, formatSharePct, type ShareAmounts } from "@/lib/tax/share";
+import { formatSharePct, ownShare, type ShareAmounts } from "@/lib/tax/share";
 import type { PendingSuggestion } from "@/lib/documents/receipt-suggestions";
 import { isCompilation, parsePagesColumn, type DocumentType } from "@/lib/ai/receipts/schema";
 import { duplicateWarnings, type ExistingEntry } from "@/lib/ai/receipts/duplicates";
 import {
+  AGRI_ASSET_CLASS_MESSAGE,
   ASSET_CLASS_MESSAGE,
   effectiveKind,
+  OTHER_SHARE_MESSAGE,
   normalizeDate,
   parseAmount,
   resolveCategory,
   SALE_ASSET_MESSAGE,
-  SMALL_ASSET_MESSAGE,
+  smallAssetMessage,
   toFinnishDate,
   transactionFieldsSchema,
 } from "@/lib/ledger/transaction-input";
@@ -38,15 +59,20 @@ export interface GridRow {
   /** Summa arvonlisäveron kanssa, kuten kuitissa. */
   amountGross: string;
   vatRate: string;
-  /** Metsätalouden osuus prosentteina. Tyhjä = 100 %. */
+  /** Oman toiminnon osuus prosentteina. Tyhjä = 100 %. */
   businessSharePct: string;
+  /** Toisen toiminnon osuus prosentteina (metsä ↔ maatalous, vain menot). Tyhjä = 0 %. */
+  otherSharePct?: string;
   withholding: string;
   forestPropertyId: string;
   /** Tyhjä = luokan tyyppi. */
   kind: TransactionKind | "";
   /** Viite säilyy muokatessa, vaikka taulukossa ei ole sille saraketta. */
   reference: string;
-  /** Uusi hankinta: hyödykelaji (menojäännöspoiston prosentti). */
+  /**
+   * Uusi hankinta: hyödykelaji. Metsätaloudessa menojäännöspoiston prosentti
+   * ("25"), maataloudessa poistoryhmän tunnus ("agri_machinery", rules.ts agriAssetChoices).
+   */
   assetRatePct: string;
   /** Myynti: myytävä investointi. */
   saleAssetId: string;
@@ -87,7 +113,7 @@ export interface SuggestionInfo {
   duplicateWarning?: string | null;
 }
 
-export type GridField = "bookedOn" | "description" | "category" | "amountGross" | "vatRate" | "businessSharePct" | "forestPropertyId" | "kind";
+export type GridField = "bookedOn" | "description" | "category" | "amountGross" | "vatRate" | "businessSharePct" | "otherSharePct" | "forestPropertyId" | "kind";
 export type RowErrorField = GridField | "withholding" | "asset";
 export type RowErrors = Partial<Record<RowErrorField, string>>;
 
@@ -95,20 +121,20 @@ export type RowErrors = Partial<Record<RowErrorField, string>>;
  * Näppäimillä kuljettavat sarakkeet vanhan sovelluksen järjestyksessä. Metsätila vain, jos asiakkaalla on tiloja.
  * Osuus on alv %:n jälkeen, mutta Enter ohittaa sen (ENTER_SKIPS), jotta tavallinen syöttö ei hidastu.
  */
-export function gridColumns(hasProperties: boolean): GridField[] {
-  return hasProperties
-    ? ["bookedOn", "description", "category", "amountGross", "vatRate", "businessSharePct", "forestPropertyId", "kind"]
-    : ["bookedOn", "description", "category", "amountGross", "vatRate", "businessSharePct", "kind"];
+export function gridColumns(hasProperties: boolean, hasOtherShare = false): GridField[] {
+  // Toisen toiminnon osuus vain asiakkaalle, jolla on sekä metsä- että maataloutta.
+  const shares: GridField[] = hasOtherShare ? ["businessSharePct", "otherSharePct"] : ["businessSharePct"];
+  return ["bookedOn", "description", "category", "amountGross", "vatRate", ...shares, ...(hasProperties ? (["forestPropertyId"] as GridField[]) : []), "kind"];
 }
 
-/** Sarakkeet, jotka Enter ohittaa. Tab ja klikkaus vievät niihin. Osuus on harvoin muu kuin 100 %. */
-export const ENTER_SKIPS: GridField[] = ["businessSharePct"];
+/** Sarakkeet, jotka Enter ohittaa. Tab ja klikkaus vievät niihin. Osuudet ovat harvoin muita kuin 100 % ja 0 %. */
+export const ENTER_SKIPS: GridField[] = ["businessSharePct", "otherSharePct"];
 
 export const MAX_GRID_ROWS = 2000;
 
 export function emptyGridRow(key: string, bookedOn = ""): GridRow {
   return {
-    key, id: null, bookedOn, description: "", category: "", amountGross: "", vatRate: "", businessSharePct: "", withholding: "", forestPropertyId: "", kind: "",
+    key, id: null, bookedOn, description: "", category: "", amountGross: "", vatRate: "", businessSharePct: "", otherSharePct: "", withholding: "", forestPropertyId: "", kind: "",
     reference: "", assetRatePct: "", saleAssetId: "",
   };
 }
@@ -131,6 +157,8 @@ export interface StoredTransaction {
   withholding: string;
   /** Puuttuu vanhoista testiriveistä: silloin 100 %. */
   business_share_pct?: string | null;
+  /** Toisen toiminnon osuus (0015). Puuttuva = 0. */
+  other_share_pct?: string | null;
   reference: string | null;
   asset_id: string | null;
   asset_description?: string | null;
@@ -154,12 +182,13 @@ export function rowFromStored(t: StoredTransaction): GridRow {
     vatRate: numberInput(t.vat_rate),
     // 100 % näkyy tyhjänä, jotta poikkeava osuus erottuu.
     businessSharePct: t.business_share_pct === null || t.business_share_pct === undefined || Number(t.business_share_pct) === 100 ? "" : formatSharePct(Number(t.business_share_pct)),
+    otherSharePct: t.other_share_pct && Number(t.other_share_pct) ? formatSharePct(Number(t.other_share_pct)) : "",
     withholding: withholding ? formatAmountInput(withholding) : "",
     forestPropertyId: t.forest_property_id ?? "",
     kind: t.kind,
     reference: t.reference ?? "",
     assetRatePct: "",
-    saleAssetId: t.category === "asset_sale" ? (t.asset_id ?? "") : "",
+    saleAssetId: isAssetSale(t.category) ? (t.asset_id ?? "") : "",
     assetId: t.asset_id,
     assetDescription: t.asset_description ?? null,
     documentCount: t.document_count ?? 0,
@@ -245,7 +274,7 @@ export function suggestionDateWarning(r: GridRow, year: number, initialBookedOn?
 export function isBlankGridRow(r: GridRow): boolean {
   return (
     r.id === null &&
-    [r.description, r.category, r.amountGross, r.vatRate, r.businessSharePct, r.withholding, r.forestPropertyId, r.reference, r.assetRatePct, r.saleAssetId].every(
+    [r.description, r.category, r.amountGross, r.vatRate, r.businessSharePct, r.otherSharePct, r.withholding, r.forestPropertyId, r.reference, r.assetRatePct, r.saleAssetId].every(
       (v) => !String(v ?? "").trim(),
     )
   );
@@ -279,13 +308,37 @@ export function rowSharePct(r: GridRow): number | null {
   return Number.isFinite(v) && v > 0 && v <= 100 ? v : null;
 }
 
-/** Rivin metsätalouden osuus summista näytettäväksi. null, jos summaa, kantaa tai osuutta ei voi vielä laskea. */
+/** Rivin toisen toiminnon osuus: tyhjä = 0, kelvoton = null. */
+export function rowOtherSharePct(r: GridRow): number | null {
+  const v = parseAmount(r.otherSharePct ?? "");
+  if (v === null) return 0;
+  return Number.isFinite(v) && v >= 0 && v < 100 ? v : null;
+}
+
+/** Rivin osuudet summista näytettäväksi. null, jos summaa, kantaa tai osuutta ei voi vielä laskea. */
 export function rowShare(r: GridRow, year: number, client: { vatRegistered: boolean }): ShareAmounts | null {
   const gross = parseAmount(r.amountGross);
   const net = rowNet(r, year, client);
   const pct = rowSharePct(r);
-  if (gross === null || Number.isNaN(gross) || net === null || pct === null) return null;
-  return forestryShare({ kind: rowKind(r) ?? "expense", amountNet: net, amountGross: gross, businessSharePct: pct });
+  const other = rowOtherSharePct(r);
+  if (gross === null || Number.isNaN(gross) || net === null || pct === null || other === null) return null;
+  return ownShare({ kind: rowKind(r) ?? "expense", amountNet: net, amountGross: gross, businessSharePct: pct, otherSharePct: allowsOtherShare(r.category) ? other : 0 });
+}
+
+/**
+ * Rivin osuuksien selitys rivin alle, esimerkiksi "Maataloudelle 878,50 €,
+ * metsätaloudelle 251,00 €, yksityiseen 125,50 €." Pelkällä metsäasiakkaalla
+ * teksti on kuten ennen: "Metsätaloudelle X, muulle Y".
+ */
+export function shareNote(r: GridRow, share: ShareAmounts, fmt: (n: number) => string): string {
+  const own = category(r.category)?.activity ?? "forestry";
+  const other: Activity = own === "forestry" ? "agriculture" : "forestry";
+  const to = (a: Activity) => (a === "forestry" ? "metsätaloudelle" : "maataloudelle");
+  const first = to(own);
+  const parts = [`${first[0].toUpperCase()}${first.slice(1)} ${fmt(share.gross)}`];
+  if (share.crossPct) parts.push(`${to(other)} ${fmt(share.crossGross)}`);
+  if (share.privateGross) parts.push(share.crossPct || own === "agriculture" ? `yksityiseen ${fmt(share.privateGross)}` : `muulle ${fmt(share.privateGross)}`);
+  return `${parts.join(", ")}.${share.nonDeductibleVat ? ` Alv:sta ${fmt(share.nonDeductibleVat)} ei vähennetä.` : ""}`;
 }
 
 export function rowKind(r: GridRow): TransactionKind | null {
@@ -296,7 +349,7 @@ export function rowKind(r: GridRow): TransactionKind | null {
 /** Tyyppi voidaan kääntää tulosta menoksi ja takaisin, paitsi investoinneissa. */
 export function toggleKind(r: GridRow): GridRow {
   const current = rowKind(r);
-  if (!current || current === "investment" || r.category === "asset_sale" || r.category === "asset_purchase") return r;
+  if (!current || current === "investment" || isAssetSale(r.category) || isAssetPurchase(r.category)) return r;
   return { ...r, kind: current === "income" ? "expense" : "income" };
 }
 
@@ -313,8 +366,11 @@ export function selectCategory(r: GridRow, code: string, year: number, client: {
     category: cat.code,
     kind: cat.kind,
     vatRate: numberInput(defaultVatRate(cat.code, date, client)),
-    assetRatePct: cat.code === "asset_purchase" ? r.assetRatePct : "",
-    saleAssetId: cat.code === "asset_sale" ? r.saleAssetId : "",
+    // Laji ja myytävä kohde säilyvät vain saman luokan sisällä: metsän ja maatalouden lajit ovat eri.
+    assetRatePct: isAssetPurchase(cat.code) && cat.code === r.category ? r.assetRatePct : "",
+    saleAssetId: isAssetSale(cat.code) && cat.code === r.category ? r.saleAssetId : "",
+    // Toisen toiminnon osuus vain menoille, joille se sallitaan.
+    otherSharePct: allowsOtherShare(cat.code) ? (r.otherSharePct ?? "") : "",
   };
 }
 
@@ -470,11 +526,30 @@ export function categoryDigit(buffer: string, digit: string, numbers: number[] =
   return { buffer: "", select: null, highlight: null };
 }
 
-/** Valikon rivit järjestyksessä: sama järjestys kuin CATEGORIES (ryhmittäin). */
+/** Pelkän metsäasiakkaan valikon rivit järjestyksessä. Asiakkaan valikko: menuCategories. */
 export const MENU_CATEGORIES = FORESTRY_CATEGORIES;
 
-export function menuIndexOfNo(no: number): number {
-  return MENU_CATEGORIES.findIndex((c) => c.no === no);
+/**
+ * Asiakkaan valikon luokat: pelkkä metsäasiakas näkee metsätalouden luokat
+ * kuten ennen, maatalousasiakas myös maatalouden luokat. Järjestys on
+ * CATEGORIES-listan järjestys (ensin metsä, sitten maatalous ryhmittäin).
+ */
+export function menuCategories(c: ClientActivities): Category[] {
+  return categoriesFor(c);
+}
+
+/** Valikon ryhmän otsikko: kun molemmat toiminnot ovat käytössä, metsän ryhmissä näkyy toiminto. */
+export function menuGroupLabel(c: Category, both: boolean): string {
+  return both && c.activity === "forestry" ? `${ACTIVITY_LABEL.forestry}: ${c.group}` : c.group;
+}
+
+export function menuIndexOfNo(no: number, menu: Category[] = MENU_CATEGORIES): number {
+  return menu.findIndex((c) => c.no === no);
+}
+
+/** Maatalouden investoinnin lajivalinnat (metsätalouden lajit ovat ASSET_CLASSES). */
+export function assetChoices(code: string, year: number): { id: string; label: string }[] {
+  return code === "agri_asset_purchase" ? agriAssetChoices(year) : [];
 }
 
 export { categoryByNo };
@@ -489,7 +564,14 @@ export interface GridValidateOptions {
   vatRegistered: boolean;
   /** Investoinnit, jotka rivi voi merkitä myydyiksi (myymättömät ja rivin oma). */
   saleableAssetIds: (row: GridRow) => string[];
+  /** Asiakkaan toiminnot. Puuttuva = vain metsätalous kuten ennen. */
+  activities?: Activity[];
+  /** Investoinnin toiminto: myynnin luokan on oltava saman toiminnon. Puuttuva = metsätalous. */
+  assetActivity?: (assetId: string) => Activity | null;
 }
+
+export const ACTIVITY_MESSAGE = "Asiakas ei harjoita maataloutta. Valitse metsätalouden luokka tai lisää maatalous asiakkaan tietoihin.";
+export const FORESTRY_OFF_MESSAGE = "Asiakas ei harjoita metsätaloutta. Valitse maatalouden luokka tai lisää metsätalous asiakkaan tietoihin.";
 
 export interface ValidGridRow {
   key: string;
@@ -502,9 +584,12 @@ export interface ValidGridRow {
   vatRate: number;
   withholding: number;
   businessSharePct: number;
+  otherSharePct: number;
   reference: string | null;
   forestPropertyId: string | null;
   assetRatePct: number | null;
+  /** Maatalouden investoinnin lajivalinta (rules.ts parseAgriAssetChoice). */
+  agriAssetChoice: string | null;
   saleAssetId: string | null;
 }
 
@@ -521,6 +606,7 @@ export function validateGridRow(r: GridRow, opts: GridValidateOptions): { ok: tr
     vatRate: r.vatRate,
     withholding: r.withholding,
     businessSharePct: r.businessSharePct ?? "",
+    otherSharePct: r.otherSharePct ?? "",
     reference: r.reference,
     forestPropertyId: r.forestPropertyId,
     kind: r.kind,
@@ -536,16 +622,23 @@ export function validateGridRow(r: GridRow, opts: GridValidateOptions): { ok: tr
 
   const v = parsed.data;
   const cat = category(v.category)!;
+  const activities = opts.activities ?? ["forestry"];
+  if (!activities.includes(cat.activity)) errors.category = cat.activity === "agriculture" ? ACTIVITY_MESSAGE : FORESTRY_OFF_MESSAGE;
   const vatRate = v.vatRate ?? defaultVatRate(cat.code, v.bookedOn, { vatRegistered: opts.vatRegistered });
   if (v.forestPropertyId && !opts.propertyIds.includes(v.forestPropertyId)) errors.forestPropertyId = "Valitse asiakkaan metsätila.";
-  const rate = r.assetRatePct ? Number(r.assetRatePct) : null;
-  if (cat.code === "asset_purchase" && !r.assetId) {
-    // Raja koskee metsätalouden osuutta, koska vain se on metsätalouden hankintamenoa (write.ts).
-    if (percentOf(netFromGross(v.amountGross!, vatRate), v.businessSharePct) <= SMALL_ASSET_LIMIT) errors.category = SMALL_ASSET_MESSAGE;
-    else if (!rate) errors.asset = ASSET_CLASS_MESSAGE;
+  if (v.otherSharePct && !allowsOtherShare(cat.code)) errors.otherSharePct = OTHER_SHARE_MESSAGE;
+  else if (v.otherSharePct && v.otherSharePct + v.businessSharePct > 100) errors.otherSharePct = "Osuudet ovat yhteensä yli 100 %.";
+  const rate = cat.code === "asset_purchase" && r.assetRatePct ? Number(r.assetRatePct) : null;
+  const agriChoice = cat.code === "agri_asset_purchase" && r.assetRatePct ? r.assetRatePct : null;
+  if (isAssetPurchase(cat.code) && !r.assetId) {
+    // Raja koskee toiminnon osuutta, koska vain se on toiminnon hankintamenoa (write.ts).
+    if (percentOf(netFromGross(v.amountGross!, vatRate), v.businessSharePct) <= smallAssetLimit(cat.activity)) errors.category = smallAssetMessage(cat.activity);
+    else if (cat.code === "asset_purchase" && (!rate || !ASSET_CLASS_PCTS.includes(rate))) errors.asset = ASSET_CLASS_MESSAGE;
+    else if (cat.code === "agri_asset_purchase" && (!agriChoice || !parseAgriAssetChoice(agriChoice, Number(v.bookedOn.slice(0, 4))))) errors.asset = AGRI_ASSET_CLASS_MESSAGE;
   }
-  if (cat.code === "asset_sale") {
+  if (isAssetSale(cat.code)) {
     if (r.saleAssetId && !opts.saleableAssetIds(r).includes(r.saleAssetId)) errors.asset = SALE_ASSET_MESSAGE;
+    else if (r.saleAssetId && (opts.assetActivity?.(r.saleAssetId) ?? "forestry") !== cat.activity) errors.asset = SALE_ASSET_MESSAGE;
     if (!r.saleAssetId && !r.id) errors.asset = SALE_ASSET_MESSAGE;
   }
   if (Object.keys(errors).length) return { ok: false, errors };
@@ -562,10 +655,12 @@ export function validateGridRow(r: GridRow, opts: GridValidateOptions): { ok: tr
       vatRate,
       withholding: v.withholding ?? 0,
       businessSharePct: v.businessSharePct,
+      otherSharePct: allowsOtherShare(cat.code) ? v.otherSharePct : 0,
       reference: v.reference,
       forestPropertyId: v.forestPropertyId,
       assetRatePct: cat.code === "asset_purchase" && !r.assetId ? rate : null,
-      saleAssetId: cat.code === "asset_sale" ? r.saleAssetId || null : null,
+      agriAssetChoice: cat.code === "agri_asset_purchase" && !r.assetId ? agriChoice : null,
+      saleAssetId: isAssetSale(cat.code) ? r.saleAssetId || null : null,
     },
   };
 }
@@ -592,11 +687,12 @@ function canonical(r: GridRow, year: number): string {
     num(r.vatRate),
     num(r.withholding) ?? 0,
     num(r.businessSharePct ?? "") ?? 100,
+    num(r.otherSharePct ?? "") ?? 0,
     r.forestPropertyId || null,
     rowKind(r),
     r.reference.trim() || null,
     r.assetRatePct || null,
-    r.category === "asset_sale" ? r.saleAssetId || null : null,
+    isAssetSale(r.category) ? r.saleAssetId || null : null,
   ]);
 }
 
@@ -640,16 +736,18 @@ export function changeCount(c: GridChanges): number {
 // Liittäminen Excelistä
 // ---------------------------------------------------------------------------
 
-export type PasteField = "bookedOn" | "description" | "category" | "amountGross" | "vatRate" | "withholding" | "forestPropertyId" | "reference" | "businessSharePct";
+export type PasteField =
+  | "bookedOn" | "description" | "category" | "amountGross" | "vatRate" | "withholding" | "forestPropertyId" | "reference" | "businessSharePct" | "otherSharePct";
 
 /**
  * Liitettävät sarakkeet järjestyksessä: taulukon järjestys, sitten ennakonpidätys, metsätila ja viite.
- * Metsätalouden osuus on valinnainen viimeinen sarake, jotta vanhat Excel-pohjat toimivat ennallaan.
+ * Osuus on valinnainen sarake viitteen jälkeen, jotta vanhat Excel-pohjat toimivat ennallaan, ja
+ * toisen toiminnon osuus on sen jälkeen viimeisenä.
  */
 export function pasteFields(hasProperties: boolean): PasteField[] {
   return hasProperties
-    ? ["bookedOn", "description", "category", "amountGross", "vatRate", "withholding", "forestPropertyId", "reference", "businessSharePct"]
-    : ["bookedOn", "description", "category", "amountGross", "vatRate", "withholding", "reference", "businessSharePct"];
+    ? ["bookedOn", "description", "category", "amountGross", "vatRate", "withholding", "forestPropertyId", "reference", "businessSharePct", "otherSharePct"]
+    : ["bookedOn", "description", "category", "amountGross", "vatRate", "withholding", "reference", "businessSharePct", "otherSharePct"];
 }
 
 /** Luokka nimestä, tunnuksesta tai vanhan sovelluksen numerosta. */

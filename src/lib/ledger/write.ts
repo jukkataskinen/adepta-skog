@@ -2,8 +2,8 @@ import type { Sql } from "@/lib/db/types";
 import { audit } from "@/lib/audit";
 import { netFromGross, percentOf } from "@/lib/tax/amounts";
 import { otherSharePct, sharePct } from "@/lib/tax/share";
-import { allowsOtherShare, ASSET_CLASS_PCTS, category, SMALL_ASSET_LIMIT, type TransactionKind } from "@/lib/tax/rules";
-import { ASSET_CLASS_MESSAGE, DEPRECIATED_MESSAGE, effectiveKind, SALE_ASSET_MESSAGE, SMALL_ASSET_MESSAGE } from "@/lib/ledger/transaction-input";
+import { allowsOtherShare, ASSET_CLASS_PCTS, category, isAssetPurchase, isAssetSale, parseAgriAssetChoice, smallAssetLimit, type TransactionKind } from "@/lib/tax/rules";
+import { AGRI_ASSET_CLASS_MESSAGE, ASSET_CLASS_MESSAGE, DEPRECIATED_MESSAGE, effectiveKind, SALE_ASSET_MESSAGE, smallAssetMessage } from "@/lib/ledger/transaction-input";
 
 /**
  * Kirjauksen tallennus ja poisto investointeineen. Lomake ja taulukko käyttävät
@@ -37,8 +37,10 @@ export interface TransactionWrite {
   /** undefined = muokatessa ennallaan (taulukossa ei ole viitesaraketta). */
   reference?: string | null;
   forestPropertyId: string | null;
-  /** Hankinta: hyödykelaji eli menojäännöspoiston prosentti. */
+  /** Metsätalouden hankinta: hyödykelaji eli menojäännöspoiston prosentti. */
   assetRatePct: number | null;
+  /** Maatalouden hankinta: poistoryhmän valinta (rules.ts agriAssetChoices). */
+  agriAssetChoice?: string | null;
   /** Myynti: myytävä investointi. */
   saleAssetId: string | null;
 }
@@ -74,8 +76,8 @@ async function restoreSoldAsset(tx: Sql, assetId: string) {
  * Investoinnit:
  * - Hankinta luo investoinnin verottomalla summalla, ja muutos päivittää sen.
  *   Jos vain osa kuuluu metsätaloudelle, hankintameno on metsätalouden osuus.
- * - Enintään 600 euron hankinta ohjataan vuosimenoksi (TVL 115 § 3 mom.).
- *   Rajaa verrataan metsätalouden osuuteen, koska vain se on metsätalouden hankintamenoa.
+ * - Enintään 600 euron hankinta ohjataan vuosimenoksi (TVL 115 § 3 mom.), maataloudessa 1 200 euron.
+ *   Rajaa verrataan toiminnon osuuteen, koska vain se on toiminnon hankintamenoa.
  * - Myynti merkitsee investoinnin myydyksi verottomalla hinnalla (metsätalouden osuus).
  * - Jos hankinnan luokka vaihtuu, investointi poistetaan samoin säännöin kuin
  *   hankinnan poistossa. Jos myynnin luokka tai kohde vaihtuu, entinen kohde palautetaan.
@@ -94,50 +96,61 @@ export async function saveTransaction(
   const share = sharePct(w.businessSharePct);
   // Toisen toiminnon osuus vain menoille, joille se sallitaan (rules.ts allowsOtherShare); muuten 0.
   const otherShare = allowsOtherShare(cat.code) ? Math.min(otherSharePct(w.otherSharePct), 100 - share) : 0;
-  // Investoinnin hankintameno ja myyntihinta ovat metsätalouden osuus verottomasta summasta (src/lib/tax/share.ts).
+  // Investoinnin hankintameno ja myyntihinta ovat toiminnon osuus verottomasta summasta (src/lib/tax/share.ts).
   const net = percentOf(netFromGross(w.amountGross, w.vatRate), share);
   const kind = effectiveKind(cat.code, w.kind ?? (prev && prev.category === cat.code ? prev.kind : null));
 
   let assetId = prev?.asset_id ?? null;
-  // Luokan vaihto pois investoinnista: entinen investointi pois tai takaisin käyttöön.
-  if (prev?.asset_id && prev.category === "asset_purchase" && cat.code !== "asset_purchase") {
+  // Luokan vaihto pois investoinnista (myös metsän ja maatalouden investoinnin välillä):
+  // entinen investointi pois tai takaisin käyttöön, koska laji ja poistotapa ovat eri.
+  if (prev?.asset_id && isAssetPurchase(prev.category) && cat.code !== prev.category) {
     await removeAsset(tx, actor, prev.asset_id);
     assetId = null;
   }
-  if (prev?.asset_id && prev.category === "asset_sale" && (cat.code !== "asset_sale" || (w.saleAssetId && w.saleAssetId !== prev.asset_id))) {
+  if (prev?.asset_id && isAssetSale(prev.category) && (cat.code !== prev.category || (w.saleAssetId && w.saleAssetId !== prev.asset_id))) {
     await restoreSoldAsset(tx, prev.asset_id);
     assetId = null;
   }
 
-  if (cat.code === "asset_purchase" && !assetId) {
-    if (net <= SMALL_ASSET_LIMIT) throw new LedgerError(SMALL_ASSET_MESSAGE);
-    if (!w.assetRatePct || !ASSET_CLASS_PCTS.includes(w.assetRatePct)) throw new LedgerError(ASSET_CLASS_MESSAGE);
+  if (isAssetPurchase(cat.code) && !assetId) {
+    if (net <= smallAssetLimit(cat.activity)) throw new LedgerError(smallAssetMessage(cat.activity));
+    let cols: { rate: number; assetClass: string | null; accelerated: boolean };
+    if (cat.activity === "agriculture") {
+      // Maatalouden investoinnilla on poistoryhmä, ja uuden koneen korotettu poisto valitaan vuoden mukaan.
+      const choice = w.agriAssetChoice ? parseAgriAssetChoice(w.agriAssetChoice, Number(w.bookedOn.slice(0, 4))) : null;
+      if (!choice) throw new LedgerError(AGRI_ASSET_CLASS_MESSAGE);
+      cols = { rate: choice.pct, assetClass: choice.assetClass, accelerated: choice.accelerated };
+    } else {
+      if (!w.assetRatePct || !ASSET_CLASS_PCTS.includes(w.assetRatePct)) throw new LedgerError(ASSET_CLASS_MESSAGE);
+      cols = { rate: w.assetRatePct, assetClass: null, accelerated: false };
+    }
     const [a] = await tx.query<{ id: string }>(
       `insert into sk_assets (organization_id, client_id, description, acquired_on, acquisition_cost, method, useful_life_years, declining_rate_pct,
-                              forest_property_id)
-       values ($1,$2,$3,$4,$5,'declining_balance',null,$6,$7) returning id`,
-      [actor.organizationId, clientId, w.description || cat.label, w.bookedOn, net, w.assetRatePct, w.forestPropertyId],
+                              forest_property_id, activity, asset_class, accelerated)
+       values ($1,$2,$3,$4,$5,'declining_balance',null,$6,$7,$8,$9,$10) returning id`,
+      [actor.organizationId, clientId, w.description || cat.label, w.bookedOn, net, cols.rate, w.forestPropertyId, cat.activity, cols.assetClass, cols.accelerated],
     );
     assetId = a.id;
     await audit(tx, { organizationId: actor.organizationId, userId: actor.userId, action: "asset.create", entity: "sk_assets", entityId: a.id });
-  } else if (cat.code === "asset_purchase" && assetId) {
+  } else if (isAssetPurchase(cat.code) && assetId) {
     // Hankinnan muutos päivittää investoinnin hinnan ja päivän. Hankintameno on veroton summa.
     await tx.query("update sk_assets set acquisition_cost = $2, acquired_on = $3, description = $4, forest_property_id = $5 where id = $1", [
       assetId, net, w.bookedOn, w.description || cat.label, w.forestPropertyId,
     ]);
   }
-  if (cat.code === "asset_sale") {
+  if (isAssetSale(cat.code)) {
     const saleAsset = w.saleAssetId ?? assetId;
     if (!saleAsset && !prev) throw new LedgerError(SALE_ASSET_MESSAGE);
     if (saleAsset) {
-      const rows = await tx.query("update sk_assets set disposed_on = $2, sale_price = $3 where id = $1 and client_id = $4 returning id", [
-        saleAsset, w.bookedOn, net, clientId,
+      // Myytävän investoinnin on oltava saman toiminnon: maatalouden myynti pienentää poistoryhmää.
+      const rows = await tx.query("update sk_assets set disposed_on = $2, sale_price = $3 where id = $1 and client_id = $4 and activity = $5 returning id", [
+        saleAsset, w.bookedOn, net, clientId, cat.activity,
       ]);
       if (!rows.length) throw new LedgerError(SALE_ASSET_MESSAGE);
     }
     assetId = saleAsset;
   }
-  if (cat.code !== "asset_purchase" && cat.code !== "asset_sale") assetId = null;
+  if (!isAssetPurchase(cat.code) && !isAssetSale(cat.code)) assetId = null;
 
   // Toiminto tulee luokasta, ja kanta tarkistaa saman säännön (0015).
   const values = [w.bookedOn, kind, cat.code, w.description, w.amountGross, w.vatRate, w.withholding, assetId, w.forestPropertyId, share, cat.activity, otherShare];
@@ -176,8 +189,8 @@ export async function deleteTransaction(tx: Sql, actor: Actor, clientId: string,
   );
   if (!t) throw new LedgerError("Kirjausta ei löytynyt.");
   await tx.query("delete from sk_transactions where id = $1", [id]);
-  if (t.asset_id && t.category === "asset_sale") await restoreSoldAsset(tx, t.asset_id);
-  else if (t.asset_id && t.category === "asset_purchase") await removeAsset(tx, actor, t.asset_id);
+  if (t.asset_id && isAssetSale(t.category)) await restoreSoldAsset(tx, t.asset_id);
+  else if (t.asset_id && isAssetPurchase(t.category)) await removeAsset(tx, actor, t.asset_id);
   await audit(tx, { organizationId: actor.organizationId, userId: actor.userId, action: "transaction.delete", entity: "sk_transactions", entityId: id, details });
   return Number(t.tax_year);
 }

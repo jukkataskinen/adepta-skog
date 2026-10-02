@@ -311,3 +311,15 @@
 **Tositteiden tunnistus ja vanhan sovelluksen tuonti käyttävät vain metsätalouden luokkia.** Tunnistuksen ohje on kirjoitettu metsätalouden tositteille, ja vanhassa Skogissa ei ole maataloutta. Maatalouden asiakirjalajit (meijeri, teurastamo, tukipäätös) ovat myöhemmin.
 
 **Maatalouden pienhankinta 1 200 € ja ryhmän pieni menojäännös.** Hankinta, jonka maatalouden osuus on enintään 1 200 €, kirjataan vuosimenona. Koneiden ryhmän menojäännöksen saa poistaa kerralla, jos se on enintään 1 200 €, ja rakennusryhmien, jos enintään 1 000 €. Raja verrataan ryhmän summaan, koska poisto valitaan ryhmälle.
+
+**Syöttö maatalousasiakkaalle (tehtävä 3).** Asiakkaan tiedoissa valitaan toiminnot (Harjoittaa metsätaloutta / maataloutta). Pelkkä metsäasiakas näkee taulukon, lomakkeen ja numerovalinnan kuten ennen: valikossa on vain luokat 1–12, ja numerot 3–9 valitaan heti. Maatalousasiakkaalla valikossa ovat myös luokat 21–59 omina ryhminään, ja metsän ryhmien otsikoissa näkyy "Metsätalous:". Silloin numero 2–5 odottaa toista numeroa (0,7 s) kuten 1 nyt.
+
+**Toinen %-sarake vain, kun asiakkaalla on molemmat toiminnot.** Sarake on Osuus %:n jälkeen, ja Enter ohittaa molemmat (ENTER_SKIPS), jotta tavallinen syöttö ei hidastu. 0 % näkyy tyhjänä. Rivin alle tulee "Maataloudelle X €, metsätaloudelle Y €, yksityiseen Z €". Excel-liitoksessa toisen toiminnon osuus on valinnainen viimeinen sarake osuuden jälkeen, jotta vanhat pohjat toimivat. Luokan voi liittää numerona 21–59 tai nimenä.
+
+**Luokan toiminto tarkistetaan asiakkaan toiminnoista palvelimella.** Taulukko ja lomake hylkäävät maatalouden luokan asiakkaalta, jolla maatalous ei ole valittuna (ja päinvastoin). Kanta varmistaa vain, että toiminto vastaa luokkaa; asiakasasetus on käyttöliittymän ja tallennuksen sääntö, koska asetuksen voi vaihtaa, eikä vanhoja rivejä haluta lukita.
+
+**Maatalouden investointi taulukossa.** Luokka 58 avaa saman ikkunan kuin metsän investointi, mutta vaihtoehdot ovat lomakkeen 2 poistoryhmät ja vuonna 2025 lisäksi "Uusi kone, korotettu poisto 50 %". Valinta tallentuu taulukon rivillä samaan kenttään kuin metsän prosentti (`assetRatePct`), jotta rivin rakenne ja tallennus pysyvät samoina; tallennus erottaa ne luokan perusteella. Myynti (59) tarjoaa vain maatalouden investoinnit, ja kanta päivittää vain saman toiminnon investoinnin.
+
+**Kirjanpidon kortit toiminnoittain.** Maatalousasiakkaalle kortit (tulot, menot, investoinnit, tulos ennen poistoja) näytetään erikseen metsälle ja maataloudelle kummankin osuuksilla. Pelkälle metsäasiakkaalle kortit ovat ennallaan.
+
+**Suodatin Kaikki / Metsä / Maatalous jätettiin pois MVP:stä.** Suodatus muokattavassa taulukossa vaikeuttaisi näppäinsiirtoja ja tallennusta (piilotetut rivit). Luokkaryhmät ja kortit erottavat toiminnot riittävästi; suodatin on PLANissa.

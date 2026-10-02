@@ -48,7 +48,7 @@ describe("yhteinen skeema", () => {
     expect(transactionFieldsSchema.parse({ ...base, businessSharePct: "100" }).businessSharePct).toBe(100);
     for (const bad of ["0", "-5", "100,01", "33,333", "puolet"]) {
       const r = transactionFieldsSchema.safeParse({ ...base, businessSharePct: bad });
-      expect(!r.success && r.error.issues[0].message).toMatch(/metsätalouden osuus/);
+      expect(!r.success && r.error.issues[0].message).toMatch(/osuus prosentteina/);
     }
   });
 

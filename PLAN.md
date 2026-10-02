@@ -120,7 +120,7 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 Suunnitelma: `docs/maatalous-suunnitelma-2026-10-02.md`. Verovuodet 2025 ja 2026, yksityinen maataloudenharjoittaja ja kuolinpesä.
 - [x] 1. Migraatio 0015: asiakkaan toiminnot, kirjauksen toiminto ja toisen toiminnon osuus, investoinnin toiminto ja poistoryhmä, maatilat, vuoden tiedot, ryhmäpoistot, investointituet, varaukset ja niiden käyttö, kotieläinten jaksotukset, harvinaiset kentät; RLS, triggerit, lukitus, testit (2.10.2026)
 - [x] 2. Säännöt ja luokat: maatalouden luokat (21–59) lomakkeen 2 kenttiin, alennettu alv aikasarjana (14 → 13,5 %), maatalouden poistoryhmät ja rajat, 2025:n korotettu poisto, toiminnon osuudet; metsätalouden laskelmiin vain metsätalouden osa (2.10.2026)
-- [ ] 3. Syöttö: taulukko, lomake ja Excel maatalouden luokilla ja toisen toiminnon osuudella, asiakkaan asetus
+- [x] 3. Syöttö: asiakkaan toiminnot (metsätalous, maatalous), taulukko, lomake ja Excel maatalouden luokilla, toisen toiminnon osuus, maatalouden investoinnin poistoryhmä ja myynti, kortit toiminnoittain; ohjeet (2.10.2026)
 - [ ] 4. Yhteinen arvonlisävero metsälle ja maataloudelle, erittely toiminnoittain
 - [ ] 5. Maatalouden investoinnit, aiemmat investoinnit ja ryhmäpoistot
 - [ ] 6. Maatalouden vuoden tiedot -sivu
@@ -131,6 +131,7 @@ Suunnitelma: `docs/maatalous-suunnitelma-2026-10-02.md`. Verovuodet 2025 ja 2026
 ### 9. Maatalous, myöhemmin
 - [ ] Tilituki-aineiston tuonti (muoto selvitettävä, Jukka toimittaa esimerkin; BLOCKERS 12)
 - [ ] Yhtymät: lomake 2Y (VSY02Y), osakkaat ja osuudet, verovelvollisen laji asiakkaalle
+- [ ] Taulukon suodatin Kaikki / Metsä / Maatalous ja kirjauksen maatila (`farm_id`)
 
 ### Myöhemmin
 - [x] Tositteiden tunnistus tekoälyllä: kokoomaskannaus osissa, ehdotukset taulukkoon, sivuviittaukset; ensimmäinen oikea koe onnistui 28.9.2026. Kuvaus puhelimella myöhemmin

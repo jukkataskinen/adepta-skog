@@ -1,4 +1,5 @@
 import type { Sql } from "@/lib/db/types";
+import { activitiesOf, isAssetPurchase, type Activity } from "@/lib/tax/rules";
 import { listPropertyOptions, listTransactions } from "@/lib/ledger/queries";
 import { DEPRECIATED_MESSAGE } from "@/lib/ledger/transaction-input";
 import { deleteTransaction, LedgerError, saveTransaction, type Actor } from "@/lib/ledger/write";
@@ -40,7 +41,10 @@ export async function saveLedgerGrid(
   const [y] = await tx.query<{ status: string }>("select status from sk_tax_years where client_id = $1 and year = $2", [clientId, year]);
   if (!y) throw new GridSaveError(`Verovuotta ${year} ei ole avattu. Avaa vuosi asiakkaan sivulla.`);
   if (y.status === "closed") throw new GridSaveError(`Verovuosi ${year} on suljettu. Pääkäyttäjä voi avata vuoden.`);
-  const [client] = await tx.query<{ vat_registered: boolean }>("select vat_registered from sk_clients where id = $1", [clientId]);
+  const [client] = await tx.query<{ vat_registered: boolean; has_forestry: boolean; has_agriculture: boolean }>(
+    "select vat_registered, has_forestry, has_agriculture from sk_clients where id = $1",
+    [clientId],
+  );
   if (!client) throw new GridSaveError("Asiakasta ei löytynyt.");
 
   // Vertailu tehdään kannan nykytilaa vasten, ei selaimen muistamaa alkuperäistä.
@@ -73,13 +77,19 @@ export async function saveLedgerGrid(
   }
 
   const properties = await listPropertyOptions(tx, clientId);
-  const assets = await tx.query<{ id: string; disposed_on: string | null }>("select id, disposed_on::text from sk_assets where client_id = $1", [clientId]);
+  const assets = await tx.query<{ id: string; disposed_on: string | null; activity: Activity }>(
+    "select id, disposed_on::text, activity from sk_assets where client_id = $1",
+    [clientId],
+  );
   const unsold = assets.filter((a) => !a.disposed_on).map((a) => a.id);
+  const assetActivity = new Map(assets.map((a) => [a.id, a.activity]));
   const opts = {
     year,
     propertyIds: properties.map((p) => p.id),
     vatRegistered: client.vat_registered,
     saleableAssetIds: (r: GridRow) => (r.assetId ? [...unsold, r.assetId] : unsold),
+    activities: activitiesOf({ hasForestry: client.has_forestry, hasAgriculture: client.has_agriculture }),
+    assetActivity: (id: string) => assetActivity.get(id) ?? null,
   };
 
   const rowErrors: Record<string, RowErrors> = {};
@@ -93,7 +103,7 @@ export async function saveLedgerGrid(
   if (errorCount) throw new GridSaveError(`${plural(errorCount)} Mitään ei tallennettu.`, rowErrors);
 
   // Poistettavan hankinnan investoinnista ei saa olla poistoja. Tarkistetaan ennen kirjoituksia, jotta viesti on selvä.
-  const deletedAssets = changes.deleted.map((id) => storedById.get(id)!).filter((t) => t.category === "asset_purchase" && t.asset_id);
+  const deletedAssets = changes.deleted.map((id) => storedById.get(id)!).filter((t) => isAssetPurchase(t.category) && t.asset_id);
   if (deletedAssets.length) {
     const dep = await tx.query<{ asset_id: string }>("select distinct asset_id from sk_depreciations where asset_id = any($1::uuid[])", [
       deletedAssets.map((t) => t.asset_id),
@@ -116,7 +126,8 @@ export async function saveLedgerGrid(
         v.id,
         {
           bookedOn: v.bookedOn, category: v.category, kind: v.kind, description: v.description, amountGross: v.amountGross, vatRate: v.vatRate,
-          withholding: v.withholding, businessSharePct: v.businessSharePct, reference: v.reference, forestPropertyId: v.forestPropertyId, assetRatePct: v.assetRatePct, saleAssetId: v.saleAssetId,
+          withholding: v.withholding, businessSharePct: v.businessSharePct, otherSharePct: v.otherSharePct, reference: v.reference, forestPropertyId: v.forestPropertyId,
+          assetRatePct: v.assetRatePct, agriAssetChoice: v.agriAssetChoice, saleAssetId: v.saleAssetId,
         },
         details,
       );

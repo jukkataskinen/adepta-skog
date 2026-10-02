@@ -79,6 +79,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         steps: [
           "Avaa Asiakkaat ja valitse Lisää asiakas.",
           "Kirjoita nimi ja muut tiedot.",
+          "Valitse toiminnot: metsätalous, maatalous tai molemmat. Jos asiakkaalla on maatila, rastita Harjoittaa maataloutta.",
           "Rastita Arvonlisäverorekisterissä, jos asiakas on rekisterissä. Kirjoita myös ALV-numero, jos se on tiedossa.",
           "Tallenna. Kuluva verovuosi avautuu asiakkaalle heti.",
         ],
@@ -269,16 +270,35 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        title: "Metsä ja maatalous samassa kirjanpidossa",
+        text: "Jos asiakas harjoittaa myös maataloutta, kirjaat metsän ja maatalouden samaan taulukkoon. Luokka kertoo, kumpaan rivi kuuluu.",
+        steps: [
+          "Valitse luokka. Metsän luokat ovat numeroilla 1–12 ja maatalouden 21–59. Valikossa ne ovat omina ryhminään.",
+          "Kirjoita summa koko kuitin mukaan, kuten ennenkin.",
+          "Jos meno kuuluu osittain toiselle toiminnolle, kirjoita osuudet. Esimerkiksi sähkölasku maatalouteen: Osuus % 70 ja Toinen % 20. Silloin 20 % menee metsätaloudelle ja 10 % on yksityistä.",
+          "Rivin alle tulee teksti, jossa näkyy, paljonko menee maataloudelle, metsätaloudelle ja yksityiseen.",
+          "Tallenna.",
+        ],
+        bullets: [
+          "Toiseen toimintoon voi jakaa vain menoja. Tulo ja investointi kuuluvat yhdelle toiminnolle.",
+          "Ostojen arvonlisäverosta vähennetään metsän ja maatalouden osuus. Yksityistä osuutta ei vähennetä.",
+          "Maito, vilja ja rehu saavat oletuksena alennetun verokannan: 14 % vuonna 2025 ja 13,5 % vuodesta 2026.",
+          "Maatalouden investointi kysyy poistoryhmän, esimerkiksi koneet ja kalusto tai tuotantorakennus. Enintään 1 200 euron hankinta kirjataan menona.",
+          "Maatalouden käyttöomaisuuden myynnillä valitset myydyn maatalouden investoinnin. Myyntihinta pienentää poistoryhmää.",
+          "Kortit taulukon yllä näyttävät tulot ja menot erikseen metsälle ja maataloudelle.",
+        ],
+      },
+      {
         title: "Rivit Excelistä",
         steps: [
-          "Järjestä Excelin sarakkeet näin: päivä, selite, luokka, summa arvonlisäveron kanssa, alv %, ennakonpidätys, metsätila ja viite. Metsätila jätetään pois, jos asiakkaalla ei ole tiloja. Viimeiseksi voit lisätä metsätalouden osuuden prosentteina. Sen voi myös jättää pois.",
+          "Järjestä Excelin sarakkeet näin: päivä, selite, luokka, summa arvonlisäveron kanssa, alv %, ennakonpidätys, metsätila ja viite. Metsätila jätetään pois, jos asiakkaalla ei ole tiloja. Viimeiseksi voit lisätä osuuden prosentteina ja sen jälkeen toisen toiminnon osuuden. Ne voi myös jättää pois.",
           "Valitse rivit Excelissä ja kopioi ne.",
           "Napsauta uuden rivin päiväkenttää ja liitä (Ctrl + V).",
           "Tarkista rivit ja tallenna.",
         ],
         bullets: [
           "Päivä voi olla muodossa 5.3.2025 tai 2025-03-05. Summissa saa olla pilkku ja välilyönti, esimerkiksi 1 234,50.",
-          "Luokaksi käy luokan nimi, esimerkiksi Pystykauppa, tai sen numero. Metsätilaksi tilan nimi.",
+          "Luokaksi käy luokan nimi, esimerkiksi Pystykauppa, tai sen numero. Maatalouden luokissa numerot ovat 21–59. Metsätilaksi tilan nimi.",
           "Jos otsikkorivi tulee mukaan, ohjelma jättää sen pois.",
           "Liittäminen ei muuta tallennettuja kirjauksia. Jos liität tallennetun rivin kohdalle, liitetyt rivit tulevat uusina sen yläpuolelle.",
         ],

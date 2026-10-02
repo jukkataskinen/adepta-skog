@@ -8,8 +8,9 @@ import { requireStaff, type StaffContext } from "@/lib/auth/current-user";
 import { emptyToNull, fail, parseForm } from "@/lib/forms";
 import { audit } from "@/lib/audit";
 import type { Sql } from "@/lib/db/types";
-import { ASSET_CLASS_PCTS } from "@/lib/tax/rules";
-import { effectiveVatRate, SALE_ASSET_MESSAGE, transactionFieldsSchema } from "@/lib/ledger/transaction-input";
+import { activitiesOf, allowsOtherShare, ASSET_CLASS_PCTS, category, isAssetSale } from "@/lib/tax/rules";
+import { effectiveVatRate, OTHER_SHARE_MESSAGE, SALE_ASSET_MESSAGE, transactionFieldsSchema } from "@/lib/ledger/transaction-input";
+import { ACTIVITY_MESSAGE, FORESTRY_OFF_MESSAGE } from "@/lib/ledger/grid";
 import { deleteTransaction, LedgerError, saveTransaction } from "@/lib/ledger/write";
 import { GridSaveError, saveLedgerGrid } from "@/lib/ledger/grid-save";
 import { MAX_GRID_ROWS, rowFromStored, type GridSaveState } from "@/lib/ledger/grid";
@@ -25,6 +26,8 @@ const transactionSchema = transactionFieldsSchema.extend({
   // Investoinnin hankinta: hyödykelaji eli menojäännöspoiston enimmäisprosentti.
   // Metsätaloudessa ei ole tasapoistoa (docs/verosaannot-selvitys-2026-09-27.md).
   assetRatePct: z.preprocess(emptyToNull, z.coerce.number().refine((v) => ASSET_CLASS_PCTS.includes(v), "Valitse hyödykkeen laji.").nullable()),
+  // Maatalouden investoinnin poistoryhmä (rules.ts agriAssetChoices). Tarkistetaan tallennuksessa vuoden mukaan.
+  agriAssetChoice: z.preprocess(emptyToNull, z.string().max(40).nullable()),
   // Myynti: myytävä investointi.
   saleAssetId: z.preprocess(emptyToNull, uuid.nullable()),
 });
@@ -52,14 +55,24 @@ export async function saveTransactionAction(formData: FormData) {
   const year = Number(String(formData.get("bookedOn") ?? "").slice(0, 4)) || new Date().getFullYear();
   const back = editing ? `/asiakkaat/${clientId}/kirjanpito/${formData.get("transactionId")}` : `/asiakkaat/${clientId}/kirjanpito?vuosi=${year}&syotto=lomake`;
   const input = parseForm(transactionSchema, formData, back);
-  if (input.category === "asset_sale" && !input.saleAssetId && !editing) fail(back, SALE_ASSET_MESSAGE);
+  if (isAssetSale(input.category) && !input.saleAssetId && !editing) fail(back, SALE_ASSET_MESSAGE);
 
   const actor = { organizationId: ctx.org.organizationId, userId: ctx.user.id };
   try {
     await ctx.run(async (tx) => {
       await requireOpenYear(tx, clientId, Number(input.bookedOn.slice(0, 4)), back);
-      const [client] = await tx.query<{ vat_registered: boolean }>("select vat_registered from sk_clients where id = $1", [clientId]);
+      const [client] = await tx.query<{ vat_registered: boolean; has_forestry: boolean; has_agriculture: boolean }>(
+        "select vat_registered, has_forestry, has_agriculture from sk_clients where id = $1",
+        [clientId],
+      );
       if (!client) fail(back, "Asiakasta ei löytynyt.");
+      // Luokan on kuuluttava asiakkaan toiminnoille, kuten taulukossa (grid.ts validateGridRow).
+      const cat = category(input.category)!;
+      if (!activitiesOf({ hasForestry: client.has_forestry, hasAgriculture: client.has_agriculture }).includes(cat.activity)) {
+        fail(back, cat.activity === "agriculture" ? ACTIVITY_MESSAGE : FORESTRY_OFF_MESSAGE);
+      }
+      if (input.otherSharePct && !allowsOtherShare(cat.code)) fail(back, OTHER_SHARE_MESSAGE);
+      if (input.otherSharePct + input.businessSharePct > 100) fail(back, "Osuudet ovat yhteensä yli 100 %.");
       // Tallennus ja investoinnin säännöt ovat samat kuin taulukossa (src/lib/ledger/write.ts).
       await saveTransaction(tx, actor, clientId, input.transactionId, {
         bookedOn: input.bookedOn,
@@ -70,9 +83,11 @@ export async function saveTransactionAction(formData: FormData) {
         vatRate: effectiveVatRate(input, { vatRegistered: client.vat_registered }),
         withholding: input.withholding ?? 0,
         businessSharePct: input.businessSharePct,
+        otherSharePct: input.otherSharePct,
         reference: input.reference,
         forestPropertyId: input.forestPropertyId,
         assetRatePct: input.assetRatePct,
+        agriAssetChoice: input.agriAssetChoice,
         saleAssetId: input.saleAssetId,
       });
     });
@@ -96,11 +111,14 @@ const gridRowSchema = z.object({
   vatRate: z.string().max(40),
   // Vanha selainversio ei lähetä osuutta: tyhjä = 100 %.
   businessSharePct: z.string().max(40).default(""),
+  // Toisen toiminnon osuus (0015): tyhjä = 0 %.
+  otherSharePct: z.string().max(40).default(""),
   withholding: z.string().max(40),
   forestPropertyId: z.string().max(400),
   kind: z.enum(["", "income", "expense", "investment"]),
   reference: z.string().max(400),
-  assetRatePct: z.string().max(10),
+  // Metsätalouden prosentti tai maatalouden poistoryhmän tunnus.
+  assetRatePct: z.string().max(40),
   saleAssetId: z.string().max(60),
   suggestionId: z.string().uuid().nullable().optional(),
   suggestionLine: z.number().int().min(0).max(1000).nullable().optional(),

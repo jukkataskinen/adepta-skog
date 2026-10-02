@@ -52,6 +52,9 @@ export interface ClientDetail {
   tax_account_reference: string | null;
   vat_registered: boolean;
   vat_number: string | null;
+  /** Toiminnot (0015): maatalouden luokat ja sivut näkyvät vain, kun has_agriculture. */
+  has_forestry: boolean;
+  has_agriculture: boolean;
   responsible_user_id: string | null;
   responsible_name: string | null;
   archived_at: string | null;
@@ -60,7 +63,8 @@ export interface ClientDetail {
 export async function getClient(tx: Sql, orgId: string, id: string): Promise<ClientDetail | null> {
   const [row] = await tx.query<ClientDetail>(
     `select c.id, c.first_name, c.last_name, c.business_id, c.municipality, c.email, c.phone, c.street, c.postal_code, c.city,
-            c.tax_account_reference, c.vat_registered, c.vat_number, c.responsible_user_id, coalesce(u.full_name, u.email) as responsible_name, c.archived_at
+            c.tax_account_reference, c.vat_registered, c.vat_number, c.has_forestry, c.has_agriculture, c.responsible_user_id,
+            coalesce(u.full_name, u.email) as responsible_name, c.archived_at
        from sk_clients c left join sk_users u on u.id = c.responsible_user_id
       where c.id = $1 and c.organization_id = $2`,
     [id, orgId],

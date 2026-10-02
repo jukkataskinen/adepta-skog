@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition, type ClipboardEvent, type KeyboardEvent } from "react";
 import { Button, Notice } from "@/components/ui";
-import { ASSET_CLASSES, category, deliveryWorkRates, DELIVERY_WORK_TAX_FREE_M3 } from "@/lib/tax/rules";
+import { agriAssetChoices, allowsOtherShare, ASSET_CLASSES, category, deliveryWorkRates, DELIVERY_WORK_TAX_FREE_M3, isAssetPurchase, isAssetSale, smallAssetLimit } from "@/lib/tax/rules";
 import { formatEur } from "@/lib/format";
 import { normalizeDate, parseAmount, parseClipboard, toFinnishDate } from "@/lib/ledger/transaction-input";
 import {
@@ -18,17 +18,20 @@ import {
   gridColumns,
   gridKeyAction,
   isBlankGridRow,
-  MENU_CATEGORIES,
+  menuCategories,
+  menuGroupLabel,
   menuIndexOfNo,
   offersDeliveryWork,
   pasteFields,
   planGridChanges,
   rowKind,
   rowNet,
+  rowOtherSharePct,
   rowShare,
   rowSharePct,
   sameRow,
   selectCategory,
+  shareNote,
   suggestionDateWarning,
   toggleKind,
   type GridField,
@@ -80,6 +83,8 @@ export function LedgerGrid({
   assets,
   vatRegistered,
   defaultDate,
+  hasForestry = true,
+  hasAgriculture = false,
 }: {
   action: (formData: FormData) => Promise<GridSaveState>;
   clientId: string;
@@ -92,9 +97,15 @@ export function LedgerGrid({
   vatRegistered: boolean;
   /** p.k.vvvv */
   defaultDate: string;
+  /** Asiakkaan toiminnot (0015): maatalousasiakas näkee maatalouden luokat ja toisen toiminnon osuuden. */
+  hasForestry?: boolean;
+  hasAgriculture?: boolean;
 }) {
   const client = useMemo(() => ({ vatRegistered }), [vatRegistered]);
-  const columns = useMemo(() => gridColumns(properties.length > 0), [properties.length]);
+  const both = hasForestry && hasAgriculture;
+  const menuList = useMemo(() => menuCategories({ hasForestry, hasAgriculture }), [hasForestry, hasAgriculture]);
+  const menuNumbers = useMemo(() => menuList.map((c) => c.no), [menuList]);
+  const columns = useMemo(() => gridColumns(properties.length > 0, both), [properties.length, both]);
   const col = (f: GridField) => columns.indexOf(f);
 
   const [original, setOriginal] = useState<GridRow[]>(initialRows);
@@ -287,13 +298,13 @@ export function LedgerGrid({
         deleteRow(a.row);
         break;
       case "menuMove":
-        setMenu((m) => (m ? { ...m, hi: Math.max(0, Math.min(MENU_CATEGORIES.length - 1, m.hi + a.delta)) } : m));
+        setMenu((m) => (m ? { ...m, hi: Math.max(0, Math.min(menuList.length - 1, m.hi + a.delta)) } : m));
         break;
       case "menuOpen":
         openMenu(index);
         break;
       case "menuSelect":
-        if (menu) chooseCategory(index, MENU_CATEGORIES[menu.hi].code);
+        if (menu) chooseCategory(index, menuList[menu.hi].code);
         break;
       case "menuClose":
         setMenu(null);
@@ -322,7 +333,7 @@ export function LedgerGrid({
   // ---------------------------------------------------------------------------
 
   function openMenu(index: number) {
-    const current = MENU_CATEGORIES.findIndex((c) => c.code === rowsRef.current[index]?.category);
+    const current = menuList.findIndex((c) => c.code === rowsRef.current[index]?.category);
     setMenu({ row: index, hi: Math.max(0, current) });
   }
 
@@ -330,16 +341,17 @@ export function LedgerGrid({
     const d = digits.current;
     if (d.timer) clearTimeout(d.timer);
     d.timer = null;
-    const res = categoryDigit(d.buffer, digit);
+    // Numerot asiakkaan luokista: pelkällä metsäasiakkaalla 3–9 valitaan heti kuten ennen.
+    const res = categoryDigit(d.buffer, digit, menuNumbers);
     d.buffer = res.buffer;
     if (res.select !== null) {
       d.buffer = "";
-      setMenu({ row: index, hi: menuIndexOfNo(res.select) });
+      setMenu({ row: index, hi: menuIndexOfNo(res.select, menuList) });
       chooseCategory(index, categoryByNo(res.select)!.code);
       return;
     }
     if (res.highlight !== null) {
-      setMenu({ row: index, hi: menuIndexOfNo(res.highlight) });
+      setMenu({ row: index, hi: menuIndexOfNo(res.highlight, menuList) });
       // Toista numeroa odotetaan hetki (1 → 10, 11 tai 12); muuten valitaan korostettu.
       const no = res.highlight;
       d.timer = setTimeout(() => {
@@ -361,8 +373,8 @@ export function LedgerGrid({
     const amount = parseAmount(next.amountGross);
     const hasAmount = amount !== null && !Number.isNaN(amount) && amount !== 0;
     if (asksWithholding(next) && hasAmount) setDialog({ type: "ep", key: r.key, phase: 1, value: next.withholding });
-    else if (code === "asset_purchase" && hasAmount && !next.assetId && !next.assetRatePct) setDialog({ type: "asset", key: r.key });
-    else if (code === "asset_sale" && !next.assetId && !next.saleAssetId) setDialog({ type: "sale", key: r.key, toAmount: true });
+    else if (isAssetPurchase(code) && hasAmount && !next.assetId && !next.assetRatePct) setDialog({ type: "asset", key: r.key });
+    else if (isAssetSale(code) && !next.assetId && !next.saleAssetId) setDialog({ type: "sale", key: r.key, toAmount: true });
     else moveTo(index, col("amountGross"));
   }
 
@@ -405,8 +417,9 @@ export function LedgerGrid({
     const amount = parseAmount(r.amountGross);
     if (amount === null || Number.isNaN(amount) || amount === 0) return;
     if (asksWithholding(r)) setDialog({ type: "ep", key, phase: 1, value: r.withholding });
-    else if (r.category === "asset_purchase" && !r.assetId && !r.assetRatePct && (rowNet(r, year, client) ?? 0) > 600) setDialog({ type: "asset", key });
-    else if (r.category === "asset_sale" && !r.assetId && !r.saleAssetId) setDialog({ type: "sale", key });
+    else if (isAssetPurchase(r.category) && !r.assetId && !r.assetRatePct && (rowNet(r, year, client) ?? 0) > smallAssetLimit(category(r.category)!.activity)) {
+      setDialog({ type: "asset", key });
+    } else if (isAssetSale(r.category) && !r.assetId && !r.saleAssetId) setDialog({ type: "sale", key });
   }
 
   /** Ikkunan sulkeminen: takaisin summan jälkeiseen kenttään, tai summaan, jos sitä ei vielä ole kirjoitettu. */
@@ -490,7 +503,7 @@ export function LedgerGrid({
       .filter((r) => r.id || !isBlankGridRow(r))
       .map((r) => ({
         key: r.key, id: r.id, bookedOn: r.bookedOn, description: r.description, category: r.category, amountGross: r.amountGross, vatRate: r.vatRate,
-        businessSharePct: r.businessSharePct, withholding: r.withholding, forestPropertyId: r.forestPropertyId, kind: r.kind, reference: r.reference, assetRatePct: r.assetRatePct, saleAssetId: r.saleAssetId,
+        businessSharePct: r.businessSharePct, otherSharePct: r.otherSharePct ?? "", withholding: r.withholding, forestPropertyId: r.forestPropertyId, kind: r.kind, reference: r.reference, assetRatePct: r.assetRatePct, saleAssetId: r.saleAssetId,
         suggestionId: r.id ? null : (r.suggestionId ?? null),
         suggestionLine: r.id || !r.suggestionId ? null : (r.suggestionLine ?? null),
       }));
@@ -606,9 +619,14 @@ export function LedgerGrid({
     { gross: 0, net: 0 },
   );
   const saleOptions = (r: GridRow) => {
-    const taken = new Set(rows.filter((x) => x.key !== r.key && x.category === "asset_sale").map((x) => x.saleAssetId || x.assetId));
-    return assets.filter((a) => (!a.disposed_on || a.id === r.assetId) && !taken.has(a.id));
+    const taken = new Set(rows.filter((x) => x.key !== r.key && isAssetSale(x.category)).map((x) => x.saleAssetId || x.assetId));
+    // Myynnin luokka ratkaisee toiminnon: metsän myynnistä metsän investoinnit, maatalouden myynnistä maatalouden.
+    const activity = category(r.category)?.activity ?? "forestry";
+    return assets.filter((a) => (!a.disposed_on || a.id === r.assetId) && !taken.has(a.id) && (a.activity ?? "forestry") === activity);
   };
+  const assetOptions = (r: GridRow) =>
+    r.category === "agri_asset_purchase" ? agriAssetChoices(year) : ASSET_CLASSES.map((a) => ({ id: String(a.pct), label: `${a.label} ${a.pct} %` }));
+  const assetChoiceLabel = (r: GridRow) => assetOptions(r).find((o) => o.id === r.assetRatePct)?.label ?? r.assetRatePct;
   const cellClass = (bad: boolean, extra = "") =>
     `h-9 w-full rounded-md border bg-paper px-2 outline-none focus:border-sky focus:ring-2 focus:ring-sky/30 ${bad ? "border-coral" : "border-transparent hover:border-line"} ${extra}`;
   const dialogRow = dialog ? rows.find((r) => r.key === dialog.key) : undefined;
@@ -641,9 +659,14 @@ export function LedgerGrid({
               <th className="px-2 py-2">Luokka</th>
               <th className="px-2 py-2 text-right">Summa (sis. alv)</th>
               <th className="px-2 py-2 text-right">Alv %</th>
-              <th className="px-2 py-2 text-right" title="Metsätalouden osuus prosentteina. Tyhjä = 100 %. Enter ohittaa sarakkeen, Tab vie siihen.">
+              <th className="px-2 py-2 text-right" title="Oman toiminnon osuus prosentteina. Tyhjä = 100 %. Enter ohittaa sarakkeen, Tab vie siihen.">
                 Osuus %
               </th>
+              {both ? (
+                <th className="px-2 py-2 text-right" title="Toisen toiminnon osuus menosta (metsä tai maatalous). Loppu on yksityistä. Enter ohittaa sarakkeen.">
+                  Toinen %
+                </th>
+              ) : null}
               <th className="px-2 py-2 text-right">Veroton</th>
               <th className="px-2 py-2">Ennakko</th>
               {properties.length ? <th className="px-2 py-2">Metsätila</th> : null}
@@ -659,9 +682,10 @@ export function LedgerGrid({
               const err = errors[r.key] ?? {};
               const kind = rowKind(r);
               const net = rowNet(r, year, client);
-              // Osuus alle 100 %: rivin alle näytetään, paljonko kuuluu metsätaloudelle ja paljonko muulle.
+              // Osuus alle 100 % tai toisen toiminnon osuus: rivin alle näytetään, paljonko kuuluu kullekin.
               const sharePct = rowSharePct(r);
-              const share = sharePct !== null && sharePct < 100 ? rowShare(r, year, client) : null;
+              const otherPct = rowOtherSharePct(r);
+              const share = sharePct !== null && (sharePct < 100 || (otherPct && allowsOtherShare(r.category))) ? rowShare(r, year, client) : null;
               const cat = category(r.category);
               const withholding = parseAmount(r.withholding);
               const messages = [...new Set(Object.values(err))];
@@ -726,16 +750,16 @@ export function LedgerGrid({
                         ▾
                       </span>
                     </button>
-                    {r.category === "asset_purchase" ? (
+                    {isAssetPurchase(r.category) ? (
                       r.assetId ? (
                         <span className="block px-2 text-xs text-ink/55">Investointi: {r.assetDescription}</span>
                       ) : (
                         <button type="button" tabIndex={-1} className={`px-2 text-xs font-semibold ${r.assetRatePct ? "text-ink/60" : "text-coral"}`} onClick={() => setDialog({ type: "asset", key: r.key })}>
-                          {r.assetRatePct ? `${ASSET_CLASSES.find((a) => String(a.pct) === r.assetRatePct)?.label} ${r.assetRatePct} %` : "Valitse hyödykkeen laji"}
+                          {r.assetRatePct ? assetChoiceLabel(r) : "Valitse hyödykkeen laji"}
                         </button>
                       )
                     ) : null}
-                    {r.category === "asset_sale" ? (
+                    {isAssetSale(r.category) ? (
                       <button type="button" tabIndex={-1} className={`px-2 text-xs font-semibold ${r.saleAssetId || r.assetId ? "text-ink/60" : "text-coral"}`} onClick={() => setDialog({ type: "sale", key: r.key })}>
                         {r.saleAssetId || r.assetId
                           ? `Myyty: ${assets.find((a) => a.id === (r.saleAssetId || r.assetId))?.description ?? r.assetDescription ?? "investointi"}`
@@ -801,6 +825,27 @@ export function LedgerGrid({
                       onChange={(e) => patchRow(r.key, { businessSharePct: e.target.value })}
                     />
                   </td>
+                  {both ? (
+                    <td className="px-1 py-1 min-w-[4.5rem]">
+                      <input
+                        {...common("otherSharePct")}
+                        aria-label={`Toisen toiminnon osuus prosentteina, rivi ${i + 1}`}
+                        className={cellClass(Boolean(err.otherSharePct), "text-right tabular")}
+                        value={r.otherSharePct ?? ""}
+                        inputMode="decimal"
+                        placeholder={allowsOtherShare(r.category) ? "0" : ""}
+                        autoComplete="off"
+                        onFocus={(e) => e.currentTarget.select()}
+                        onBlur={(e) => {
+                          // 0 % näytetään tyhjänä kuten 100 % osuudessa.
+                          const n = parseAmount(e.currentTarget.value);
+                          const shown = n === 0 ? "" : n !== null && Number.isFinite(n) && n > 0 && n < 100 ? formatSharePct(n) : e.currentTarget.value;
+                          if (shown !== (r.otherSharePct ?? "")) patchRow(r.key, { otherSharePct: shown });
+                        }}
+                        onChange={(e) => patchRow(r.key, { otherSharePct: e.target.value })}
+                      />
+                    </td>
+                  ) : null}
                   <td className="whitespace-nowrap px-2 py-2.5 text-right tabular text-ink/70">{net === null ? "–" : num2(net)}</td>
                   <td className="px-1 py-1.5">
                     {withholding ? (
@@ -930,8 +975,7 @@ export function LedgerGrid({
                   <tr key={`${r.key}-o`}>
                     <td />
                     <td colSpan={columns.length + 5} className="px-2 pb-2 text-xs text-ink/70">
-                      Metsätalouden osuus {formatSharePct(share.sharePct)} %: metsätaloudelle {formatEur(share.gross)}, muulle {formatEur(share.otherGross)}.
-                      {share.nonDeductibleVat ? ` Alv:sta ${formatEur(share.nonDeductibleVat)} ei vähennetä.` : ""}
+                      {shareNote(r, share, formatEur)}
                     </td>
                   </tr>
                 ) : null,
@@ -976,8 +1020,9 @@ export function LedgerGrid({
               <td className="px-2 py-2 text-right tabular">{formatEur(totals.gross)}</td>
               <td />
               <td />
+              {both ? <td /> : null}
               <td className="px-2 py-2 text-right tabular">{formatEur(totals.net)}</td>
-              <td colSpan={columns.length - 3} />
+              <td colSpan={columns.length - 3 - (both ? 1 : 0)} />
             </tr>
           </tfoot>
         </table>
@@ -990,11 +1035,11 @@ export function LedgerGrid({
           className="fixed z-40 max-h-80 w-72 overflow-y-auto rounded-xl border border-line bg-paper py-1 text-sm shadow-lg"
           style={{ left: menuPos.left, ...(menuPos.up ? { bottom: window.innerHeight - menuPos.top + 2 } : { top: menuPos.top + 2 }) }}
         >
-          {MENU_CATEGORIES.map((c, idx) => {
-            const groupStart = idx === 0 || MENU_CATEGORIES[idx - 1].group !== c.group;
+          {menuList.map((c, idx) => {
+            const groupStart = idx === 0 || menuList[idx - 1].group !== c.group;
             return (
               <div key={c.code}>
-                {groupStart ? <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-ink/45">{c.group}</div> : null}
+                {groupStart ? <div className="px-3 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wider text-ink/45">{menuGroupLabel(c, both)}</div> : null}
                 <div
                   role="option"
                   aria-selected={menu.hi === idx}
@@ -1038,8 +1083,8 @@ export function LedgerGrid({
       <div className="rounded-xl border border-line bg-cloud/40 px-4 py-3 text-xs leading-relaxed text-ink/70">
         <p className="mb-1 font-semibold text-ink/80">Näppäimet</p>
         <p>
-          <b>Enter</b> tai <b>Tab</b> seuraavaan kenttään, rivin lopussa seuraavalle tai uudelle riville. Enter ohittaa Osuus %:n, Tab vie siihen. <b>Shift</b> takaisin. <b>Nuolet ylös ja alas</b> samaan
-          sarakkeeseen toisella rivillä (ei selitteessä). Luokka: <b>numero</b> valitsee suoraan (1–12), nuolet ja Enter valikossa, Esc sulkee. <b>T</b> vaihtaa tulon
+          <b>Enter</b> tai <b>Tab</b> seuraavaan kenttään, rivin lopussa seuraavalle tai uudelle riville. Enter ohittaa osuussarakkeet, Tab vie niihin. <b>Shift</b> takaisin. <b>Nuolet ylös ja alas</b> samaan
+          sarakkeeseen toisella rivillä (ei selitteessä). Luokka: <b>numero</b> valitsee suoraan ({hasAgriculture ? "metsä 1–12, maatalous 21–59" : "1–12"}), nuolet ja Enter valikossa, Esc sulkee. <b>T</b> vaihtaa tulon
           ja menon. <b>Delete</b> tyyppisarakkeessa poistaa rivin, <b>Ctrl + Z</b> palauttaa sen. <b>Ctrl + S</b> tallentaa. <b>Ctrl + N</b> tai Lisää rivi lisää rivin. Voit liittää
           rivejä Excelistä (summat arvonlisäveron kanssa).
         </p>
@@ -1064,7 +1109,7 @@ export function LedgerGrid({
         <ChoiceDialog
           title="Investoinnin laji"
           subtitle={`${dialogRow.description || "Käyttöomaisuuden hankinta"} · ${dialogRow.amountGross} € (sis. alv). Poisto on enintään lajin prosentti joka vuosi.`}
-          options={ASSET_CLASSES.map((a) => ({ id: String(a.pct), label: `${a.label} ${a.pct} %` }))}
+          options={assetOptions(dialogRow)}
           selected={dialogRow.assetRatePct}
           empty=""
           onSelect={(id) => {
