@@ -158,6 +158,11 @@ export async function loadReportData(
   }
 
   const plan = await loadPlanData(tx, clientId, year);
+  // Maatalouden kaluston metsätalouden ajot ovat metsätalouden menoa (2C: 630), joten ne näkyvät luokkasummissa.
+  if (plan.otherSourceExpense) {
+    const label = "Maatalouden ajoneuvon metsätalouden ajot (2C: 630)";
+    byCat.set(label, { label, kind: "expense", net: plan.otherSourceExpense, vat: 0, gross: plan.otherSourceExpense });
+  }
   // Maatalouden luokkasummat maatalouden osuuksina (activityRows), lomake 2 ja ryhmäpoistot.
   let agriCalc: (AgriPlanResult & { categories: ReportCategoryRow[] }) | null = null;
   if (c.has_agriculture) {

@@ -1,6 +1,6 @@
 import type { Sql } from "@/lib/db/types";
 import { activitiesOf, isAssetPurchase, type Activity } from "@/lib/tax/rules";
-import { listPropertyOptions, listTransactions } from "@/lib/ledger/queries";
+import { listFarmOptions, listPropertyOptions, listTransactions } from "@/lib/ledger/queries";
 import { DEPRECIATED_MESSAGE } from "@/lib/ledger/transaction-input";
 import { deleteTransaction, LedgerError, saveTransaction, type Actor } from "@/lib/ledger/write";
 import {
@@ -100,6 +100,7 @@ export async function saveLedgerGrid(
   }
 
   const properties = await listPropertyOptions(tx, clientId);
+  const farms = await listFarmOptions(tx, clientId);
   const assets = await tx.query<{ id: string; disposed_on: string | null; activity: Activity }>(
     "select id, disposed_on::text, activity from sk_assets where client_id = $1",
     [clientId],
@@ -109,6 +110,7 @@ export async function saveLedgerGrid(
   const opts = {
     year,
     propertyIds: properties.map((p) => p.id),
+    farmIds: farms.map((f) => f.id),
     vatRegistered: client.vat_registered,
     saleableAssetIds: (r: GridRow) => (r.assetId ? [...unsold, r.assetId] : unsold),
     activities: activitiesOf({ hasForestry: client.has_forestry, hasAgriculture: client.has_agriculture }),
@@ -151,7 +153,7 @@ export async function saveLedgerGrid(
         {
           bookedOn: v.bookedOn, category: v.category, kind: v.kind, description: v.description, amountGross: v.amountGross, vatRate: v.vatRate,
           withholding: v.withholding, businessSharePct: v.businessSharePct, otherSharePct: v.otherSharePct, reference: v.reference, forestPropertyId: v.forestPropertyId,
-          assetRatePct: v.assetRatePct, agriAssetChoice: v.agriAssetChoice, saleAssetId: v.saleAssetId,
+          farmId: v.farmId, assetRatePct: v.assetRatePct, agriAssetChoice: v.agriAssetChoice, saleAssetId: v.saleAssetId,
         },
         details,
       );

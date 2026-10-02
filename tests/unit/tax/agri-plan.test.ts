@@ -163,3 +163,57 @@ describe("maatalouden suositukset", () => {
     expect(tips[0].text).toMatch(/nettovarallisuus puuttuu/);
   });
 });
+
+describe("tasausvaraus maatiloittain (0018)", () => {
+  const A = "11111111-1111-4111-8111-111111111111";
+  const B = "22222222-2222-4222-8222-222222222222";
+  // Tila A: kasvinviljely 60 000 €, rehut 10 000 €. Tila B: kasvinviljely 20 000 €. Yhteiset: korot 5 000 € ja kone (poisto valitaan).
+  const farmData = () =>
+    data({
+      form2Base: {
+        ...data().form2Base,
+        rows: [
+          { kind: "income", category: "agri_crops", amountNet: 60000, amountGross: 68100, vatRate: 13.5, farmId: A },
+          { kind: "expense", category: "agri_feed", amountNet: 10000, amountGross: 11350, vatRate: 13.5, farmId: A },
+          { kind: "income", category: "agri_crops", amountNet: 20000, amountGross: 22700, vatRate: 13.5, farmId: B },
+          { kind: "expense", category: "agri_interest", amountNet: 5000, amountGross: 5000, vatRate: 0 },
+        ],
+      },
+      reserves: [],
+      equalizationThisYear: { id: null, amount: 0, editable: false, usedThisYear: 0 },
+      equalizationFarms: [
+        { farmId: A, farmName: "Ylätila", id: null, amount: 0, editable: true, usedThisYear: 0 },
+        { farmId: B, farmName: "Alatila", id: null, amount: 0, editable: true, usedThisYear: 0 },
+      ],
+    });
+
+  it("pohja tiloittain: omat kirjaukset ja yhteiset erät tulojen suhteessa, yhteensä koko pohja", () => {
+    const p = computeAgriPlan(farmData(), { ...none, depreciation: { agri_machinery: 8000 }, farmEqualization: {} });
+    // Koko pohja: tulos 57 000 + korot 5 000 = 62 000 (poisto 8 000 on yhteinen erä).
+    expect(p.equalization.base).toBe(62000);
+    const [a, b] = p.equalization.farms!;
+    // Yhteinen erä −8 000 jaetaan 60/20: A −6 000, B −2 000.
+    expect(a).toMatchObject({ farmId: A, base: 44000, max: 17600 });
+    expect(b).toMatchObject({ farmId: B, base: 18000, max: 7200 });
+    expect(a.base + b.base).toBe(p.equalization.base);
+    expect(p.equalization.max).toBe(24800);
+  });
+
+  it("tilojen varaukset menevät lomakkeelle, ja suositus koskee tiloja", () => {
+    const d = farmData();
+    const p = computeAgriPlan(d, { ...none, farmEqualization: { [A]: 10000, [B]: 1000 } });
+    expect(p.form2.fields["232"]).toBe(11000);
+    expect(p.equalization.amount).toBe(11000);
+    expect(p.equalization.farms!.map((f) => f.amount)).toEqual([10000, 1000]);
+    // Pohja ei muutu varauksesta.
+    expect(p.equalization.base).toBe(computeAgriPlan(d, { ...none, farmEqualization: {} }).equalization.base);
+    const tips = agriTips(d, { ...none, farmEqualization: {} }, forest);
+    expect(tips.some((t) => /tiloille/.test(t.text))).toBe(true);
+  });
+
+  it("recordedChoices ottaa tilojen tallennetut varaukset", () => {
+    const d = farmData();
+    d.equalizationFarms![0] = { ...d.equalizationFarms![0], id: "r", amount: 3000 };
+    expect(recordedChoices(d).farmEqualization).toEqual({ [A]: 3000, [B]: 0 });
+  });
+});

@@ -5,6 +5,8 @@ import { forestDeductionBase } from "./forest-deduction";
 import { disposalFractions, forestDeductionPool, forestDeductionTracking, forestSales, soldSharePct, type ForestPropertyInput, type ForestSale } from "./forest-sale";
 import { isRoadOrDitch, type Activity, type TransactionKind } from "./rules";
 import { activityRows } from "./share";
+import { computeVehicleReport, hasVehicleReport } from "./vehicle";
+import { getVehicleReport } from "@/lib/agriculture/vehicle";
 
 /**
  * Verosuunnitelman lähtötiedot yhdelle asiakkaalle ja vuodelle. Käyttäjän
@@ -74,7 +76,14 @@ export type PlanForestSale = ForestSale & { name: string };
 
 export interface PlanData {
   income: number;
+  /** Metsätalouden menot, myös toisesta tulolähteestä siirrettävät (otherSourceExpense). */
   expense: number;
+  /**
+   * Maatalouden kaluston metsätalouden ajot ajoneuvoselvityksestä (lomake 2:
+   * 284). Metsätaloudessa ne ovat toisesta tulolähteestä siirrettäviä menoja
+   * (2C: 630), ja maataloudessa ne tuloutetaan (0018).
+   */
+  otherSourceExpense: number;
   /** Oman hankintatyön arvo: vähennetään metsävähennyksen vuosirajan tulosta. */
   deliveryWork: number;
   investment: number;
@@ -240,9 +249,12 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
     .map((x) => ({ ...x, name: names.get(x.propertyId) ?? "" }));
 
   const recordedDeduction = properties.reduce((s, p) => s + p.recordedThisYear, 0);
+  const vehicle = await getVehicleReport(tx, clientId, year);
+  const otherSourceExpense = hasVehicleReport(vehicle) ? computeVehicleReport(vehicle, year).forestryTransfer : 0;
   return {
     income: sum.income.net,
-    expense: sum.expense.net,
+    expense: Math.round((sum.expense.net + otherSourceExpense) * 100) / 100,
+    otherSourceExpense,
     deliveryWork:
       Math.round(
         rows

@@ -69,6 +69,7 @@ export function PlanForm({
     const out: Record<string, string> = { [agriField.eq]: fiNum(c.equalization) };
     for (const [pool, v] of Object.entries(c.depreciation)) out[agriField.dep(pool as AgriPool)] = fiNum(v ?? 0);
     for (const [id, v] of Object.entries(c.releases)) out[agriField.release(id)] = fiNum(v);
+    for (const [id, v] of Object.entries(c.farmEqualization ?? {})) out[agriField.eqFarm(id)] = fiNum(v);
     return out;
   });
   const [claim, setClaim] = useState<IncomeSplitClaim>(agri?.claim ?? null);
@@ -83,6 +84,7 @@ export function PlanForm({
           Object.entries(agriVals).filter(([k]) => k.startsWith("agriDep_")).map(([k, v]) => [k.slice("agriDep_".length), parse(v)]),
         ) as Partial<Record<AgriPool, number>>,
         equalization: parse(agriVals[agriField.eq] ?? "0"),
+        farmEqualization: Object.fromEntries((agri.equalizationFarms ?? []).map((f) => [f.farmId, parse(agriVals[agriField.eqFarm(f.farmId)] ?? "0")])),
         releases: Object.fromEntries(Object.entries(agriVals).filter(([k]) => k.startsWith("agriRelease_")).map(([k, v]) => [k.slice("agriRelease_".length), parse(v)])),
         claim,
         lossToCapital,
@@ -96,21 +98,21 @@ export function PlanForm({
       ? combinedTax(
           year,
           { forestryTaxable: Math.round((data.income - data.expense) * 100) / 100, saleResult: plan.saleResult },
-          computeAgriPlan(agri, { ...agriChoices, depreciation: {}, equalization: 0, claim: null }).split,
+          computeAgriPlan(agri, { ...agriChoices, depreciation: {}, equalization: 0, farmEqualization: {}, claim: null }).split,
           taxOpts,
         )
       : null;
   const combinedSaving = combined && combinedWithout ? Math.round((combinedWithout.total - combined.total) * 100) / 100 : 0;
   const showForest = forestry || data.assets.length > 0 || data.properties.length > 0 || data.income !== 0 || data.expense !== 0;
+  const eqInvalid = (v: number, max: number) => v !== 0 && (v % 100 !== 0 || v < 800 || v > max);
   const agriEqError =
-    agri && agriResult && agri.equalizationThisYear.editable
-      ? (() => {
-          const v = agriChoices!.equalization;
-          if (v === 0) return null;
-          if (v % 100 !== 0 || v < 800 || v > agriResult.equalization.max) return "Tarkista tasausvaraus.";
-          return null;
-        })()
-      : null;
+    agri && agriResult && agriResult.equalization.farms
+      ? agriResult.equalization.farms.some((f) => f.editable && eqInvalid(f.amount, f.max))
+        ? "Tarkista tilojen tasausvaraukset."
+        : null
+      : agri && agriResult && agri.equalizationThisYear.editable && eqInvalid(agriChoices!.equalization, agriResult.equalization.max)
+        ? "Tarkista tasausvaraus."
+        : null;
 
   // Vertailuluvut: tulos ennen vähennyksiä, vero ilman vähennyksiä ja todellinen veroaste.
   const resultBefore = Math.round((data.income - data.expense) * 100) / 100;

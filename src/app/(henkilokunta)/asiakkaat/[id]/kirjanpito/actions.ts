@@ -8,7 +8,7 @@ import { requireStaff, type StaffContext } from "@/lib/auth/current-user";
 import { emptyToNull, fail, parseForm } from "@/lib/forms";
 import { audit } from "@/lib/audit";
 import type { Sql } from "@/lib/db/types";
-import { ACTIVITY_PARAM, activitiesOf, allowsOtherShare, ASSET_CLASS_PCTS, category, isAssetSale, ledgerView, type Activity } from "@/lib/tax/rules";
+import { ACTIVITY_PARAM, activitiesOf, allowsLivestockDeferral, allowsOtherShare, ASSET_CLASS_PCTS, category, isAssetSale, ledgerView, withLivestockDeferral, type Activity } from "@/lib/tax/rules";
 import { effectiveVatRate, OTHER_SHARE_MESSAGE, SALE_ASSET_MESSAGE, toFinnishDate, transactionFieldsSchema } from "@/lib/ledger/transaction-input";
 import { ACTIVITY_MESSAGE, FORESTRY_OFF_MESSAGE, inView, viewMessage } from "@/lib/ledger/grid";
 import { deleteTransaction, LedgerError, saveTransaction } from "@/lib/ledger/write";
@@ -31,6 +31,10 @@ const transactionSchema = transactionFieldsSchema.extend({
   agriAssetChoice: z.preprocess(emptyToNull, z.string().max(40).nullable()),
   // Myynti: myytävä investointi.
   saleAssetId: z.preprocess(emptyToNull, uuid.nullable()),
+  // Maatalouden kirjauksen maatila (0018).
+  farmId: z.preprocess(emptyToNull, uuid.nullable()),
+  // Kotieläinten myynnin tai hankinnan jaksotus kolmelle vuodelle (0018).
+  livestockDeferral: z.preprocess((v) => v === "1" || v === "on", z.boolean()),
 });
 
 /** Kantavirhe ymmärrettäväksi: suljettu vuosi, puuttuva oikeus tai toisen asiakkaan rivi. */
@@ -39,7 +43,7 @@ function friendly(err: unknown): string | null {
   const closed = /Verovuosi (\d+) on suljettu/.exec(msg);
   if (closed) return `Verovuosi ${closed[1]} on suljettu. Pääkäyttäjä voi avata vuoden.`;
   if (/row-level security/.test(msg)) return "Sinulla ei ole oikeutta tähän asiakkaaseen.";
-  if (/toisen asiakkaan/.test(msg)) return "Investointi tai metsätila kuuluu toiselle asiakkaalle.";
+  if (/toisen asiakkaan/.test(msg)) return "Investointi, metsätila tai maatila kuuluu toiselle asiakkaalle.";
   return null;
 }
 
@@ -73,7 +77,9 @@ export async function saveTransactionAction(formData: FormData) {
   const back = editing
     ? `/asiakkaat/${clientId}/kirjanpito/${formData.get("transactionId")}`
     : `/asiakkaat/${clientId}/kirjanpito?vuosi=${year}&syotto=lomake${viewQuery(paramView)}`;
-  const input = parseForm(transactionSchema, formData, back);
+  const parsed = parseForm(transactionSchema, formData, back);
+  // Jaksota-valinta vaihtaa kotieläinluokan jaksotettavaksi tai takaisin (rules.ts withLivestockDeferral).
+  const input = allowsLivestockDeferral(parsed.category) ? { ...parsed, category: withLivestockDeferral(parsed.category, parsed.livestockDeferral) } : parsed;
   if (isAssetSale(input.category) && !input.saleAssetId && !editing) fail(back, SALE_ASSET_MESSAGE);
 
   const actor = { organizationId: ctx.org.organizationId, userId: ctx.user.id };
@@ -108,6 +114,8 @@ export async function saveTransactionAction(formData: FormData) {
         otherSharePct: input.otherSharePct,
         reference: input.reference,
         forestPropertyId: input.forestPropertyId,
+        // Lomake näyttää tilan vain, kun tiloja on useampi; muuten tila pysyy ennallaan.
+        farmId: formData.has("farmId") ? input.farmId : undefined,
         assetRatePct: input.assetRatePct,
         agriAssetChoice: input.agriAssetChoice,
         saleAssetId: input.saleAssetId,
@@ -137,6 +145,8 @@ const gridRowSchema = z.object({
   otherSharePct: z.string().max(40).default(""),
   withholding: z.string().max(40),
   forestPropertyId: z.string().max(400),
+  // Maatila (0018): vanha selainversio ei lähetä sitä.
+  farmId: z.string().max(60).default(""),
   kind: z.enum(["", "income", "expense", "investment"]),
   reference: z.string().max(400),
   // Metsätalouden prosentti tai maatalouden poistoryhmän tunnus.

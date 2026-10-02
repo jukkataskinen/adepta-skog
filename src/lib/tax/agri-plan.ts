@@ -1,6 +1,6 @@
 import { round2 } from "./amounts";
 import { agriDepreciation, type AgriAdjustment, type AgriAssetInput, type AgriDepreciationResult, type AgriPool, type AgriRecorded } from "./agri-depreciation";
-import { computeForm2, type Form2Input, type Form2Result, type ReserveInput } from "./agriculture";
+import { computeForm2, type AgriFormRow, type Form2Input, type Form2Result, type ReserveInput } from "./agriculture";
 import { businessIncomeSplit, earnedIncomeTaxEstimate, equalizationReserveMax, type EarnedTaxEstimate, type IncomeSplitResult } from "./income-split";
 import { capitalIncomeTax, type PlanResult } from "./plan";
 import { capitalIncomeTaxRule, type IncomeSplitClaim } from "./rules";
@@ -39,6 +39,13 @@ export interface AgriPlanData {
    * määrä muutetaan Lomake 2 -välilehdellä (editable false).
    */
   equalizationThisYear: { id: string | null; amount: number; editable: boolean; usedThisYear: number };
+  /**
+   * Usean maatilan asiakas (0018): verovuoden tasausvaraus maatiloittain, koska
+   * varaus tehdään ja käytetään tilakohtaisesti (vero.fi). null, kun tiloja on
+   * enintään yksi; silloin varaus on equalizationThisYear kuten ennen. Tilalle,
+   * jolla on vuodelle useampi varaus, määrä muutetaan Lomake 2 -välilehdellä.
+   */
+  equalizationFarms?: FarmEqualization[] | null;
   /** Edellisen vuoden lopun nettovarallisuus: laskettu Skogin edellisestä vuodesta tai syötetty. */
   priorWealth: { netWealth: number | null; wages: number; source: "computed" | "manual" | "none" };
   confirmedLosses: number;
@@ -50,10 +57,22 @@ export interface AgriPlanData {
   depreciationConfirmed: boolean;
 }
 
+export interface FarmEqualization {
+  farmId: string;
+  farmName: string;
+  /** Tilan verovuoden varaus, jota suunnitelma muuttaa; null = ei vielä varausta. */
+  id: string | null;
+  amount: number;
+  editable: boolean;
+  usedThisYear: number;
+}
+
 export interface AgriChoices {
   depreciation: Partial<Record<AgriPool, number>>;
-  /** Verovuodelta tehtävä tasausvaraus (232). */
+  /** Verovuodelta tehtävä tasausvaraus (232), kun tiloja on enintään yksi. */
   equalization: number;
+  /** Usean tilan asiakas: verovuoden tasausvaraus tiloittain (maatila → euroa). */
+  farmEqualization?: Record<string, number>;
   /** Aiempien varausten tuloutus verovuonna: varaus → euroa. */
   releases: Record<string, number>;
   claim: IncomeSplitClaim;
@@ -67,6 +86,7 @@ export function recordedChoices(d: AgriPlanData): AgriChoices {
   return {
     depreciation: dep,
     equalization: d.equalizationThisYear.amount,
+    farmEqualization: Object.fromEntries((d.equalizationFarms ?? []).map((f) => [f.farmId, f.amount])),
     releases: Object.fromEntries(d.reserves.filter((r) => r.madeYear < d.year).map((r) => [r.id, r.incomeThisYear])),
     claim: d.claim,
     lossToCapital: (d.lossToCapitalIncome ?? 0) > 0,
@@ -89,27 +109,81 @@ export function releasable(r: PlanReserve): number {
 /** Viimeinen vuosi, jona varaus on käytettävä tai tuloutettava (kolmas vuosi tekovuoden jälkeen). */
 export const reserveDeadline = (r: { madeYear: number }) => r.madeYear + 3;
 
+export interface FarmEqualizationResult {
+  farmId: string;
+  farmName: string;
+  /** Tilan puhdas tulo ennen korkoja ja tämän vuoden varausta. */
+  base: number;
+  max: number;
+  amount: number;
+  editable: boolean;
+}
+
 export interface AgriPlanResult {
   form2: Form2Result;
   depreciation: AgriDepreciationResult;
-  equalization: { max: number; base: number; amount: number };
+  /** Koko maatalouden pohja ja enimmäismäärä; usean tilan asiakkaalla tilakohtaiset luvut ovat farms-listassa. */
+  equalization: { max: number; base: number; amount: number; farms: FarmEqualizationResult[] | null };
   split: IncomeSplitResult;
+}
+
+const EMPTY_DEPRECIATION = (year: number): AgriDepreciationResult => ({ year, pools: [], total: 0, excess: 0 });
+
+/**
+ * Tasausvarauksen pohja maatiloittain (DECISIONS 2.10.2026, tulkinta BLOCKERS 14 p).
+ * Tilan omat kirjaukset (kirjauksen maatila) lasketaan tilalle sellaisinaan.
+ * Yhteiset erät (kirjaukset ilman tilaa, poistot, jaksotukset, varausten
+ * tuloutukset, ajoneuvoselvitys) jaetaan tiloille niiden omien tulojen
+ * suhteessa; jos tiloilla ei ole omia tuloja, tasan. Näin tilojen pohjat ovat
+ * yhteensä koko maatalouden pohja.
+ */
+export function farmEqualizationBases(
+  base: Omit<Form2Input, "depreciation" | "reserves">,
+  totalBase: number,
+  farms: { id: string; name: string }[],
+): { farmId: string; farmName: string; base: number }[] {
+  const direct = farms.map((f) => {
+    const rows: AgriFormRow[] = base.rows.filter((r) => r.farmId === f.id);
+    const r = computeForm2({
+      ...base, rows, ledgerDeferrals: [], manualDeferrals: [], depreciation: EMPTY_DEPRECIATION(base.year), reserves: [], extras: [], vehicle: null,
+      agriYear: { ...base.agriYear, lossToCapitalIncome: null },
+    });
+    return { farm: f, base: round2(r.result + (r.fields["465"] ?? 0)), income: r.income };
+  });
+  const common = round2(totalBase - direct.reduce((s, x) => s + x.base, 0));
+  const incomes = direct.reduce((s, x) => s + Math.max(0, x.income), 0);
+  let left = common;
+  return direct.map((x, i) => {
+    // Viimeinen tila saa pyöristyksen erotuksen, jotta osat ovat yhteensä yhteinen erä.
+    const part = i === direct.length - 1 ? left : round2(incomes > 0 ? (common * Math.max(0, x.income)) / incomes : common / direct.length);
+    left = round2(left - part);
+    return { farmId: x.farm.id, farmName: x.farm.name, base: round2(x.base + part) };
+  });
 }
 
 export function computeAgriPlan(d: AgriPlanData, c: AgriChoices): AgriPlanResult {
   const dep = agriDepreciation(d.depreciation.assets, d.depreciation.adjustments, d.depreciation.recorded, d.year, c.depreciation);
   const reserves: ReserveInput[] = [];
+  const farmMode = !!d.equalizationFarms;
+  const editableFarmReserves = new Set((d.equalizationFarms ?? []).filter((f) => f.editable && f.id).map((f) => f.id));
   for (const r of d.reserves) {
     if (r.id === d.equalizationThisYear.id && d.equalizationThisYear.editable) continue;
+    if (editableFarmReserves.has(r.id)) continue;
     const release = r.madeYear < d.year ? Math.min(Math.max(0, c.releases[r.id] ?? r.incomeThisYear), releasable(r)) : r.incomeThisYear;
     reserves.push({
       kind: r.kind, madeYear: r.madeYear, amount: r.amount,
       usedThroughYear: round2(r.usedBefore + r.assetUseThisYear + release), incomeThisYear: round2(release),
     });
   }
-  const eq = d.equalizationThisYear.editable ? Math.max(0, c.equalization) : d.equalizationThisYear.amount;
-  if (d.equalizationThisYear.editable && eq > 0) {
+  const eq = !farmMode && d.equalizationThisYear.editable ? Math.max(0, c.equalization) : d.equalizationThisYear.amount;
+  if (!farmMode && d.equalizationThisYear.editable && eq > 0) {
     reserves.push({ kind: "equalization", madeYear: d.year, amount: eq, usedThroughYear: d.equalizationThisYear.usedThisYear, incomeThisYear: 0 });
+  }
+  const farmAmounts = new Map<string, number>();
+  for (const f of d.equalizationFarms ?? []) {
+    const amount = f.editable ? Math.max(0, c.farmEqualization ? (c.farmEqualization[f.farmId] ?? 0) : f.amount) : f.amount;
+    farmAmounts.set(f.farmId, amount);
+    if (f.editable && amount > 0) reserves.push({ kind: "equalization", madeYear: d.year, amount, usedThroughYear: f.usedThisYear, incomeThisYear: 0 });
   }
   const input: Form2Input = { ...d.form2Base, depreciation: dep, reserves, agriYear: { ...d.form2Base.agriYear, incomeSplitClaim: c.claim, lossToCapitalIncome: null } };
   let form2 = computeForm2(input);
@@ -117,13 +191,22 @@ export function computeAgriPlan(d: AgriPlanData, c: AgriChoices): AgriPlanResult
     form2 = computeForm2({ ...input, agriYear: { ...input.agriYear, lossToCapitalIncome: -form2.result } });
   }
   // Tasausvarauksen pohja: puhdas tulos ennen korkoja ja ennen tämän vuoden tasausvarausta.
-  const thisYearEq = d.equalizationThisYear.editable ? eq : d.equalizationThisYear.amount;
+  // Usealla tilalla: tilojen varaukset ja tilaton varaus (equalizationThisYear on silloin vain tilaton osa).
+  const thisYearEq = round2(eq + [...farmAmounts.values()].reduce((s, v) => s + v, 0));
   const base = round2(form2.result + thisYearEq + (form2.fields["465"] ?? 0));
+  const farms = d.equalizationFarms
+    ? farmEqualizationBases(d.form2Base, base, d.equalizationFarms.map((f) => ({ id: f.farmId, name: f.farmName }))).map((b) => {
+        const f = d.equalizationFarms!.find((x) => x.farmId === b.farmId)!;
+        return { ...b, max: equalizationReserveMax(b.base), amount: farmAmounts.get(b.farmId) ?? 0, editable: f.editable };
+      })
+    : null;
   const split = businessIncomeSplit({
     result: form2.result, confirmedLosses: d.confirmedLosses, priorNetWealth: d.priorWealth.netWealth, priorWages: d.priorWealth.wages, claim: c.claim,
     spouseWealthSharePct: d.spouseWealthSharePct, spouseWorkSharePct: d.spouseWorkSharePct, lossToCapitalIncome: c.lossToCapital,
   });
-  return { form2, depreciation: dep, equalization: { max: equalizationReserveMax(base), base, amount: thisYearEq }, split };
+  // Usean tilan enimmäismäärä on tilojen enimmäismäärien summa (kukin 800–25 000 €).
+  const max = farms ? farms.reduce((s, f) => s + f.max, 0) : equalizationReserveMax(base);
+  return { form2, depreciation: dep, equalization: { max, base, amount: thisYearEq, farms }, split };
 }
 
 export interface CombinedTax {
@@ -208,8 +291,18 @@ export function agriTips(
       tips.push({ tone: "info", text: "Pääomatulot ylittävät 30 000 euroa yhdessä metsätalouden kanssa. Ylittävästä osasta vero on 34 %, joten pienempi pääomatulo-osuus voi kannattaa." });
     }
   }
-  // Tasausvaraus: enimmäismäärän vaikutus.
-  if (d.equalizationThisYear.editable && now.equalization.max > c.equalization) {
+  // Tasausvaraus: enimmäismäärän vaikutus. Usealla tilalla kaikki muutettavat tilat enimmäismäärään.
+  if (now.equalization.farms) {
+    const atMax = Object.fromEntries(now.equalization.farms.filter((f) => f.editable).map((f) => [f.farmId, f.max]));
+    const gain = current.total - total({ ...c, farmEqualization: { ...c.farmEqualization, ...atMax } });
+    const room = now.equalization.farms.filter((f) => f.editable).reduce((s, f) => s + Math.max(0, f.max - f.amount), 0);
+    if (room > 0 && gain >= 1) {
+      tips.push({
+        tone: "ok",
+        text: `Tasausvarausta voisi tehdä tiloille vielä ${eur(room)}. Enimmäismäärät pienentäisivät tämän vuoden veroa ${eur(gain)}. Varaus on tilakohtainen ja käytettävä saman tilan investointiin tai tuloutettava viimeistään kolmantena vuonna.`,
+      });
+    }
+  } else if (d.equalizationThisYear.editable && now.equalization.max > c.equalization) {
     const withMax = total({ ...c, equalization: now.equalization.max });
     if (current.total - withMax >= 1) {
       tips.push({

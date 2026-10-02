@@ -112,6 +112,13 @@ export async function addFarm(tx: Sql, actor: Actor, clientId: string, name: str
 }
 
 export async function deleteFarm(tx: Sql, actor: Actor, clientId: string, farmId: string): Promise<void> {
+  // Tilan poisto jättää kirjaukset ilman tilaa (0018). Suljetun vuoden kirjausta ei voi muuttaa, joten tila jää.
+  const [locked] = await tx.query<{ tax_year: number }>(
+    `select t.tax_year from sk_transactions t join sk_tax_years y on y.client_id = t.client_id and y.year = t.tax_year
+      where t.farm_id = $1 and t.client_id = $2 and y.status = 'closed' limit 1`,
+    [farmId, clientId],
+  );
+  if (locked) throw new AgriError(`Maatilalle on kirjauksia suljetulta vuodelta ${locked.tax_year}, joten tilaa ei voi poistaa.`);
   const rows = await tx.query("delete from sk_farms where id = $1 and client_id = $2 returning id", [farmId, clientId]);
   if (!rows.length) throw new AgriError("Maatilaa ei löytynyt.");
   await audit(tx, { organizationId: actor.organizationId, userId: actor.userId, action: "agri.farm.delete", entity: "sk_farms", entityId: farmId });
@@ -221,6 +228,9 @@ export interface DeferralRow {
   year2: number;
   year3: number;
   note: string | null;
+  /** Kirjaus, josta jaksotus syntyi (0018). Tyhjä = käsin syötetty. */
+  transaction_id: string | null;
+  transaction_label: string | null;
 }
 
 /** Tasaerät kolmelle vuodelle senteissä; ensimmäinen vuosi saa pyöristyksen erotuksen. */
@@ -231,8 +241,14 @@ export function deferralThirds(amount: number): [number, number, number] {
 }
 
 export async function listDeferrals(tx: Sql, clientId: string, year: number): Promise<DeferralRow[]> {
-  const rows = await tx.query<{ id: string; tax_year: number; kind: DeferralRow["kind"]; amount: string; year1: string; year2: string; year3: string; note: string | null }>(
-    "select id, tax_year, kind, amount, year1, year2, year3, note from sk_agri_deferrals where client_id = $1 and tax_year between $2 - 2 and $2 order by tax_year, kind",
+  const rows = await tx.query<{
+    id: string; tax_year: number; kind: DeferralRow["kind"]; amount: string; year1: string; year2: string; year3: string; note: string | null;
+    transaction_id: string | null; transaction_label: string | null;
+  }>(
+    `select d.id, d.tax_year, d.kind, d.amount, d.year1, d.year2, d.year3, d.note, d.transaction_id,
+            case when t.id is null then null else to_char(t.booked_on, 'FMDD.FMMM.YYYY') || ' ' || t.description end as transaction_label
+       from sk_agri_deferrals d left join sk_transactions t on t.id = d.transaction_id
+      where d.client_id = $1 and d.tax_year between $2 - 2 and $2 order by d.tax_year, d.kind, t.booked_on`,
     [clientId, year],
   );
   return rows.map((r) => ({ ...r, tax_year: Number(r.tax_year), amount: Number(r.amount), year1: Number(r.year1), year2: Number(r.year2), year3: Number(r.year3) }));
@@ -251,6 +267,8 @@ export async function addDeferral(
 }
 
 export async function deleteDeferral(tx: Sql, actor: Actor, clientId: string, id: string): Promise<void> {
+  const [linked] = await tx.query("select 1 from sk_agri_deferrals where id = $1 and client_id = $2 and transaction_id is not null", [id, clientId]);
+  if (linked) throw new AgriError("Jaksotus tulee kirjauksesta. Poista jaksotus kirjanpidossa: poista kirjauksen Jaksota-valinta.");
   const rows = await tx.query("delete from sk_agri_deferrals where id = $1 and client_id = $2 returning id", [id, clientId]);
   if (!rows.length) throw new AgriError("Jaksotusta ei löytynyt.");
   await audit(tx, { organizationId: actor.organizationId, userId: actor.userId, action: "agri.deferral.delete", entity: "sk_agri_deferrals", entityId: id });

@@ -63,10 +63,10 @@ src/lib/clients/            asiakkaat ja vastuukirjanpitäjä
 src/lib/properties/         metsätilat
 src/lib/ledger/             kirjaukset ja tositteet
 src/lib/assets/             aiemmin hankitut investoinnit (prior.ts: menojäännös, lisäys, muutos, poisto)
-src/lib/tax/                verolaskenta: alv, poistot, metsävähennys, verosuunnitelma, säännöt; maatalous (agriculture.ts lomake 2, agri-depreciation.ts ryhmäpoistot, income-split.ts yritystulon jako, agri-plan.ts verosuunnitelman maatalousosa)
+src/lib/tax/                verolaskenta: alv, poistot, metsävähennys, verosuunnitelma, säännöt; maatalous (agriculture.ts lomake 2, agri-depreciation.ts ryhmäpoistot, income-split.ts yritystulon jako, agri-plan.ts verosuunnitelman maatalousosa ja tasausvaraus tiloittain, vehicle.ts ajoneuvo- ja matkaselvitys)
 src/lib/reports/            veroraportti PDF:nä, arkistointi
 src/lib/filing/             sähköiset veroilmoitukset: 2C (vsy02c.ts) ja maatalouden lomake 2 (vsy002.ts, kentät vsy002-fields.ts) samaan tiedostoon (load, download)
-src/lib/agriculture/        Maatalous-välilehden tiedot: vuoden tiedot, maatilat, varaukset, jaksotukset, tuet, harvinaiset kentät, ryhmäpoistot
+src/lib/agriculture/        Maatalous-välilehden tiedot: vuoden tiedot, maatilat, varaukset, jaksotukset, tuet, harvinaiset kentät, ryhmäpoistot, ajoneuvoselvitys (vehicle.ts)
 src/lib/years/              verovuoden avaus, sulkeminen ja lukitus
 src/lib/compare/            vertailu vanhaan sovellukseen (legacy-tax)
 src/lib/import/             tiedonsiirto vanhasta kannasta: muunnokset (legacy.ts) ja kirjoitus (run.ts)

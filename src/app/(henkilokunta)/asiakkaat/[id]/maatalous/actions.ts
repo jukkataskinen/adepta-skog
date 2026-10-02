@@ -24,6 +24,7 @@ import {
   saveAgriYear,
   setExtra,
 } from "@/lib/agriculture/year";
+import { saveVehicleReport } from "@/lib/agriculture/vehicle";
 
 /**
  * Maatalous-välilehden lomakkeet. Jokainen lomake lähettää asiakkaan ja
@@ -203,4 +204,33 @@ export async function setExtraAction(formData: FormData) {
 export async function deleteExtraAction(formData: FormData) {
   const schema = base.extend({ code: z.string().regex(/^\d{3}$/) });
   await run(formData, schema, "muut-kentat", (tx, actor, i) => deleteExtra(tx, actor, i.clientId, i.year, i.code));
+}
+
+/** Ajoneuvo- ja matkaselvitys (0018). Tyhjät kentät = ei tietoa; kokonaan tyhjä selvitys poistetaan. */
+export async function saveVehicleReportAction(formData: FormData) {
+  const km = (message: string) => z.preprocess(parseNum, z.number({ message }).int(message).min(0, message).max(99_999_999, message).nullable());
+  const days = (message: string) => z.preprocess(parseNum, z.number({ message }).int(message).min(0, message).max(999, message).nullable());
+  const basis = z.preprocess(emptyToNull, z.coerce.number().refine((v) => v === 1 || v === 2, "Valitse käyttötietojen peruste.").nullable());
+  const schema = base.extend({
+    vehicleBasis: basis,
+    vehicleTotalKm: km("Tarkista ajoneuvon kokonaiskilometrit."),
+    vehiclePrivateKm: km("Tarkista yksityisajot."),
+    vehicleForestryKm: km("Tarkista metsätalouden ajot."),
+    vehicleCosts: optionalAmount("Tarkista ajoneuvon kokonaismenot."),
+    carBasis: basis,
+    carTotalKm: km("Tarkista oman auton kokonaiskilometrit."),
+    carAgriKm: km("Tarkista oman auton maatalouden ajot."),
+    carDeducted: optionalAmount("Tarkista kirjanpidossa jo vähennetyt autokulut."),
+    tripsFullDays: days("Tarkista yli 10 tunnin matkapäivät."),
+    tripsFullDeducted: optionalAmount("Tarkista yli 10 tunnin matkojen vähennetyt kulut."),
+    tripsPartDays: days("Tarkista yli 6 tunnin matkapäivät."),
+    tripsPartDeducted: optionalAmount("Tarkista yli 6 tunnin matkojen vähennetyt kulut."),
+    tripsAbroadDays: days("Tarkista ulkomaan matkapäivät."),
+    tripsAbroadMax: optionalAmount("Tarkista ulkomaan päivärahojen yhteismäärä."),
+    tripsAbroadDeducted: optionalAmount("Tarkista ulkomaan matkojen vähennetyt kulut."),
+  });
+  await run(formData, schema, "ajoneuvot", (tx, actor, i) => {
+    const { clientId, year, ...report } = i;
+    return saveVehicleReport(tx, actor, clientId, year, { ...report, vehicleBasis: report.vehicleBasis as 1 | 2 | null, carBasis: report.carBasis as 1 | 2 | null });
+  });
 }

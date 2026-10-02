@@ -94,6 +94,7 @@ export const CATEGORIES: Category[] = [
     [47, "agri_veterinary", "Eläinlääkäri ja eläinten hoito", "Maatalous: ostot", "expense", "general", "by_vat"],
     [48, "agri_contracting", "Urakointi ja ostopalvelut", "Maatalous: ostot", "expense", "general", "by_vat"],
     [49, "agri_other_purchases", "Muut ostot ja kalusto", "Maatalous: ostot", "expense", "general", "by_vat"],
+    [40, "agri_livestock_purchase", "Kotieläinten hankinta", "Maatalous: ostot", "expense", "general", "by_vat"],
     [50, "agri_livestock_purchase_deferred", "Kotieläinten hankinta, jaksotettava", "Maatalous: ostot", "expense", "general", "227"],
     [51, "agri_wages", "Palkat ja sivukulut", "Maatalous: muut menot", "expense", "none", "225"],
     [52, "agri_rents", "Vuokrat", "Maatalous: muut menot", "expense", "none", "by_vat"],
@@ -199,8 +200,34 @@ export const COOP_SURPLUS_THRESHOLD = 5000;
 /** Tasausvaraus: enintään 40 % tilan puhtaasta tulosta ennen korkoja, 800–25 000 €, alas sataan euroon. */
 export const EQUALIZATION_RESERVE = { pct: 40, min: 800, max: 25000, round: 100 } as const;
 
-/** Kotieläinten jaksotus: kolme vuotta tasaerinä (lomake 2: 211/212 ja 227/228). */
+/**
+ * Kotieläinten jaksotus: verovuosi ja kaksi seuraavaa vuotta yhtä suurina erinä
+ * (lomake 2: 211/212 ja 227/228). Myynti MVL 5 § 1 mom. 1 k., hankinta MVL 6 § 2 mom.
+ * (Verohallinto, Maatilan sukupolvenvaihdos verotuksessa). Vapaata jakoa laki ei salli.
+ */
 export const LIVESTOCK_DEFERRAL_YEARS = 3;
+
+/** Kotieläinkirjauksen jaksotus: tavallinen luokka ja sen jaksotettava pari. */
+const LIVESTOCK_DEFERRAL_PAIRS: [string, string][] = [
+  ["agri_livestock_sale", "agri_livestock_sale_deferred"],
+  ["agri_livestock_purchase", "agri_livestock_purchase_deferred"],
+];
+
+/** Jaksotettava kotieläinluokka: kirjauksesta syntyy jaksotus (0018). */
+export function isLivestockDeferral(code: string): boolean {
+  return LIVESTOCK_DEFERRAL_PAIRS.some(([, d]) => d === code);
+}
+
+/** Luokka, jolle Jaksota-valinnan voi antaa: kotieläinten myynti tai hankinta. */
+export function allowsLivestockDeferral(code: string): boolean {
+  return LIVESTOCK_DEFERRAL_PAIRS.some(([a, d]) => a === code || d === code);
+}
+
+/** Jaksota-valinta luokaksi: valinta vaihtaa tavallisen ja jaksotettavan luokan. Muut luokat ennallaan. */
+export function withLivestockDeferral(code: string, deferred: boolean): string {
+  const pair = LIVESTOCK_DEFERRAL_PAIRS.find(([a, d]) => a === code || d === code);
+  return pair ? pair[deferred ? 1 : 0] : code;
+}
 
 /** Puukaupan tulot: metsävähennyksen vuosiraja lasketaan näistä (vaihe 5). */
 export const TIMBER_SALE_CODES = ["standing_sale", "delivery_sale", "firewood_sale"];
@@ -554,4 +581,24 @@ export function municipalTaxAvgPct(year: number): number {
   let pct = MUNICIPAL_TAX_AVG[0].pct;
   for (const r of MUNICIPAL_TAX_AVG) if (r.year <= year) pct = r.pct;
   return pct;
+}
+
+/**
+ * Verovapaat matkakustannusten korvaukset vuosittain (Verohallinnon päätös
+ * verovapaista matkakustannusten korvauksista). Lomakkeen 2 ajoneuvo- ja
+ * matkaselvitys käyttää niitä enimmäismääriin: oman auton maatalouden ajot
+ * kilometrikorvauksella (518), kotimaan kokopäiväraha yli 10 tunnin (402) ja
+ * osapäiväraha yli 6 tunnin matkapäivältä (407). Ulkomaan päiväraha on
+ * maakohtainen, joten sen enimmäismäärä syötetään (423).
+ * 2026: päätös 970/2025 (vero.fi, uutinen 2025); 2025: kilometrikorvaus 4 senttiä suurempi kuin 2026.
+ */
+export const TRAVEL_RATES: { year: number; kmRate: number; fullDay: number; partDay: number }[] = [
+  { year: 2025, kmRate: 0.59, fullDay: 53, partDay: 24 },
+  { year: 2026, kmRate: 0.55, fullDay: 54, partDay: 25 },
+];
+
+/** Vuoden korvaukset; tuntemattomalle vuodelle lähin aiempi (tai ensimmäinen). */
+export function travelRates(year: number): { year: number; kmRate: number; fullDay: number; partDay: number } {
+  const known = [...TRAVEL_RATES].sort((a, b) => a.year - b.year);
+  return [...known].reverse().find((r) => r.year <= year) ?? known[0];
 }

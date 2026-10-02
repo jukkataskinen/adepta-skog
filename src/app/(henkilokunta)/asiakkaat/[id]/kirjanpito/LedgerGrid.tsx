@@ -2,7 +2,22 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition, type ClipboardEvent, type KeyboardEvent } from "react";
 import { Button, Notice } from "@/components/ui";
-import { ACTIVITY_PARAM, agriAssetChoices, allowsOtherShare, ASSET_CLASSES, category, deliveryWorkRates, DELIVERY_WORK_TAX_FREE_M3, isAssetPurchase, isAssetSale, smallAssetLimit, type Activity } from "@/lib/tax/rules";
+import {
+  ACTIVITY_PARAM,
+  agriAssetChoices,
+  allowsLivestockDeferral,
+  allowsOtherShare,
+  ASSET_CLASSES,
+  category,
+  deliveryWorkRates,
+  DELIVERY_WORK_TAX_FREE_M3,
+  isAssetPurchase,
+  isAssetSale,
+  isLivestockDeferral,
+  smallAssetLimit,
+  withLivestockDeferral,
+  type Activity,
+} from "@/lib/tax/rules";
 import { formatEur } from "@/lib/format";
 import { normalizeDate, parseAmount, parseClipboard, toFinnishDate } from "@/lib/ledger/transaction-input";
 import {
@@ -14,18 +29,24 @@ import {
   categoryDigit,
   changeCount,
   deferredSuggestionLines,
+  EMPTY_FILTER,
   emptyGridRow,
   formatAmountInput,
   gridColumns,
   gridKeyAction,
+  gridRowVisible,
   isBlankGridRow,
+  isFilterActive,
   menuCategories,
   menuGroupLabel,
   menuIndexOfNo,
+  MONTH_NAMES,
+  nextVisibleRow,
   offersDeliveryWork,
   pasteFields,
   planGridChanges,
   rowKind,
+  rowLivestockDeferral,
   rowNet,
   rowOtherSharePct,
   rowShare,
@@ -41,6 +62,7 @@ import {
   type GridRow,
   type GridSaveState,
   type KeyAction,
+  type LedgerFilter,
   type PasteField,
   type RowErrors,
 } from "@/lib/ledger/grid";
@@ -83,6 +105,8 @@ export function LedgerGrid({
   initialRows,
   suggestionRows = [],
   properties,
+  farms = [],
+  initialFilter = EMPTY_FILTER,
   assets,
   vatRegistered,
   defaultDate,
@@ -97,6 +121,10 @@ export function LedgerGrid({
   /** Tositteiden tunnistuksen ehdotukset uusina riveinä (rowsFromSuggestion). */
   suggestionRows?: GridRow[];
   properties: PropertyOption[];
+  /** Maatalouden näkymässä asiakkaan maatilat (0018). Sarake näkyy, kun tiloja on useampi. */
+  farms?: PropertyOption[];
+  /** Suodatin osoitteesta (?luokka=&kk=&haku=). */
+  initialFilter?: LedgerFilter;
   assets: AssetOption[];
   vatRegistered: boolean;
   /** p.k.vvvv */
@@ -115,7 +143,8 @@ export function LedgerGrid({
   const both = hasForestry && hasAgriculture;
   const menuList = useMemo(() => menuCategories({ hasForestry, hasAgriculture }, activity), [hasForestry, hasAgriculture, activity]);
   const menuNumbers = useMemo(() => menuList.map((c) => c.no), [menuList]);
-  const columns = useMemo(() => gridColumns(properties.length > 0, both), [properties.length, both]);
+  const hasFarms = farms.length > 1;
+  const columns = useMemo(() => gridColumns(properties.length > 0, both, hasFarms), [properties.length, both, hasFarms]);
   const col = (f: GridField) => columns.indexOf(f);
 
   const [original, setOriginal] = useState<GridRow[]>(initialRows);
@@ -132,11 +161,17 @@ export function LedgerGrid({
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [pendingFocus, setPendingFocus] = useState<{ row: number; col: number } | "add" | null>(null);
+  const [filter, setFilter] = useState<LedgerFilter>(initialFilter);
 
   const tableRef = useRef<HTMLTableElement>(null);
   const addRef = useRef<HTMLButtonElement>(null);
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
+  // Suodatin piilottaa tallennettuja rivejä; uudet rivit näkyvät aina (grid.ts gridRowVisible).
+  const filtering = isFilterActive(filter);
+  const visible = useMemo(() => rows.map((r) => gridRowVisible(r, filter, year)), [rows, filter, year]);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
   // Ennakonpidätys on kysytty (tallennetut rivit) ja hankintatyötä tarjottu: ei kysytä uudelleen samassa istunnossa.
   const htOffered = useRef(new Set<string>(initialRows.map((r) => r.key)));
   const amountAtFocus = useRef<string>("");
@@ -290,16 +325,21 @@ export function LedgerGrid({
   }
 
   function nextRow(index: number) {
-    if (index < rowsRef.current.length - 1) moveTo(index + 1, 0);
-    else addRow(index);
+    const next = nextVisibleRow(visibleRef.current, index, index + 1);
+    if (next !== null) moveTo(next, 0);
+    else addRow(rowsRef.current.length - 1);
   }
 
   function run(a: KeyAction | { type: "add" } | null, index: number): boolean {
     if (!a) return false;
     switch (a.type) {
-      case "focus":
-        moveTo(a.row, a.col);
+      case "focus": {
+        // Suodatuksen piilottamat rivit ohitetaan; jos alempana ei ole näkyvää riviä, Lisää rivi -painikkeeseen.
+        const target = nextVisibleRow(visibleRef.current, index, a.row);
+        if (target !== null) moveTo(target, a.col);
+        else if (a.row > index) addRef.current?.focus();
         break;
+      }
       case "rowEnd":
         rowEnd(a.row);
         break;
@@ -524,7 +564,7 @@ export function LedgerGrid({
       .filter((r) => r.id || (!isBlankGridRow(r) && !(r.suggestionId && r.deferred)))
       .map((r) => ({
         key: r.key, id: r.id, bookedOn: r.bookedOn, description: r.description, category: r.category, amountGross: r.amountGross, vatRate: r.vatRate,
-        businessSharePct: r.businessSharePct, otherSharePct: r.otherSharePct ?? "", withholding: r.withholding, forestPropertyId: r.forestPropertyId, kind: r.kind, reference: r.reference, assetRatePct: r.assetRatePct, saleAssetId: r.saleAssetId,
+        businessSharePct: r.businessSharePct, otherSharePct: r.otherSharePct ?? "", withholding: r.withholding, forestPropertyId: r.forestPropertyId, farmId: r.farmId ?? "", kind: r.kind, reference: r.reference, assetRatePct: r.assetRatePct, saleAssetId: r.saleAssetId,
         suggestionId: r.id ? null : (r.suggestionId ?? null),
         suggestionLine: r.id || !r.suggestionId ? null : (r.suggestionLine ?? null),
       }));
@@ -634,7 +674,8 @@ export function LedgerGrid({
   // ---------------------------------------------------------------------------
 
   // Odottamaan jätetyt ehdotusrivit eivät ole mukana summissa, koska ne eivät tallennu.
-  const filled = rows.filter((r) => !isBlankGridRow(r) && !(r.suggestionId && r.deferred));
+  const filled = rows.filter((r, i) => visible[i] && !isBlankGridRow(r) && !(r.suggestionId && r.deferred));
+  const filledAll = filtering ? rows.filter((r) => !isBlankGridRow(r) && !(r.suggestionId && r.deferred)).length : filled.length;
 
   /** Ehdotusrivin hyväksyntä: odottamaan jätetty rivi ei tallennu tällä kertaa. */
   function setDeferred(keys: string[], deferred: boolean) {
@@ -679,6 +720,56 @@ export function LedgerGrid({
       ) : null}
       {result.status === "error" ? <Notice tone="alert" title={result.message} /> : null}
 
+      <div className="flex flex-wrap items-end gap-3" role="search" aria-label="Suodata kirjauksia">
+        <label className="grid gap-1 text-xs font-semibold text-ink/70">
+          Luokka
+          <select
+            className="h-9 rounded-md border border-line bg-paper px-2 text-sm font-normal text-ink"
+            value={filter.category}
+            onChange={(e) => setFilter((f) => ({ ...f, category: e.target.value }))}
+          >
+            <option value="">Kaikki luokat</option>
+            {menuList.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.no} {c.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs font-semibold text-ink/70">
+          Kuukausi
+          <select
+            className="h-9 rounded-md border border-line bg-paper px-2 text-sm font-normal text-ink"
+            value={filter.month ?? ""}
+            onChange={(e) => setFilter((f) => ({ ...f, month: e.target.value ? Number(e.target.value) : null }))}
+          >
+            <option value="">Koko vuosi</option>
+            {MONTH_NAMES.map((m, i) => (
+              <option key={m} value={i + 1}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs font-semibold text-ink/70">
+          Haku
+          <input
+            type="search"
+            className="h-9 w-56 rounded-md border border-line bg-paper px-2 text-sm font-normal text-ink"
+            value={filter.text}
+            placeholder="Selite, viite tai summa"
+            autoComplete="off"
+            onChange={(e) => setFilter((f) => ({ ...f, text: e.target.value }))}
+          />
+        </label>
+        {filtering ? (
+          <button type="button" className="h-9 px-2 text-sm font-semibold text-sky hover:underline" onClick={() => setFilter(EMPTY_FILTER)}>
+            Näytä kaikki
+          </button>
+        ) : null}
+        {filtering ? <span className="pb-2 text-xs text-ink/60">Uudet ja tallentamattomat rivit näkyvät aina. Tallennus koskee kaikkia rivejä.</span> : null}
+      </div>
+
       {/* relative: näkymättömät otsikot pysyvät vierityslaatikon sisällä eivätkä levennä sivua. */}
       <div className="relative overflow-x-auto rounded-xl border border-line bg-paper">
         <table ref={tableRef} className="w-full min-w-[62rem] border-collapse text-sm">
@@ -701,6 +792,7 @@ export function LedgerGrid({
               <th className="px-2 py-2 text-right">Veroton</th>
               <th className="px-2 py-2">Ennakko</th>
               {properties.length ? <th className="px-2 py-2">Metsätila</th> : null}
+              {hasFarms ? <th className="px-2 py-2" title="Tasausvaraus lasketaan maatiloittain. Yhteinen = kaikille tiloille yhteinen kirjaus.">Maatila</th> : null}
               <th className="px-2 py-2">Tosite</th>
               <th className="px-2 py-2">Tyyppi</th>
               <th className="w-8 px-1 py-2">
@@ -710,7 +802,9 @@ export function LedgerGrid({
           </thead>
           <tbody>
             {rows.map((r, i) => {
+              if (!visible[i]) return null;
               const err = errors[r.key] ?? {};
+              const livestock = rowLivestockDeferral(r, year, client);
               const kind = rowKind(r);
               const net = rowNet(r, year, client);
               // Osuus alle 100 % tai toisen toiminnon osuus: rivin alle näytetään, paljonko kuuluu kullekin.
@@ -801,6 +895,20 @@ export function LedgerGrid({
                           {r.assetRatePct ? assetChoiceLabel(r) : "Valitse hyödykkeen laji"}
                         </button>
                       )
+                    ) : null}
+                    {allowsLivestockDeferral(r.category) ? (
+                      <label className="flex items-center gap-1.5 px-2 text-xs font-semibold text-ink/70">
+                        <input
+                          type="checkbox"
+                          tabIndex={-1}
+                          checked={isLivestockDeferral(r.category)}
+                          onChange={(e) => {
+                            const checked = e.currentTarget.checked;
+                            patchRow(r.key, (x) => ({ ...x, category: withLivestockDeferral(x.category, checked) }));
+                          }}
+                        />
+                        Jaksota 3 vuodelle
+                      </label>
                     ) : null}
                     {isAssetSale(r.category) ? (
                       <button type="button" tabIndex={-1} className={`px-2 text-xs font-semibold ${r.saleAssetId || r.assetId ? "text-ink/60" : "text-coral"}`} onClick={() => setDialog({ type: "sale", key: r.key })}>
@@ -924,6 +1032,25 @@ export function LedgerGrid({
                       </select>
                     </td>
                   ) : null}
+                  {hasFarms ? (
+                    <td className="px-1 py-1 min-w-[9rem]">
+                      <select
+                        {...common("farmId")}
+                        aria-label={`Maatila, rivi ${i + 1}`}
+                        className={cellClass(Boolean(err.farmId))}
+                        value={r.farmId ?? ""}
+                        onChange={(e) => patchRow(r.key, { farmId: e.target.value })}
+                      >
+                        <option value="">Yhteinen</option>
+                        {r.farmId && !farms.some((f) => f.id === r.farmId) ? <option value={r.farmId}>{r.farmId} (tuntematon)</option> : null}
+                        {farms.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  ) : null}
                   <td className="whitespace-nowrap px-2 py-2.5">
                     {sg ? (
                       <a
@@ -1028,6 +1155,14 @@ export function LedgerGrid({
                     </td>
                   </tr>
                 ) : null,
+                livestock ? (
+                  <tr key={`${r.key}-j`}>
+                    <td />
+                    <td colSpan={columns.length + 5} className="px-2 pb-2 text-xs text-ink/70">
+                      Jaksotus: {livestock.map((x) => `${x.year} ${formatEur(x.amount)}`).join(", ")}.
+                    </td>
+                  </tr>
+                ) : null,
                 messages.length ? (
                   <tr key={`${r.key}-e`}>
                     <td />
@@ -1064,7 +1199,7 @@ export function LedgerGrid({
             <tr className="border-t-2 border-line font-semibold">
               <td />
               <td colSpan={3} className="px-2 py-2">
-                {filled.length === 1 ? "1 rivi" : `${filled.length} riviä`}
+                {filtering ? `${filled.length} / ${filledAll} riviä näkyvissä` : filled.length === 1 ? "1 rivi" : `${filled.length} riviä`}
               </td>
               <td className="px-2 py-2 text-right tabular">{formatEur(totals.gross)}</td>
               <td />

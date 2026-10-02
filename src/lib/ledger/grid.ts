@@ -11,6 +11,7 @@ import {
   FORESTRY_CATEGORIES,
   isAssetPurchase,
   isAssetSale,
+  isLivestockDeferral,
   parseAgriAssetChoice,
   smallAssetLimit,
   TIMBER_SALE_CODES,
@@ -21,6 +22,7 @@ import {
   viewCategories,
 } from "@/lib/tax/rules";
 import { netFromGross, percentOf } from "@/lib/tax/amounts";
+import { livestockDeferralFor } from "@/lib/tax/agriculture";
 import { formatSharePct, ownShare, type ShareAmounts } from "@/lib/tax/share";
 import type { PendingSuggestion } from "@/lib/documents/receipt-suggestions";
 import { isCompilation, parsePagesColumn, type DocumentType } from "@/lib/ai/receipts/schema";
@@ -68,6 +70,8 @@ export interface GridRow {
   otherSharePct?: string;
   withholding: string;
   forestPropertyId: string;
+  /** Maatalouden kirjauksen maatila (0018). Tyhjä = ei tilaa. Puuttuva = tyhjä. */
+  farmId?: string;
   /** Tyhjä = luokan tyyppi. */
   kind: TransactionKind | "";
   /** Viite säilyy muokatessa, vaikka taulukossa ei ole sille saraketta. */
@@ -125,7 +129,7 @@ export interface SuggestionInfo {
   note?: string | null;
 }
 
-export type GridField = "bookedOn" | "description" | "category" | "amountGross" | "vatRate" | "businessSharePct" | "otherSharePct" | "forestPropertyId" | "kind";
+export type GridField = "bookedOn" | "description" | "category" | "amountGross" | "vatRate" | "businessSharePct" | "otherSharePct" | "forestPropertyId" | "farmId" | "kind";
 export type RowErrorField = GridField | "withholding" | "asset";
 export type RowErrors = Partial<Record<RowErrorField, string>>;
 
@@ -133,10 +137,12 @@ export type RowErrors = Partial<Record<RowErrorField, string>>;
  * Näppäimillä kuljettavat sarakkeet vanhan sovelluksen järjestyksessä. Metsätila vain, jos asiakkaalla on tiloja.
  * Osuus on alv %:n jälkeen, mutta Enter ohittaa sen (ENTER_SKIPS), jotta tavallinen syöttö ei hidastu.
  */
-export function gridColumns(hasProperties: boolean, hasOtherShare = false): GridField[] {
+export function gridColumns(hasProperties: boolean, hasOtherShare = false, hasFarms = false): GridField[] {
   // Toisen toiminnon osuus vain asiakkaalle, jolla on sekä metsä- että maataloutta.
   const shares: GridField[] = hasOtherShare ? ["businessSharePct", "otherSharePct"] : ["businessSharePct"];
-  return ["bookedOn", "description", "category", "amountGross", "vatRate", ...shares, ...(hasProperties ? (["forestPropertyId"] as GridField[]) : []), "kind"];
+  // Maatila vain maatalouden näkymässä, kun asiakkaalla on useampi tila (0018).
+  const place: GridField[] = [...(hasProperties ? (["forestPropertyId"] as GridField[]) : []), ...(hasFarms ? (["farmId"] as GridField[]) : [])];
+  return ["bookedOn", "description", "category", "amountGross", "vatRate", ...shares, ...place, "kind"];
 }
 
 /** Sarakkeet, jotka Enter ohittaa. Tab ja klikkaus vievät niihin. Osuudet ovat harvoin muita kuin 100 % ja 0 %. */
@@ -146,7 +152,7 @@ export const MAX_GRID_ROWS = 2000;
 
 export function emptyGridRow(key: string, bookedOn = ""): GridRow {
   return {
-    key, id: null, bookedOn, description: "", category: "", amountGross: "", vatRate: "", businessSharePct: "", otherSharePct: "", withholding: "", forestPropertyId: "", kind: "",
+    key, id: null, bookedOn, description: "", category: "", amountGross: "", vatRate: "", businessSharePct: "", otherSharePct: "", withholding: "", forestPropertyId: "", farmId: "", kind: "",
     reference: "", assetRatePct: "", saleAssetId: "",
   };
 }
@@ -175,6 +181,8 @@ export interface StoredTransaction {
   asset_id: string | null;
   asset_description?: string | null;
   forest_property_id: string | null;
+  /** Maatila (0018). Puuttuu vanhoista testiriveistä. */
+  farm_id?: string | null;
   document_count?: number;
   source_document_id?: string | null;
   /** smallint[]: ajurista riippuen taulukko tai teksti "{3,4}". */
@@ -197,6 +205,7 @@ export function rowFromStored(t: StoredTransaction): GridRow {
     otherSharePct: t.other_share_pct && Number(t.other_share_pct) ? formatSharePct(Number(t.other_share_pct)) : "",
     withholding: withholding ? formatAmountInput(withholding) : "",
     forestPropertyId: t.forest_property_id ?? "",
+    farmId: t.farm_id ?? "",
     kind: t.kind,
     reference: t.reference ?? "",
     assetRatePct: "",
@@ -354,7 +363,7 @@ export function suggestionDateWarning(r: GridRow, year: number, initialBookedOn?
 export function isBlankGridRow(r: GridRow): boolean {
   return (
     r.id === null &&
-    [r.description, r.category, r.amountGross, r.vatRate, r.businessSharePct, r.otherSharePct, r.withholding, r.forestPropertyId, r.reference, r.assetRatePct, r.saleAssetId].every(
+    [r.description, r.category, r.amountGross, r.vatRate, r.businessSharePct, r.otherSharePct, r.withholding, r.forestPropertyId, r.farmId, r.reference, r.assetRatePct, r.saleAssetId].every(
       (v) => !String(v ?? "").trim(),
     )
   );
@@ -451,7 +460,26 @@ export function selectCategory(r: GridRow, code: string, year: number, client: {
     saleAssetId: isAssetSale(cat.code) && cat.code === r.category ? r.saleAssetId : "",
     // Toisen toiminnon osuus vain menoille, joille se sallitaan.
     otherSharePct: allowsOtherShare(cat.code) ? (r.otherSharePct ?? "") : "",
+    // Maatila vain maatalouden kirjauksella.
+    farmId: cat.activity === "agriculture" ? (r.farmId ?? "") : "",
   };
+}
+
+/**
+ * Jaksotettavan kotieläinrivin vuosierät näytettäväksi rivin alla (0018), samalla
+ * säännöllä kuin tallennus (livestockDeferralFor). null, jos rivi ei ole
+ * jaksotettava tai summaa ei voi vielä laskea.
+ */
+export function rowLivestockDeferral(r: GridRow, year: number, client: { vatRegistered: boolean }): { year: number; amount: number }[] | null {
+  if (!isLivestockDeferral(r.category)) return null;
+  const gross = parseAmount(r.amountGross);
+  const net = rowNet(r, year, client);
+  const pct = rowSharePct(r);
+  if (gross === null || Number.isNaN(gross) || net === null || pct === null) return null;
+  const d = livestockDeferralFor({ category: r.category, kind: rowKind(r) ?? "income", amountNet: net, amountGross: gross, businessSharePct: pct }, client.vatRegistered);
+  if (!d) return null;
+  const first = Number((normalizeDate(r.bookedOn, year) ?? `${year}`).slice(0, 4));
+  return d.split.map((amount, i) => ({ year: first + i, amount }));
 }
 
 /** Puukaupasta kysytään ennakonpidätys, kun summa on syötetty (vanha avaaEP). */
@@ -641,6 +669,8 @@ export { categoryByNo };
 export interface GridValidateOptions {
   year: number;
   propertyIds: string[];
+  /** Asiakkaan maatilat (0018). Puuttuva = ei tiloja. */
+  farmIds?: string[];
   vatRegistered: boolean;
   /** Investoinnit, jotka rivi voi merkitä myydyiksi (myymättömät ja rivin oma). */
   saleableAssetIds: (row: GridRow) => string[];
@@ -681,6 +711,7 @@ export interface ValidGridRow {
   otherSharePct: number;
   reference: string | null;
   forestPropertyId: string | null;
+  farmId: string | null;
   assetRatePct: number | null;
   /** Maatalouden investoinnin lajivalinta (rules.ts parseAgriAssetChoice). */
   agriAssetChoice: string | null;
@@ -721,6 +752,9 @@ export function validateGridRow(r: GridRow, opts: GridValidateOptions): { ok: tr
   else if (opts.view && cat.activity !== opts.view) errors.category = viewMessage(opts.view);
   const vatRate = v.vatRate ?? defaultVatRate(cat.code, v.bookedOn, { vatRegistered: opts.vatRegistered });
   if (v.forestPropertyId && !opts.propertyIds.includes(v.forestPropertyId)) errors.forestPropertyId = "Valitse asiakkaan metsätila.";
+  // Maatila vain maatalouden kirjaukselle; metsätalouden rivillä se jätetään pois.
+  const farmId = cat.activity === "agriculture" && r.farmId ? r.farmId : null;
+  if (farmId && !(opts.farmIds ?? []).includes(farmId)) errors.farmId = "Valitse asiakkaan maatila.";
   if (v.otherSharePct && !allowsOtherShare(cat.code)) errors.otherSharePct = OTHER_SHARE_MESSAGE;
   else if (v.otherSharePct && v.otherSharePct + v.businessSharePct > 100) errors.otherSharePct = "Osuudet ovat yhteensä yli 100 %.";
   const rate = cat.code === "asset_purchase" && r.assetRatePct ? Number(r.assetRatePct) : null;
@@ -753,11 +787,93 @@ export function validateGridRow(r: GridRow, opts: GridValidateOptions): { ok: tr
       otherSharePct: allowsOtherShare(cat.code) ? v.otherSharePct : 0,
       reference: v.reference,
       forestPropertyId: v.forestPropertyId,
+      farmId,
       assetRatePct: cat.code === "asset_purchase" && !r.assetId ? rate : null,
       agriAssetChoice: cat.code === "agri_asset_purchase" && !r.assetId ? agriChoice : null,
       saleAssetId: isAssetSale(cat.code) ? r.saleAssetId || null : null,
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Suodatin ja haku
+// ---------------------------------------------------------------------------
+
+/**
+ * Kirjanpidon suodatin: luokka, kuukausi ja hakuteksti. Sama sääntö
+ * taulukossa (selaimessa) ja lomakenäkymän luettelossa (palvelimella).
+ * Tyhjä kenttä ei rajaa.
+ */
+export interface LedgerFilter {
+  category: string;
+  /** 1–12 tai null. */
+  month: number | null;
+  text: string;
+}
+
+export const EMPTY_FILTER: LedgerFilter = { category: "", month: null, text: "" };
+
+export const MONTH_NAMES = ["Tammikuu", "Helmikuu", "Maaliskuu", "Huhtikuu", "Toukokuu", "Kesäkuu", "Heinäkuu", "Elokuu", "Syyskuu", "Lokakuu", "Marraskuu", "Joulukuu"];
+
+export function isFilterActive(f: LedgerFilter): boolean {
+  return Boolean(f.category || f.month || f.text.trim());
+}
+
+/** Suodatin osoitteen parametreista (?luokka=&kk=&haku=). Kelvoton arvo ei rajaa. */
+export function parseLedgerFilter(p: { luokka?: string; kk?: string; haku?: string }): LedgerFilter {
+  const month = Number(p.kk);
+  return {
+    category: p.luokka && category(p.luokka) ? p.luokka : "",
+    month: Number.isInteger(month) && month >= 1 && month <= 12 ? month : null,
+    text: (p.haku ?? "").slice(0, 100),
+  };
+}
+
+const fold = (t: string) => t.toLocaleLowerCase("fi-FI").replace(/\s+/g, " ").trim();
+
+/**
+ * Vastaako kirjaus suodatinta. Haku osuu selitteeseen, viitteeseen, luokan
+ * nimeen ja numeroon. Jos haku on summa (esimerkiksi 1 250,50), se osuu myös
+ * kirjaukseen, jonka summa on sama.
+ */
+export function matchesLedgerFilter(
+  t: { bookedOn: string | null; category: string; description: string; reference: string | null; amountGross: number | null },
+  f: LedgerFilter,
+): boolean {
+  if (f.category && t.category !== f.category) return false;
+  if (f.month && (!t.bookedOn || Number(t.bookedOn.slice(5, 7)) !== f.month)) return false;
+  const q = fold(f.text);
+  if (!q) return true;
+  const cat = category(t.category);
+  const hay = fold([t.description, t.reference ?? "", cat?.label ?? t.category, cat ? String(cat.no) : ""].join(" "));
+  if (hay.includes(q)) return true;
+  const amount = parseAmount(f.text);
+  return amount !== null && !Number.isNaN(amount) && t.amountGross !== null && Math.abs(t.amountGross - amount) < 0.005;
+}
+
+/**
+ * Taulukon rivin näkyvyys suodattimella. Tallentamattomat rivit näkyvät aina,
+ * jotta uusi rivi ja tunnistuksen ehdotus eivät katoa kesken kirjoituksen.
+ */
+export function gridRowVisible(r: GridRow, f: LedgerFilter, year: number): boolean {
+  if (!r.id || !isFilterActive(f)) return true;
+  const gross = parseAmount(r.amountGross);
+  return matchesLedgerFilter(
+    { bookedOn: normalizeDate(r.bookedOn, year), category: r.category, description: r.description, reference: r.reference, amountGross: gross === null || Number.isNaN(gross) ? null : gross },
+    f,
+  );
+}
+
+/**
+ * Seuraava näkyvä rivi suunnassa (Enter, nuolet ja rivin loppu ohittavat
+ * piilotetut rivit). null, jos suunnassa ei ole näkyvää riviä.
+ */
+export function nextVisibleRow(visible: boolean[], from: number, target: number): number | null {
+  if (target < 0 || target >= visible.length) return null;
+  if (visible[target]) return target;
+  const dir = target >= from ? 1 : -1;
+  for (let i = target + dir; i >= 0 && i < visible.length; i += dir) if (visible[i]) return i;
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -784,6 +900,7 @@ function canonical(r: GridRow, year: number): string {
     num(r.businessSharePct ?? "") ?? 100,
     num(r.otherSharePct ?? "") ?? 0,
     r.forestPropertyId || null,
+    categoryActivity(r.category) === "agriculture" ? r.farmId || null : null,
     rowKind(r),
     r.reference.trim() || null,
     r.assetRatePct || null,

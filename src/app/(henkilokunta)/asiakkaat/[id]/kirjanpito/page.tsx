@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { EmptyState, Notice, PageHeader, Panel, SectionTitle, Stat, Table, Td, Th } from "@/components/ui";
+import { Button, EmptyState, Field, Input, Notice, PageHeader, Panel, SectionTitle, Select, Stat, Table, Td, Th } from "@/components/ui";
 import { FormError } from "@/components/FormError";
 import { requireStaff } from "@/lib/auth/current-user";
 import { getClient } from "@/lib/clients/queries";
-import { defaultYear, listAssets, listPropertyOptions, listTransactions, listYears } from "@/lib/ledger/queries";
+import { defaultYear, listAssets, listFarmOptions, listPropertyOptions, listTransactions, listYears } from "@/lib/ledger/queries";
 import { summarize } from "@/lib/ledger/summary";
 import { vatOf } from "@/lib/tax/amounts";
 import { activityRows, formatSharePct, isPartialShare } from "@/lib/tax/share";
-import { inView, rowFromStored, rowsFromSuggestion, withDuplicateWarnings } from "@/lib/ledger/grid";
+import { inView, isFilterActive, matchesLedgerFilter, menuCategories, MONTH_NAMES, parseLedgerFilter, rowFromStored, rowsFromSuggestion, withDuplicateWarnings } from "@/lib/ledger/grid";
 import { listPendingSuggestions } from "@/lib/documents/receipt-suggestions";
 import { receiptRecognizer } from "@/lib/ai/receipts";
 import { ACTIVITY_LABEL, ACTIVITY_PARAM, activitiesOf, category, ledgerView, type Activity } from "@/lib/tax/rules";
@@ -36,7 +36,7 @@ export default async function LedgerPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ vuosi?: string; virhe?: string; lisatty?: string; syotto?: string; toiminta?: string }>;
+  searchParams: Promise<{ vuosi?: string; virhe?: string; lisatty?: string; syotto?: string; toiminta?: string; luokka?: string; kk?: string; haku?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
@@ -58,6 +58,7 @@ export default async function LedgerPage({
       rows: year ? await listTransactions(tx, id, year) : [],
       assets: await listAssets(tx, id),
       properties: await listPropertyOptions(tx, id),
+      farms: await listFarmOptions(tx, id),
       receipts: year ? await listYearReceipts(tx, id, year) : [],
       suggestions: year ? await listPendingSuggestions(tx, id, year, view) : [],
     };
@@ -90,6 +91,17 @@ export default async function LedgerPage({
   // kuten vanhassa sovelluksessa. Lomake on vaihtoehto rivi kerrallaan kirjaamiseen.
   const gridMode = !closed && sp.syotto !== "lomake";
   const modeHref = (grid: boolean) => `/asiakkaat/${id}/kirjanpito?vuosi=${year}${grid ? "" : "&syotto=lomake"}${viewParam}`;
+  // Suodatin ja haku (luokka, kuukausi, teksti). Taulukko suodattaa selaimessa, luettelo osoitteen parametreista.
+  const filter = parseLedgerFilter(sp);
+  const filtering = isFilterActive(filter);
+  const shownRows = filtering
+    ? rows.filter((r) =>
+        matchesLedgerFilter({ bookedOn: r.booked_on, category: r.category, description: r.description, reference: r.reference, amountGross: Number(r.amount_gross) }, filter),
+      )
+    : rows;
+  const shownIds = new Set(shownRows.map((r) => r.id));
+  const shownSum = filtering ? summarize(inputs.filter((r) => shownIds.has(r.id))) : sum;
+  const filterCategories = menuCategories({ hasForestry: c.has_forestry, hasAgriculture: c.has_agriculture }, view);
 
   return (
     <>
@@ -204,6 +216,8 @@ export default async function LedgerPage({
                 allRows,
               )}
               properties={view === "agriculture" ? [] : data.properties}
+              farms={view === "agriculture" ? data.farms : []}
+              initialFilter={filter}
               assets={data.assets.filter((a) => !view || a.activity === view)}
               vatRegistered={c.vat_registered}
               defaultDate={toFinnishDate(defaultDate)}
@@ -214,6 +228,46 @@ export default async function LedgerPage({
           ) : rows.length === 0 ? (
             <EmptyState title="Ei kirjauksia">{closed ? "Vuodelle ei ole kirjauksia." : "Lisää ensimmäinen kirjaus alla olevalla lomakkeella."}</EmptyState>
           ) : (
+            <>
+            <form method="get" className="mb-4 flex flex-wrap items-end gap-3" aria-label="Suodata kirjauksia">
+              <input type="hidden" name="vuosi" value={year} />
+              {!closed ? <input type="hidden" name="syotto" value="lomake" /> : null}
+              {viewParam ? <input type="hidden" name="toiminta" value={ACTIVITY_PARAM.agriculture} /> : null}
+              <Field label="Luokka" htmlFor="luokka">
+                <Select id="luokka" name="luokka" defaultValue={filter.category}>
+                  <option value="">Kaikki luokat</option>
+                  {filterCategories.map((x) => (
+                    <option key={x.code} value={x.code}>
+                      {x.no} {x.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Kuukausi" htmlFor="kk">
+                <Select id="kk" name="kk" defaultValue={filter.month ? String(filter.month) : ""}>
+                  <option value="">Koko vuosi</option>
+                  {MONTH_NAMES.map((m, i) => (
+                    <option key={m} value={i + 1}>
+                      {m}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Haku" htmlFor="haku">
+                <Input id="haku" name="haku" defaultValue={filter.text} placeholder="Selite, viite tai summa" autoComplete="off" />
+              </Field>
+              <Button>Suodata</Button>
+              {filtering ? (
+                <Link href={closed ? `/asiakkaat/${id}/kirjanpito?vuosi=${year}${viewParam}` : modeHref(false)} className="pb-2 text-sm font-semibold text-sky hover:underline">
+                  Näytä kaikki
+                </Link>
+              ) : null}
+            </form>
+            {filtering ? (
+              <p className="mb-3 text-sm text-ink/70">
+                Näytetään {shownRows.length} / {rows.length} kirjausta. Summat ovat näytetyistä kirjauksista.
+              </p>
+            ) : null}
             <Table>
               <thead>
                 <tr>
@@ -229,7 +283,7 @@ export default async function LedgerPage({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => {
+                {shownRows.map((r) => {
                   const net = Number(r.amount_net);
                   const gross = Number(r.amount_gross);
                   return (
@@ -276,16 +330,17 @@ export default async function LedgerPage({
                 <tr className="border-t-2 border-line font-semibold">
                   <Td>Yhteensä</Td>
                   <Td />
-                  <Td>Alv maksettava {formatEur(sum.vatPayable)}</Td>
+                  <Td>Alv maksettava {formatEur(shownSum.vatPayable)}</Td>
                   <Td />
                   <Td />
-                  <Td numeric>{formatEur(sum.income.vat + sum.expense.vat + sum.investment.vat)}</Td>
-                  <Td numeric>{formatEur(sum.income.net - sum.expense.net - sum.investment.net)}</Td>
-                  <Td numeric>{formatEur(sum.withholding)}</Td>
+                  <Td numeric>{formatEur(shownSum.income.vat + shownSum.expense.vat + shownSum.investment.vat)}</Td>
+                  <Td numeric>{formatEur(shownSum.income.net - shownSum.expense.net - shownSum.investment.net)}</Td>
+                  <Td numeric>{formatEur(shownSum.withholding)}</Td>
                   <Td />
                 </tr>
               </tfoot>
             </Table>
+            </>
           )}
 
           {!closed && !gridMode ? (
@@ -297,6 +352,7 @@ export default async function LedgerPage({
                   clientId={id}
                   assets={data.assets}
                   properties={view === "agriculture" ? [] : data.properties}
+                  farms={view === "agriculture" ? data.farms : []}
                   defaultDate={defaultDate}
                   submitLabel="Lisää kirjaus"
                   vatRegistered={c.vat_registered}

@@ -33,6 +33,7 @@ const TABLES = [
   "sk_agri_reserve_uses",
   "sk_agri_deferrals",
   "sk_agri_form_extras",
+  "sk_agri_vehicle_reports",
 ];
 
 /** Kirjanpitäjälle näkyvät taulut: vastuuasiakkaan rivit (loki on vain pääkäyttäjälle). */
@@ -96,6 +97,10 @@ beforeAll(async () => {
         [org.id, org.client],
       );
       await tx.query("insert into sk_agri_form_extras (organization_id, client_id, tax_year, code, value) values ($1, $2, 2025, '516', 12000)", [
+        org.id, org.client,
+      ]);
+      // 0018: ajoneuvo- ja matkaselvitys.
+      await tx.query("insert into sk_agri_vehicle_reports (organization_id, client_id, tax_year, car_total_km, car_agri_km) values ($1, $2, 2025, 20000, 3000)", [
         org.id, org.client,
       ]);
     });

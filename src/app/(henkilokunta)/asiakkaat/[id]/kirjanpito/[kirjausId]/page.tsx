@@ -3,8 +3,8 @@ import { Button, Notice, PageHeader, Panel, SectionTitle } from "@/components/ui
 import { FormError } from "@/components/FormError";
 import { requireStaff } from "@/lib/auth/current-user";
 import { getClient } from "@/lib/clients/queries";
-import { getTransaction, listAssets, listPropertyOptions, listTransactionDocuments, listYears } from "@/lib/ledger/queries";
-import { formatDateTime, formatNumber } from "@/lib/format";
+import { getTransaction, getTransactionDeferral, listAssets, listFarmOptions, listPropertyOptions, listTransactionDocuments, listYears } from "@/lib/ledger/queries";
+import { formatDateTime, formatEur, formatNumber } from "@/lib/format";
 import { documentHref, parsePagesColumn, sourceDocumentLabel } from "@/lib/ai/receipts/schema";
 import { ACTIVITY_PARAM, ledgerView } from "@/lib/tax/rules";
 import { TransactionForm } from "../TransactionForm";
@@ -35,7 +35,10 @@ export default async function TransactionPage({
       documents: await listTransactionDocuments(tx, kirjausId),
       assets: await listAssets(tx, id),
       properties: await listPropertyOptions(tx, id),
+      farms: await listFarmOptions(tx, id),
       years: await listYears(tx, id),
+      // Kotieläinten jaksotus kirjauksesta (0018): vuosierät näytetään lomakkeen alla.
+      deferral: await getTransactionDeferral(tx, kirjausId),
     };
   });
   if (!data) notFound();
@@ -67,6 +70,7 @@ export default async function TransactionPage({
               transaction={{ ...t, document_count: 0 }}
               assets={data.assets}
               properties={data.properties}
+              farms={data.farms}
               defaultDate={t.booked_on}
               submitLabel="Tallenna"
               vatRegistered={data.client.vat_registered}
@@ -81,6 +85,7 @@ export default async function TransactionPage({
             transaction={{ ...t, document_count: 0 }}
             assets={data.assets}
             properties={data.properties}
+            farms={data.farms}
             defaultDate={t.booked_on}
             submitLabel="Tallenna"
             vatRegistered={data.client.vat_registered}
@@ -88,6 +93,15 @@ export default async function TransactionPage({
             hasAgriculture={data.client.has_agriculture}
           />
         )}
+        {data.deferral ? (
+          <p className="mt-4 text-sm text-ink/75">
+            Jaksotus kolmelle vuodelle:{" "}
+            {[data.deferral.year1, data.deferral.year2, data.deferral.year3]
+              .map((v, i) => `${Number(data.deferral!.tax_year) + i} ${formatEur(Number(v))}`)
+              .join(", ")}
+            . Erät näkyvät Lomake 2 -välilehden kohdissa 212 tai 228.
+          </p>
+        ) : null}
       </Panel>
 
       <section className="mt-8 max-w-4xl">

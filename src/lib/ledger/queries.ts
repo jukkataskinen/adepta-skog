@@ -22,6 +22,8 @@ export interface TransactionRow {
   asset_id: string | null;
   asset_description: string | null;
   forest_property_id: string | null;
+  /** Maatalouden kirjauksen maatila (0018). */
+  farm_id: string | null;
   document_count: number;
   /** Kokoomatiedosto tai saman tiedoston toinen kirjaus (0011). */
   source_document_id: string | null;
@@ -32,7 +34,7 @@ export interface TransactionRow {
 export async function listTransactions(tx: Sql, clientId: string, year: number): Promise<TransactionRow[]> {
   return tx.query<TransactionRow>(
     `select t.id, t.booked_on::text, t.kind, t.category, t.description, t.amount_net, t.amount_gross, t.vat_rate, t.withholding, t.business_share_pct,
-            t.other_share_pct, t.activity, t.reference, t.asset_id, t.forest_property_id,
+            t.other_share_pct, t.activity, t.reference, t.asset_id, t.forest_property_id, t.farm_id,
             a.description as asset_description, t.source_document_id, t.source_pages::text as source_pages,
             (select count(*)::int from sk_documents d where d.transaction_id = t.id) as document_count
        from sk_transactions t left join sk_assets a on a.id = t.asset_id
@@ -49,7 +51,7 @@ export async function getTransaction(
 ): Promise<(TransactionRow & { tax_year: number; source_file_name: string | null }) | null> {
   const [row] = await tx.query<TransactionRow & { tax_year: number; source_file_name: string | null }>(
     `select t.id, t.booked_on::text, t.tax_year, t.kind, t.category, t.description, t.amount_net, t.amount_gross, t.vat_rate, t.withholding, t.business_share_pct,
-            t.other_share_pct, t.activity, t.reference, t.asset_id, t.forest_property_id,
+            t.other_share_pct, t.activity, t.reference, t.asset_id, t.forest_property_id, t.farm_id,
             a.description as asset_description, 0 as document_count, t.source_document_id, t.source_pages::text as source_pages, sd.file_name as source_file_name
        from sk_transactions t left join sk_assets a on a.id = t.asset_id
        left join sk_documents sd on sd.id = t.source_document_id
@@ -102,6 +104,11 @@ export interface PropertyOption {
   name: string;
 }
 
+/** Asiakkaan maatilat valintaan (0018). Tila näytetään vasta, kun tiloja on useampi. */
+export async function listFarmOptions(tx: Sql, clientId: string): Promise<PropertyOption[]> {
+  return tx.query<PropertyOption>("select id, name from sk_farms where client_id = $1 order by name", [clientId]);
+}
+
 export async function listPropertyOptions(tx: Sql, clientId: string): Promise<PropertyOption[]> {
   return tx.query<PropertyOption>("select id, name from sk_forest_properties where client_id = $1 order by name", [clientId]);
 }
@@ -111,4 +118,13 @@ export async function listAssets(tx: Sql, clientId: string): Promise<AssetOption
     "select id, description, acquired_on::text, disposed_on::text, activity from sk_assets where client_id = $1 order by acquired_on desc",
     [clientId],
   );
+}
+
+/** Kirjauksen kotieläinjaksotus (0018), jos kirjaus on jaksotettava. */
+export async function getTransactionDeferral(tx: Sql, transactionId: string): Promise<{ tax_year: number; year1: string; year2: string; year3: string } | null> {
+  const [row] = await tx.query<{ tax_year: number; year1: string; year2: string; year3: string }>(
+    "select tax_year, year1, year2, year3 from sk_agri_deferrals where transaction_id = $1",
+    [transactionId],
+  );
+  return row ?? null;
 }

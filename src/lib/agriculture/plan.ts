@@ -46,6 +46,30 @@ export async function saveAgriPlanChoices(tx: Sql, actor: Actor, clientId: strin
     }
   }
 
+  // 2 b. Usean tilan asiakas: verovuoden tasausvaraus tiloittain, kukin oman enimmäismääränsä mukaan.
+  for (const f of data.equalizationFarms ?? []) {
+    if (!f.editable) continue;
+    const amount = round2(choices.farmEqualization ? (choices.farmEqualization[f.farmId] ?? 0) : f.amount);
+    const max = result.equalization.farms?.find((x) => x.farmId === f.farmId)?.max ?? 0;
+    const error = validateEqualizationReserve(amount, max);
+    if (error) throw new AgriError(`${f.farmName}: ${error}`);
+    if (amount > 0 && amount < f.usedThisYear) throw new AgriError(`${f.farmName}: tasausvaraus ei voi olla pienempi kuin siitä jo käytetty määrä.`);
+    if (f.id && amount === 0) {
+      if (f.usedThisYear > 0) throw new AgriError(`${f.farmName}: tasausvarauksesta on jo käytetty osa. Poista käyttö ensin Lomake 2 -välilehdellä.`);
+      await tx.query("delete from sk_agri_reserves where id = $1 and client_id = $2", [f.id, clientId]);
+      await audit(tx, { organizationId: actor.organizationId, userId: actor.userId, action: "agri.reserve.delete", entity: "sk_agri_reserves", entityId: f.id });
+    } else if (f.id && amount !== f.amount) {
+      await tx.query("update sk_agri_reserves set amount = $3 where id = $1 and client_id = $2", [f.id, clientId, amount]);
+      await audit(tx, { organizationId: actor.organizationId, userId: actor.userId, action: "agri.reserve.update", entity: "sk_agri_reserves", entityId: f.id, details: { madeYear: year } });
+    } else if (!f.id && amount > 0) {
+      const [row] = await tx.query<{ id: string }>(
+        "insert into sk_agri_reserves (organization_id, client_id, farm_id, kind, made_year, amount, note) values ($1,$2,$3,'equalization',$4,$5,$6) returning id",
+        [actor.organizationId, clientId, f.farmId, year, amount, "Verosuunnitelma"],
+      );
+      await audit(tx, { organizationId: actor.organizationId, userId: actor.userId, action: "agri.reserve.create", entity: "sk_agri_reserves", entityId: row.id, details: { kind: "equalization", madeYear: year } });
+    }
+  }
+
   // 3. Aiempien varausten tuloutus verovuonna: vuoden tuloutukset korvataan valinnalla.
   for (const r of data.reserves.filter((x) => x.madeYear < year)) {
     const wanted = round2(choices.releases[r.id] ?? r.incomeThisYear);

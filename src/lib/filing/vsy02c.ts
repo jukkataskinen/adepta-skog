@@ -84,6 +84,7 @@ export const VSY02C_LABELS: Record<string, string> = {
   "626": "Menojäännös 31.12.: Koneet ja kalusto",
   "627": "Menojäännös 31.12.: Rakennukset",
   "628": "Menojäännös 31.12.: Ojat ja tiet",
+  "630": "Toisesta tulolähteestä siirrettävät menot",
   "635": "Metsätalouden puhdas pääomatulo",
   "636": "Metsätalouden tappiollinen pääomatulo",
   "655": "Metsävähennyspohja",
@@ -101,7 +102,7 @@ export const VSY02C_LABELS: Record<string, string> = {
  */
 export const VSY02C_ORDER = [
   "603", "604", "613", "690", "605", "625", "691", "607", "608", "609", "610", "615", "618", "620", "651", "622", "623", "624", "693",
-  "660", "670", "680", "661", "671", "681", "645", "646", "682", "642", "643", "644", "694", "626", "627", "628", "635", "636",
+  "660", "670", "680", "661", "671", "681", "645", "646", "682", "642", "643", "644", "694", "626", "627", "628", "630", "635", "636",
   "655", "656", "657", "715", "716", "717", "720",
 ];
 
@@ -140,6 +141,8 @@ export interface Filing2cData {
   /** Koko arvo siirtyi metsän hankintamenoon (tila myyty kokonaan). */
   transfersOut: { method: "straight_line" | "declining_balance"; decliningRatePct: number | null; acquiredOn: string; amount: number }[];
   forestDeduction: number;
+  /** Toisesta tulolähteestä siirrettävät menot (630): maatalouden kaluston metsätalouden ajot (lomake 2: 284). Puuttuva = 0. */
+  otherSourceExpense?: number;
   tracking: { base: number; usedBefore: number; addedToGains: number; missing: number } | null;
   planConfirmed: boolean;
   yearOpen: boolean;
@@ -307,8 +310,12 @@ export function compute2c(d: Filing2cData): Computed2c {
   set("615", deduction);
   set("618", deduction);
 
-  // Kaava [TK26] 635: 690-691+610+614-618+651-693-694-630+634 (614, 630 ja 634 puuttuvat Skogista).
-  const result = round2(sales - work + compensations - deduction + otherIncome - expenses - depreciation);
+  // Maatalouden ajoneuvon metsätalouden ajot (0018): tuloutettu maataloudessa, vähennetään tässä.
+  const transferred = round2(d.otherSourceExpense ?? 0);
+  set("630", transferred);
+
+  // Kaava [TK26] 635: 690-691+610+614-618+651-693-694-630+634 (614 ja 634 puuttuvat Skogista).
+  const result = round2(sales - work + compensations - deduction + otherIncome - expenses - depreciation - transferred);
   // Joko 635 tai 636 on annettava, nollakin käy (#1396).
   if (result >= 0) values.set("635", result);
   else values.set("636", -result);

@@ -104,14 +104,22 @@ export async function confirmPlanAction(formData: FormData) {
 function parseAgriChoices(formData: FormData): AgriChoices {
   const depreciation: Partial<Record<AgriPool, number>> = {};
   const releases: Record<string, number> = {};
+  const farmEqualization: Record<string, number> = {};
+  let farmFields = false;
   for (const [key, value] of formData.entries()) {
     if (key.startsWith("agriDep_")) depreciation[key.slice("agriDep_".length) as AgriPool] = Math.max(0, num(value) || 0);
+    else if (key.startsWith("agriEqFarm_") && /^[0-9a-f-]{36}$/.test(key.slice("agriEqFarm_".length))) {
+      farmEqualization[key.slice("agriEqFarm_".length)] = num(value) || 0;
+      farmFields = true;
+    }
     else if (key.startsWith("agriRelease_") && /^[0-9a-f-]{36}$/.test(key.slice("agriRelease_".length))) releases[key.slice("agriRelease_".length)] = num(value) || 0;
   }
   const claim = String(formData.get("agriClaim") ?? "");
   return {
     depreciation,
     equalization: num(formData.get("agriEq")) || 0,
+    // Usean tilan varaukset (0018); puuttuvat kentät = ennallaan.
+    farmEqualization: farmFields ? farmEqualization : undefined,
     releases,
     claim: claim === "ten" || claim === "earned" ? claim : null,
     lossToCapital: formData.get("agriLossToCapital") === "1",

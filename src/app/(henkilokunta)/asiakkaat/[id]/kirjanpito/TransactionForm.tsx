@@ -1,5 +1,16 @@
 import { Button, Field, Input, Select } from "@/components/ui";
-import { ACTIVITY_LABEL, ACTIVITY_PARAM, agriAssetChoices, ASSET_CLASSES, isAssetPurchase, isAssetSale, viewCategories, type Activity } from "@/lib/tax/rules";
+import {
+  ACTIVITY_LABEL,
+  ACTIVITY_PARAM,
+  agriAssetChoices,
+  ASSET_CLASSES,
+  isAssetPurchase,
+  isAssetSale,
+  isLivestockDeferral,
+  viewCategories,
+  withLivestockDeferral,
+  type Activity,
+} from "@/lib/tax/rules";
 import type { AssetOption, PropertyOption, TransactionRow } from "@/lib/ledger/queries";
 import { isPartialShare } from "@/lib/tax/share";
 import { DeliveryWorkCalculator } from "./DeliveryWorkCalculator";
@@ -16,6 +27,7 @@ export function TransactionForm({
   transaction,
   assets,
   properties,
+  farms = [],
   defaultDate,
   submitLabel,
   compact,
@@ -29,6 +41,8 @@ export function TransactionForm({
   transaction?: TransactionRow;
   assets: AssetOption[];
   properties: PropertyOption[];
+  /** Asiakkaan maatilat (0018). Valinta näkyy, kun tiloja on useampi. */
+  farms?: PropertyOption[];
   defaultDate: string;
   submitLabel: string;
   compact?: boolean;
@@ -44,7 +58,10 @@ export function TransactionForm({
   const partial = transaction ? isPartialShare(transaction.business_share_pct) : false;
   const other = transaction && Number(transaction.other_share_pct) ? fi(transaction.other_share_pct) : "";
   const both = hasForestry && hasAgriculture;
-  const categories = viewCategories({ hasForestry, hasAgriculture }, activity);
+  // Jaksotettavat kotieläinluokat valitaan Jaksota-valinnalla, joten niitä ei ole luettelossa.
+  const categories = viewCategories({ hasForestry, hasAgriculture }, activity).filter((c) => !isLivestockDeferral(c.code));
+  const deferred = transaction ? isLivestockDeferral(transaction.category) : false;
+  const shownCategory = transaction ? withLivestockDeferral(transaction.category, false) : "";
   const forestryFields = activity ? activity === "forestry" : hasForestry || !hasAgriculture;
   const agriFields = activity ? activity === "agriculture" : hasAgriculture;
   const groups = [...new Set(categories.map((c) => c.group))];
@@ -59,7 +76,7 @@ export function TransactionForm({
           <Input id="bookedOn" name="bookedOn" type="date" required defaultValue={transaction?.booked_on ?? defaultDate} />
         </Field>
         <Field label="Luokka" htmlFor="category">
-          <Select id="category" name="category" required defaultValue={transaction?.category ?? ""}>
+          <Select id="category" name="category" required defaultValue={shownCategory}>
             <option value="" disabled>
               Valitse
             </option>
@@ -104,6 +121,29 @@ export function TransactionForm({
           </Field>
         ) : null}
       </div>
+      {agriFields && farms.length > 1 ? (
+        <div className="grid gap-4 sm:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
+          <Field label="Maatila" htmlFor="farmId" hint="Tasausvaraus lasketaan maatiloittain. Tyhjä = yhteinen kaikille tiloille.">
+            <Select id="farmId" name="farmId" defaultValue={transaction?.farm_id ?? ""}>
+              <option value="">Ei valittu</option>
+              {farms.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+      ) : null}
+      {agriFields ? (
+        <label className="flex items-start gap-2 rounded-xl border border-line bg-cloud/40 px-4 py-3 text-sm">
+          <input type="checkbox" name="livestockDeferral" value="1" defaultChecked={deferred} className="mt-0.5 size-4 accent-[var(--color-ink)]" />
+          <span>
+            <span className="font-semibold">Jaksota kolmelle vuodelle</span> (vain kotieläinten myynti ja hankinta). Summa jaetaan kolmeen yhtä suureen osaan: tälle
+            vuodelle ja kahdelle seuraavalle. Jaksotus näkyy Lomake 2 -välilehdellä.
+          </span>
+        </label>
+      ) : null}
       <details className="rounded-xl border border-line bg-cloud/40 px-4 py-3 text-sm" open={partial || Boolean(other)}>
         <summary className="cursor-pointer font-semibold">
           Lisätiedot: vain osa kuuluu {hasAgriculture ? "tälle toiminnolle" : "metsätaloudelle"}

@@ -10,6 +10,9 @@ import { loadAgriDepreciation } from "@/lib/tax/agri-load";
 import { getAgriYear, listDeferrals, listExtras, listFarms, listGrants, listReserves } from "@/lib/agriculture/year";
 import { AGRI_EXTRA_FIELDS, extraField, FORM2_ORDER, form2Label } from "@/lib/filing/vsy002-fields";
 import { loadForm2 } from "@/lib/tax/agri-form-load";
+import { getVehicleReport } from "@/lib/agriculture/vehicle";
+import { computeVehicleReport, EMPTY_VEHICLE_REPORT, hasVehicleReport, VEHICLE_CODES } from "@/lib/tax/vehicle";
+import { travelRates } from "@/lib/tax/rules";
 import { ClientTabs } from "../../ClientTabs";
 import { YearNav } from "../../YearNav";
 import {
@@ -26,6 +29,7 @@ import {
   deleteReserveUseAction,
   saveAgriDepreciationAction,
   saveAgriYearAction,
+  saveVehicleReportAction,
   setExtraAction,
 } from "./actions";
 
@@ -70,6 +74,7 @@ export default async function AgriculturePage({
         deferrals: await listDeferrals(tx, id, year),
         grants: await listGrants(tx, id, year),
         extras: await listExtras(tx, id, year),
+        vehicle: await getVehicleReport(tx, id, year),
         form2: await loadForm2(tx, id, year),
         assets,
       },
@@ -78,6 +83,11 @@ export default async function AgriculturePage({
   if (!data) notFound();
   const { client: c, years, year, details: d } = data;
   const closed = years.find((y) => y.year === year)?.status === "closed";
+  // Ajoneuvo- ja matkaselvitys: tallennetut tiedot ja niistä lasketut kentät (src/lib/tax/vehicle.ts).
+  const vehicle = d?.vehicle ?? EMPTY_VEHICLE_REPORT;
+  const vehicleResult = d && year && hasVehicleReport(d.vehicle) ? computeVehicleReport(d.vehicle, year) : null;
+  const rates = travelRates(year ?? new Date().getFullYear());
+  const vehicleCodes = new Set<string>(VEHICLE_CODES);
   const hidden = (
     <>
       <input type="hidden" name="clientId" value={id} />
@@ -420,8 +430,8 @@ export default async function AgriculturePage({
           <section id="jaksotukset" className="mb-10 scroll-mt-6">
             <SectionTitle>Kotieläinten jaksotukset</SectionTitle>
             <p className="mb-3 max-w-3xl text-sm text-ink/70">
-              Tämän vuoden jaksotettavat myynnit ja hankinnat tulevat kirjanpidosta (luokat 22 ja 50) ja jaetaan kolmelle vuodelle tasan. Kirjoita tähän
-              aiempien vuosien jaksotukset, joita ei ole kirjattu Skogiin.
+              Jaksotus syntyy kirjanpidossa, kun kotieläinten myynnille tai hankinnalle valitaan Jaksota (luokat 22 ja 50). Summa jaetaan kolmeen yhtä
+              suureen osaan: kirjauksen vuodelle ja kahdelle seuraavalle. Kirjoita tähän vain aiempien vuosien jaksotukset, joita ei ole kirjattu Skogiin.
             </p>
             {d.deferrals.length ? (
               <Table>
@@ -440,6 +450,11 @@ export default async function AgriculturePage({
                     <tr key={x.id}>
                       <Td>
                         {DEFERRAL_LABEL[x.kind]} {x.tax_year}
+                        {x.transaction_id ? (
+                          <Link href={`/asiakkaat/${id}/kirjanpito/${x.transaction_id}`} className="block text-xs font-semibold text-sky hover:underline">
+                            Kirjauksesta: {x.transaction_label}
+                          </Link>
+                        ) : null}
                         {x.note ? <span className="block text-xs text-ink/55">{x.note}</span> : null}
                       </Td>
                       <Td numeric>{formatEur(x.amount)}</Td>
@@ -447,7 +462,7 @@ export default async function AgriculturePage({
                       <Td numeric>{formatEur(x.year2)}</Td>
                       <Td numeric>{formatEur(x.year3)}</Td>
                       <Td className="text-right">
-                        {!closed ? (
+                        {!closed && !x.transaction_id ? (
                           <form action={deleteDeferralAction}>
                             {hidden}
                             <input type="hidden" name="id" value={x.id} />
@@ -477,7 +492,7 @@ export default async function AgriculturePage({
                 <Field label="Määrä (€)" htmlFor="deferralAmount">
                   <Input id="deferralAmount" name="amount" inputMode="decimal" className="w-32 text-right" />
                 </Field>
-                <Field label="1. vuosi" htmlFor="year1" hint="Tyhjä = tasan">
+                <Field label="1. vuosi" htmlFor="year1" hint="Tyhjä = tasan, kuten laki edellyttää">
                   <Input id="year1" name="year1" inputMode="decimal" className="w-28 text-right" />
                 </Field>
                 <Field label="2. vuosi" htmlFor="year2">
@@ -551,11 +566,134 @@ export default async function AgriculturePage({
             ) : null}
           </section>
 
+          <section id="ajoneuvot" className="mb-10 scroll-mt-6">
+            <SectionTitle>Ajoneuvot ja matkat</SectionTitle>
+            <p className="mb-3 max-w-3xl text-sm text-ink/70">
+              Täytä vain ne osat, joita asiakkaalla on. Skog laskee lomakkeen kentät: yksityis- ja metsätalouden ajot tuloutetaan maataloudessa, ja
+              metsätalouden ajot vähennetään metsätaloudessa (2C, kohta 630). Oman auton ja matkojen lisävähennys tulee muihin vähennyksiin. Vuoden {year}{" "}
+              kilometrikorvaus on {rates.kmRate.toLocaleString("fi-FI")} €/km, kokopäiväraha {rates.fullDay} € ja osapäiväraha {rates.partDay} €.
+            </p>
+            {d.extras.some((x) => vehicleCodes.has(x.code)) ? (
+              <div className="mb-4">
+                <Notice tone="warn" title="Ajoneuvo- tai matkakenttiä on annettu käsin.">
+                  {hasVehicleReport(d.vehicle)
+                    ? "Selvitys korvaa ne. Poista käsin annetut kentät alempaa."
+                    : "Ne ovat käytössä, kunnes täytät tämän selvityksen. Silloin selvitys korvaa ne."}
+                </Notice>
+              </div>
+            ) : null}
+            <form action={saveVehicleReportAction} className="grid max-w-4xl gap-5">
+              {hidden}
+              <fieldset disabled={closed} className="grid gap-5">
+                <Panel className="grid gap-4">
+                  <p className="font-semibold">Maatalouden kalustoon kuuluva ajoneuvo</p>
+                  <p className="text-sm text-ink/70">
+                    Ajoneuvo kuuluu maatalouteen, jos yli puolet ajoista on maatalouden ajoja. Kokonaismenoihin kuuluvat kaikki ajoneuvon kulut ja sen poisto
+                    kirjanpidossa.
+                  </p>
+                  <div className="grid gap-4 sm:grid-cols-5">
+                    <Field label="Peruste" htmlFor="vehicleBasis">
+                      <Select id="vehicleBasis" name="vehicleBasis" defaultValue={vehicle.vehicleBasis ?? ""}>
+                        <option value="">Ei valittu</option>
+                        <option value="1">Ajopäiväkirja</option>
+                        <option value="2">Muu selvitys</option>
+                      </Select>
+                    </Field>
+                    <Field label="Kilometrit yhteensä" htmlFor="vehicleTotalKm">
+                      <Input id="vehicleTotalKm" name="vehicleTotalKm" inputMode="numeric" defaultValue={fi(vehicle.vehicleTotalKm)} className="text-right" />
+                    </Field>
+                    <Field label="Yksityisajot (km)" htmlFor="vehiclePrivateKm">
+                      <Input id="vehiclePrivateKm" name="vehiclePrivateKm" inputMode="numeric" defaultValue={fi(vehicle.vehiclePrivateKm)} className="text-right" />
+                    </Field>
+                    <Field label="Metsätalouden ajot (km)" htmlFor="vehicleForestryKm">
+                      <Input id="vehicleForestryKm" name="vehicleForestryKm" inputMode="numeric" defaultValue={fi(vehicle.vehicleForestryKm)} className="text-right" />
+                    </Field>
+                    <Field label="Kokonaismenot (€)" htmlFor="vehicleCosts">
+                      <Input id="vehicleCosts" name="vehicleCosts" inputMode="decimal" defaultValue={fi(vehicle.vehicleCosts)} className="text-right" />
+                    </Field>
+                  </div>
+                </Panel>
+                <Panel className="grid gap-4">
+                  <p className="font-semibold">Oma auto maatalouden ajoissa</p>
+                  <p className="text-sm text-ink/70">Auto kuuluu yksityistalouteen, jos enintään puolet ajoista on maatalouden ajoja. Vähennys on kilometrikorvaus.</p>
+                  <div className="grid gap-4 sm:grid-cols-4">
+                    <Field label="Peruste" htmlFor="carBasis">
+                      <Select id="carBasis" name="carBasis" defaultValue={vehicle.carBasis ?? ""}>
+                        <option value="">Ei valittu</option>
+                        <option value="1">Ajopäiväkirja</option>
+                        <option value="2">Muu selvitys</option>
+                      </Select>
+                    </Field>
+                    <Field label="Kilometrit yhteensä" htmlFor="carTotalKm">
+                      <Input id="carTotalKm" name="carTotalKm" inputMode="numeric" defaultValue={fi(vehicle.carTotalKm)} className="text-right" />
+                    </Field>
+                    <Field label="Maatalouden ajot (km)" htmlFor="carAgriKm">
+                      <Input id="carAgriKm" name="carAgriKm" inputMode="numeric" defaultValue={fi(vehicle.carAgriKm)} className="text-right" />
+                    </Field>
+                    <Field label="Jo vähennetty kirjanpidossa (€)" htmlFor="carDeducted">
+                      <Input id="carDeducted" name="carDeducted" inputMode="decimal" defaultValue={fi(vehicle.carDeducted)} className="text-right" />
+                    </Field>
+                  </div>
+                </Panel>
+                <Panel className="grid gap-4">
+                  <p className="font-semibold">Tilapäiset työmatkat</p>
+                  <p className="text-sm text-ink/70">
+                    Anna matkapäivät ja kirjanpidossa jo vähennetyt kulut. Ulkomaan päiväraha on maakohtainen, joten anna sen yhteismäärä.
+                  </p>
+                  <div className="grid gap-4 sm:grid-cols-4">
+                    <Field label="Yli 10 h (päivää)" htmlFor="tripsFullDays">
+                      <Input id="tripsFullDays" name="tripsFullDays" inputMode="numeric" defaultValue={fi(vehicle.tripsFullDays)} className="text-right" />
+                    </Field>
+                    <Field label="Yli 10 h, jo vähennetty (€)" htmlFor="tripsFullDeducted">
+                      <Input id="tripsFullDeducted" name="tripsFullDeducted" inputMode="decimal" defaultValue={fi(vehicle.tripsFullDeducted)} className="text-right" />
+                    </Field>
+                    <Field label="Yli 6 h (päivää)" htmlFor="tripsPartDays">
+                      <Input id="tripsPartDays" name="tripsPartDays" inputMode="numeric" defaultValue={fi(vehicle.tripsPartDays)} className="text-right" />
+                    </Field>
+                    <Field label="Yli 6 h, jo vähennetty (€)" htmlFor="tripsPartDeducted">
+                      <Input id="tripsPartDeducted" name="tripsPartDeducted" inputMode="decimal" defaultValue={fi(vehicle.tripsPartDeducted)} className="text-right" />
+                    </Field>
+                    <Field label="Ulkomaan matkat (päivää)" htmlFor="tripsAbroadDays">
+                      <Input id="tripsAbroadDays" name="tripsAbroadDays" inputMode="numeric" defaultValue={fi(vehicle.tripsAbroadDays)} className="text-right" />
+                    </Field>
+                    <Field label="Ulkomaan päivärahat yhteensä (€)" htmlFor="tripsAbroadMax">
+                      <Input id="tripsAbroadMax" name="tripsAbroadMax" inputMode="decimal" defaultValue={fi(vehicle.tripsAbroadMax)} className="text-right" />
+                    </Field>
+                    <Field label="Ulkomaan matkat, jo vähennetty (€)" htmlFor="tripsAbroadDeducted">
+                      <Input id="tripsAbroadDeducted" name="tripsAbroadDeducted" inputMode="decimal" defaultValue={fi(vehicle.tripsAbroadDeducted)} className="text-right" />
+                    </Field>
+                  </div>
+                </Panel>
+                {!closed ? (
+                  <div>
+                    <Button>Tallenna selvitys</Button>
+                  </div>
+                ) : null}
+              </fieldset>
+            </form>
+            {vehicleResult ? (
+              <div className="mt-5 max-w-4xl">
+                {vehicleResult.errors.length ? (
+                  <div className="mb-3">
+                    <Notice tone="alert" title="Selvityksessä on puutteita.">
+                      {vehicleResult.errors.join(" ")}
+                    </Notice>
+                  </div>
+                ) : null}
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Stat label="Tuloutus maataloudessa (221)" value={formatEur(vehicleResult.privateUseIncome)} />
+                  <Stat label="Lisävähennys maataloudessa (464)" value={formatEur(vehicleResult.additionalDeduction)} />
+                  <Stat label="Metsätalouden meno (2C: 630)" value={formatEur(vehicleResult.forestryTransfer)} />
+                </div>
+              </div>
+            ) : null}
+          </section>
+
           <section id="muut-kentat" className="mb-10 scroll-mt-6">
             <SectionTitle>Muut lomakkeen tiedot</SectionTitle>
             <p className="mb-3 max-w-3xl text-sm text-ink/70">
-              Harvoin tarvittavat kentät: ajoneuvot, oma auto, tilapäiset työmatkat ja käyttöön ottamattomat investoinnit. Arvo viedään veroilmoitukselle
-              sellaisenaan.
+              Harvoin tarvittavat kentät, esimerkiksi käyttöön ottamattomat investoinnit. Arvo viedään veroilmoitukselle sellaisenaan. Ajoneuvot, oma auto ja
+              työmatkat annetaan yllä olevassa selvityksessä.
             </p>
             {d.extras.length ? (
               <Table>
@@ -587,9 +725,9 @@ export default async function AgriculturePage({
                     <option value="" disabled>
                       Valitse
                     </option>
-                    {[...new Set(AGRI_EXTRA_FIELDS.map((f) => f.group))].map((g) => (
+                    {[...new Set(AGRI_EXTRA_FIELDS.filter((f) => !vehicleCodes.has(f.code)).map((f) => f.group))].map((g) => (
                       <optgroup key={g} label={g}>
-                        {AGRI_EXTRA_FIELDS.filter((f) => f.group === g).map((f) => (
+                        {AGRI_EXTRA_FIELDS.filter((f) => f.group === g && !vehicleCodes.has(f.code)).map((f) => (
                           <option key={f.code} value={f.code}>
                             {f.code} {f.label}
                           </option>

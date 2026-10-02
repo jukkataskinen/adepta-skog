@@ -11,6 +11,8 @@ import {
   type TransactionKind,
 } from "./rules";
 import { ACCELERATED_POOL, POOL_FIELDS, type AgriDepreciationResult } from "./agri-depreciation";
+import { computeVehicleReport, hasVehicleReport, VEHICLE_CODES, type VehicleReportInput } from "./vehicle";
+import { ownShare } from "./share";
 
 /**
  * Maatalouden veroilmoitus (lomake 2) kentittäin. Puhdas funktio: kirjausten
@@ -31,6 +33,8 @@ export interface AgriFormRow {
   amountNet: number;
   amountGross: number;
   vatRate: number;
+  /** Kirjauksen maatila (0018). Tyhjä = ei tilaa; yhden tilan asiakkaalla kaikki kuuluu sille. */
+  farmId?: string | null;
 }
 
 /** Aiemman vuoden jaksotettava kotieläinkirjaus kirjanpidosta. */
@@ -82,6 +86,8 @@ export interface Form2Input {
   reserves: ReserveInput[];
   agriYear: AgriYearInput;
   extras: { code: string; value: number }[];
+  /** Ajoneuvo- ja matkaselvitys (0018). Puuttuva tai tyhjä = kentät käsin syötetyistä (extras). */
+  vehicle?: VehicleReportInput | null;
 }
 
 export interface Form2Result {
@@ -95,6 +101,8 @@ export interface Form2Result {
   depreciation: number;
   /** Lomakkeen tyhjä: ei maataloutta tänä vuonna (967). */
   empty: boolean;
+  /** Maatalouden kaluston metsätalouden ajot (284): metsätaloudessa 2C:n kohta 630. */
+  forestryTransfer: number;
   errors: string[];
   warnings: string[];
 }
@@ -106,6 +114,24 @@ export function thirds(amount: number): [number, number, number] {
   const c = Math.round(amount * 100);
   const third = Math.trunc(c / LIVESTOCK_DEFERRAL_YEARS);
   return [(c - 2 * third) / 100, third / 100, third / 100];
+}
+
+/**
+ * Jaksotettavan kotieläinkirjauksen jaksotus (0018): maatalouden osuus
+ * kirjauksesta yhtä suurina erinä verovuodelle ja kahdelle seuraavalle (MVL 5 §
+ * ja 6 §). Myynti on aina ilman arvonlisäveroa, hankinta ilman veroa vain
+ * alv-velvolliselle, kuten lomakkeen 2 kentissä 211 ja 227.
+ */
+export function livestockDeferralFor(
+  t: { category: string; kind: TransactionKind; amountNet: number; amountGross: number; businessSharePct: number },
+  vatRegistered: boolean,
+): { kind: "livestock_sale" | "livestock_purchase"; amount: number; split: [number, number, number] } | null {
+  const kind = t.category === "agri_livestock_sale_deferred" ? "livestock_sale" : t.category === "agri_livestock_purchase_deferred" ? "livestock_purchase" : null;
+  if (!kind) return null;
+  const s = ownShare({ kind: t.kind, amountNet: t.amountNet, amountGross: t.amountGross, businessSharePct: t.businessSharePct, otherSharePct: 0 });
+  const amount = round2(kind === "livestock_purchase" && !vatRegistered ? s.gross : s.net);
+  if (amount <= 0) return null;
+  return { kind, amount, split: thirds(amount) };
 }
 
 /** Muiden osuuskuntien ylijäämän veronalainen osuus: 25 % 5 000 euroon asti, 75 % sen yli. */
@@ -200,6 +226,10 @@ export function computeForm2(input: Form2Input): Form2Result {
     }
     for (const d of input.manualDeferrals.filter((x) => x.kind === kind && x.year <= year && x.year > year - LIVESTOCK_DEFERRAL_YEARS)) {
       part += [d.year1, d.year2, d.year3][year - d.year];
+      // MVL 5 § ja 6 §: erät ovat yhtä suuret. Sentin pyöristysero sallitaan.
+      if (Math.max(d.year1, d.year2, d.year3) - Math.min(d.year1, d.year2, d.year3) > 0.015) {
+        warnings.push(`Kotieläinten ${kind === "livestock_sale" ? "myynnin" : "hankinnan"} jaksotus vuodelta ${d.year} ei ole jaettu tasan. Lain mukaan vuosien erät ovat yhtä suuret.`);
+      }
     }
     if (part) add(code, part);
   }
@@ -245,8 +275,26 @@ export function computeForm2(input: Form2Input): Form2Result {
   // Loppuarvot annetaan aina, kun ryhmässä on jotain, jotta taulukko on täydellinen (#1424 jne.).
   add("231", dep.total);
 
-  const extra = (code: string) => input.extras.find((x) => x.code === code)?.value ?? 0;
-  for (const x of input.extras) add(x.code, x.value);
+  // Ajoneuvo- ja matkaselvitys korvaa samat käsin syötetyt kentät. Tyhjä selvitys ei korvaa mitään.
+  const vehicle = hasVehicleReport(input.vehicle ?? null) ? computeVehicleReport(input.vehicle!, year) : null;
+  const vehicleCodes = new Set<string>(VEHICLE_CODES);
+  const extras = vehicle ? input.extras.filter((x) => !vehicleCodes.has(x.code)) : input.extras;
+  if (vehicle && extras.length < input.extras.length) {
+    warnings.push("Ajoneuvo- ja matkakentät tulevat selvityksestä. Samat käsin annetut kentät on jätetty pois.");
+  }
+  const extra = (code: string) => extras.find((x) => x.code === code)?.value ?? 0;
+  for (const x of extras) add(x.code, x.value);
+  if (vehicle) {
+    for (const [code, v] of Object.entries(vehicle.fields)) add(code, v);
+    // Lomakkeen alaviitteet: yksityis- ja metsätalouden ajot tuloutetaan (221), lisävähennykset muihin vähennyksiin (464).
+    if (vehicle.privateUseIncome) add("221", vehicle.privateUseIncome);
+    if (vehicle.additionalDeduction) add("464", vehicle.additionalDeduction);
+    errors.push(...vehicle.errors);
+    if (vehicle.privateUseIncome && input.rows.some((r) => r.category === "agri_private_use")) {
+      warnings.push("Ajoneuvon yksityis- ja metsätalouden ajot on tuloutettu selvityksestä, ja kirjanpidossa on myös Tuloutus yksityiskäytöstä -kirjauksia. Tarkista, ettei sama tuloutus ole kahdesti.");
+    }
+  }
+  const field = (code: string) => f.get(code) ?? 0;
 
   // Summat ja tulos.
   const sum = (codes: string[]) => round2(codes.reduce((s, c) => s + (f.get(c) ?? 0), 0));
@@ -294,8 +342,8 @@ export function computeForm2(input: Form2Input): Form2Result {
   if (y.otherFarmAssets) f.set("470", y.otherFarmAssets);
 
   // Harvinaisten kenttien tarkistukset (#826, #827).
-  if ((extra("282") || extra("283") || extra("284")) && !extra("281")) errors.push("Ajoneuvon kustannukset on annettu, mutta käyttötietojen peruste (281) puuttuu (tarkistus #826).");
-  if (extra("285") && (!extra("287") || !extra("288"))) errors.push("Oman auton lisävähennys on annettu, mutta kilometrit (287 ja 288) puuttuvat (tarkistus #827).");
+  if (!vehicle && (field("282") || field("283") || field("284")) && !field("281")) errors.push("Ajoneuvon kustannukset on annettu, mutta käyttötietojen peruste (281) puuttuu (tarkistus #826).");
+  if (!vehicle && field("285") && (!field("287") || !field("288"))) errors.push("Oman auton lisävähennys on annettu, mutta kilometrit (287 ja 288) puuttuvat (tarkistus #827).");
   if (!input.vatRegistered && input.rows.some((r) => r.kind !== "income" && r.amountGross !== r.amountNet)) {
     warnings.push("Asiakas ei ole alv-velvollinen, mutta menoissa on arvonlisäveroa. Menot on viety lomakkeelle verollisina.");
   }
@@ -317,5 +365,5 @@ export function computeForm2(input: Form2Input): Form2Result {
   }
   const meaningful = Object.keys(fields).filter((c) => !["332", "357", "362", "363"].includes(c));
   const empty = meaningful.length === 0 && result === 0;
-  return { year, fields, income, expense, result, depreciation: dep.total, empty, errors, warnings };
+  return { year, fields, income, expense, result, depreciation: dep.total, empty, forestryTransfer: vehicle?.forestryTransfer ?? 0, errors, warnings };
 }

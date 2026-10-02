@@ -171,10 +171,10 @@ export function lineNotes(l: AnnotatableLine): string[] {
   const notes: string[] = [];
   const t = l.documentType;
   if (t === "livestock_trade" && l.category === "agri_livestock_sale") {
-    notes.push("Kotieläinten myynnin voi jaksottaa kolmelle vuodelle, jos myydään merkittävä osa eläimistä: vaihda luokaksi Kotieläinten myynti, jaksotettava.");
+    notes.push("Kotieläinten myynnin voi jaksottaa kolmelle vuodelle, jos myydään merkittävä osa eläimistä: valitse kirjaukselle Jaksota tai luokka Kotieläinten myynti, jaksotettava.");
   }
-  if (t === "livestock_trade" && (l.category === "agri_other_purchases" || l.category === "agri_livestock_purchase_deferred")) {
-    notes.push("Kotieläinten hankinnan voi jaksottaa kolmelle vuodelle: luokka Kotieläinten hankinta, jaksotettava.");
+  if (t === "livestock_trade" && (l.category === "agri_other_purchases" || l.category === "agri_livestock_purchase" || l.category === "agri_livestock_purchase_deferred")) {
+    notes.push("Kotieläinten hankinnan voi jaksottaa kolmelle vuodelle: valitse kirjaukselle Jaksota tai luokka Kotieläinten hankinta, jaksotettava.");
   }
   if (l.category === "agri_energy" && (t === "utility_invoice" || /sähkö/i.test(l.description))) {
     notes.push("Jos sähköä käytetään myös asunnossa, merkitse maatalouden osuus Osuus-sarakkeeseen (esimerkiksi 80 %).");

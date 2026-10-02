@@ -17,6 +17,7 @@ export const parseAmount = (v: string) => {
 export const agriField = {
   dep: (pool: AgriPool) => `agriDep_${pool}`,
   eq: "agriEq",
+  eqFarm: (farmId: string) => `agriEqFarm_${farmId}`,
   release: (id: string) => `agriRelease_${id}`,
   claim: "agriClaim",
   loss: "agriLossToCapital",
@@ -111,6 +112,44 @@ export function AgriPlanSection({
       <section>
         <SectionTitle>Tasausvaraus</SectionTitle>
         <Panel className="grid gap-4">
+          {result.equalization.farms ? (
+            <>
+              <p className="text-sm text-ink/75">
+                Tasausvaraus tehdään maatiloittain. Kunkin tilan varaus on enintään {EQUALIZATION_RESERVE.pct} % tilan puhtaasta tulosta ennen korkoja ja enintään{" "}
+                {eur(EQUALIZATION_RESERVE.max)}, täysinä satoina euroina. Tilan tuloon lasketaan sen omat kirjaukset. Yhteiset erät (kirjaukset ilman tilaa ja poistot)
+                jaetaan tiloille niiden tulojen suhteessa.
+              </p>
+              <ul className="grid gap-5">
+                {result.equalization.farms.map((f) => (
+                  <li key={f.farmId} className="grid gap-2">
+                    <p className="text-sm">
+                      <span className="font-semibold">{f.farmName}</span>: puhdas tulo {eur(f.base)}.{" "}
+                      {f.max ? `Varaus ${eur(EQUALIZATION_RESERVE.min)}–${eur(f.max)} tai ei lainkaan.` : `Varausta ei voi tehdä, koska enimmäismäärä jää alle ${eur(EQUALIZATION_RESERVE.min)}.`}
+                    </p>
+                    {f.editable ? (
+                      f.max || parseAmount(values[agriField.eqFarm(f.farmId)] ?? "0") ? (
+                        slider(agriField.eqFarm(f.farmId), `${f.farmName}: tasausvaraus`, Math.max(f.max, parseAmount(values[agriField.eqFarm(f.farmId)] ?? "0")), EQUALIZATION_RESERVE.round)
+                      ) : (
+                        <input type="hidden" name={agriField.eqFarm(f.farmId)} value="0" />
+                      )
+                    ) : (
+                      <p className="text-sm text-ink/75">
+                        Tilalle on tehty vuodelle useampi varaus ({eur(f.amount)}). Muuta niitä{" "}
+                        <Link href={`${form2Link}#varaukset`} className="font-semibold text-sky">
+                          Lomake 2 -välilehdellä
+                        </Link>
+                        .
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {data.equalizationThisYear.amount ? (
+                <p className="text-sm text-ink/75">Lisäksi vuodelle on tasausvaraus ilman maatilaa ({eur(data.equalizationThisYear.amount)}). Se on mukana laskelmassa, mutta ei minkään tilan enimmäismäärässä. Poista se Lomake 2 -välilehdellä ja tee varaus tiloittain.</p>
+              ) : null}
+            </>
+          ) : (
+          <>
           <ul className="grid gap-1 text-sm text-ink/75">
             <li>
               Puhdas tulos ennen korkoja ja tämän vuoden varausta on {eur(result.equalization.base)}. Varaus on enintään {EQUALIZATION_RESERVE.pct} % siitä ja enintään{" "}
@@ -136,6 +175,8 @@ export function AgriPlanSection({
               </Link>
               .
             </p>
+          )}
+          </>
           )}
           {releasables.length ? (
             <div className="grid gap-4 border-t border-line pt-4">

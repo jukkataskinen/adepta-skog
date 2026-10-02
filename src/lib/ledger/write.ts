@@ -2,7 +2,8 @@ import type { Sql } from "@/lib/db/types";
 import { audit } from "@/lib/audit";
 import { netFromGross, percentOf } from "@/lib/tax/amounts";
 import { otherSharePct, sharePct } from "@/lib/tax/share";
-import { allowsOtherShare, ASSET_CLASS_PCTS, category, isAssetPurchase, isAssetSale, parseAgriAssetChoice, smallAssetLimit, type TransactionKind } from "@/lib/tax/rules";
+import { allowsOtherShare, ASSET_CLASS_PCTS, category, isAssetPurchase, isAssetSale, isLivestockDeferral, parseAgriAssetChoice, smallAssetLimit, type TransactionKind } from "@/lib/tax/rules";
+import { livestockDeferralFor } from "@/lib/tax/agriculture";
 import { AGRI_ASSET_CLASS_MESSAGE, ASSET_CLASS_MESSAGE, DEPRECIATED_MESSAGE, effectiveKind, SALE_ASSET_MESSAGE, smallAssetMessage } from "@/lib/ledger/transaction-input";
 
 /**
@@ -37,6 +38,8 @@ export interface TransactionWrite {
   /** undefined = muokatessa ennallaan (taulukossa ei ole viitesaraketta). */
   reference?: string | null;
   forestPropertyId: string | null;
+  /** Maatalouden kirjauksen maatila (0018). undefined = muokatessa ennallaan. Metsätalouden kirjauksella aina tyhjä. */
+  farmId?: string | null;
   /** Metsätalouden hankinta: hyödykelaji eli menojäännöspoiston prosentti. */
   assetRatePct: number | null;
   /** Maatalouden hankinta: poistoryhmän valinta (rules.ts agriAssetChoices). */
@@ -49,10 +52,13 @@ interface Previous {
   asset_id: string | null;
   category: string;
   kind: TransactionKind;
+  farm_id: string | null;
 }
 
+export const FARM_MESSAGE = "Valitse asiakkaan maatila.";
+
 async function previous(tx: Sql, clientId: string, id: string): Promise<Previous> {
-  const [prev] = await tx.query<Previous>("select asset_id, category, kind from sk_transactions where id = $1 and client_id = $2", [id, clientId]);
+  const [prev] = await tx.query<Previous>("select asset_id, category, kind, farm_id from sk_transactions where id = $1 and client_id = $2", [id, clientId]);
   if (!prev) throw new LedgerError("Kirjausta ei löytynyt.");
   return prev;
 }
@@ -152,30 +158,94 @@ export async function saveTransaction(
   }
   if (!isAssetPurchase(cat.code) && !isAssetSale(cat.code)) assetId = null;
 
+  // Maatila vain maatalouden kirjauksella (0018). Tila tarkistetaan, jotta virhe on selvä eikä kannan.
+  const farmId: string | null = cat.activity === "agriculture" ? (w.farmId === undefined ? (prev?.farm_id ?? null) : w.farmId) : null;
+  if (farmId) {
+    const [f] = await tx.query("select 1 from sk_farms where id = $1 and client_id = $2", [farmId, clientId]);
+    if (!f) throw new LedgerError(FARM_MESSAGE);
+  }
+
   // Toiminto tulee luokasta, ja kanta tarkistaa saman säännön (0015).
-  const values = [w.bookedOn, kind, cat.code, w.description, w.amountGross, w.vatRate, w.withholding, assetId, w.forestPropertyId, share, cat.activity, otherShare];
+  const values = [w.bookedOn, kind, cat.code, w.description, w.amountGross, w.vatRate, w.withholding, assetId, w.forestPropertyId, share, cat.activity, otherShare, farmId];
   if (id) {
     const keepReference = w.reference === undefined;
     await tx.query(
       `update sk_transactions set booked_on = $3, kind = $4, category = $5, description = $6, amount_gross = $7, vat_rate = $8, withholding = $9,
-              asset_id = $10, forest_property_id = $11, business_share_pct = $12, activity = $13, other_share_pct = $14${keepReference ? "" : ", reference = $15"}
+              asset_id = $10, forest_property_id = $11, business_share_pct = $12, activity = $13, other_share_pct = $14, farm_id = $15${keepReference ? "" : ", reference = $16"}
         where id = $1 and client_id = $2`,
       keepReference ? [id, clientId, ...values] : [id, clientId, ...values, w.reference],
     );
   } else {
     const [row] = await tx.query<{ id: string }>(
       `insert into sk_transactions (organization_id, client_id, booked_on, kind, category, description, amount_gross, vat_rate, withholding, asset_id,
-                                    forest_property_id, business_share_pct, activity, other_share_pct, reference, created_by)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) returning id`,
+                                    forest_property_id, business_share_pct, activity, other_share_pct, farm_id, reference, created_by)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) returning id`,
       [actor.organizationId, clientId, ...values, w.reference ?? null, actor.userId],
     );
     id = row.id;
   }
+  await syncLivestockDeferral(tx, actor, clientId, id!);
   await audit(tx, {
     organizationId: actor.organizationId, userId: actor.userId, action: prev ? "transaction.update" : "transaction.create", entity: "sk_transactions",
     entityId: id!, details,
   });
   return id!;
+}
+
+/**
+ * Kotieläinten jaksotus kirjauksesta (0018): jaksotettavan luokan kirjaus luo
+ * tai päivittää jaksotusrivinsä samassa transaktiossa, ja muu luokka poistaa
+ * sen. Summa ja vuosi luetaan tallennetusta kirjauksesta, jotta ne ovat samat
+ * kuin kannan laskemat. Erät ovat yhtä suuret (MVL 5 § ja 6 §).
+ */
+async function syncLivestockDeferral(tx: Sql, actor: Actor, clientId: string, transactionId: string): Promise<void> {
+  const [t] = await tx.query<{
+    tax_year: number; category: string; kind: TransactionKind; amount_net: string; amount_gross: string; business_share_pct: string; vat_registered: boolean;
+  }>(
+    `select t.tax_year, t.category, t.kind, t.amount_net, t.amount_gross, t.business_share_pct, c.vat_registered
+       from sk_transactions t join sk_clients c on c.id = t.client_id where t.id = $1 and t.client_id = $2`,
+    [transactionId, clientId],
+  );
+  if (!t) return;
+  const d = isLivestockDeferral(t.category)
+    ? livestockDeferralFor(
+        { category: t.category, kind: t.kind, amountNet: Number(t.amount_net), amountGross: Number(t.amount_gross), businessSharePct: Number(t.business_share_pct) },
+        t.vat_registered,
+      )
+    : null;
+  const [existing] = await tx.query<{ id: string; tax_year: number; kind: string; amount: string; year1: string; year2: string; year3: string }>(
+    "select id, tax_year, kind, amount, year1, year2, year3 from sk_agri_deferrals where transaction_id = $1",
+    [transactionId],
+  );
+  if (!d) {
+    if (existing) {
+      await tx.query("delete from sk_agri_deferrals where id = $1", [existing.id]);
+      await audit(tx, { organizationId: actor.organizationId, userId: actor.userId, action: "agri.deferral.delete", entity: "sk_agri_deferrals", entityId: existing.id, details: { transactionId } });
+    }
+    return;
+  }
+  const year = Number(t.tax_year);
+  const [y1, y2, y3] = d.split;
+  if (existing) {
+    const same =
+      Number(existing.tax_year) === year && existing.kind === d.kind && Number(existing.amount) === d.amount &&
+      Number(existing.year1) === y1 && Number(existing.year2) === y2 && Number(existing.year3) === y3;
+    if (same) return;
+    await tx.query("update sk_agri_deferrals set tax_year = $2, kind = $3, amount = $4, year1 = $5, year2 = $6, year3 = $7 where id = $1", [
+      existing.id, year, d.kind, d.amount, y1, y2, y3,
+    ]);
+    await audit(tx, { organizationId: actor.organizationId, userId: actor.userId, action: "agri.deferral.update", entity: "sk_agri_deferrals", entityId: existing.id, details: { transactionId, year } });
+    return;
+  }
+  const [row] = await tx.query<{ id: string }>(
+    `insert into sk_agri_deferrals (organization_id, client_id, tax_year, kind, amount, year1, year2, year3, note, transaction_id)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,null,$9) returning id`,
+    [actor.organizationId, clientId, year, d.kind, d.amount, y1, y2, y3, transactionId],
+  );
+  await audit(tx, {
+    organizationId: actor.organizationId, userId: actor.userId, action: "agri.deferral.create", entity: "sk_agri_deferrals", entityId: row.id,
+    details: { transactionId, year, kind: d.kind },
+  });
 }
 
 /**

@@ -193,6 +193,22 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        title: "Suodatus ja haku",
+        text: "Voit näyttää vain osan vuoden kirjauksista. Suodatin on taulukon ja luettelon yläpuolella.",
+        steps: [
+          "Valitse luokka, jos haluat nähdä vain yhden luokan kirjaukset.",
+          "Valitse kuukausi, jos haluat nähdä vain yhden kuukauden.",
+          "Kirjoita hakuun sana selitteestä tai viitteestä, luokan nimi tai summa, esimerkiksi 1 255,50.",
+          "Näytä kaikki palauttaa koko vuoden.",
+        ],
+        bullets: [
+          "Rivin alla oleva summa näyttää vain näkyvät rivit.",
+          "Uudet ja tallentamattomat rivit näkyvät aina, vaikka ne eivät osuisi suodattimeen.",
+          "Tallennus koskee kaikkia rivejä, myös piilossa olevia.",
+          "Nuolet ja Enter hyppäävät piilossa olevien rivien yli.",
+        ],
+      },
+      {
         title: "Näppäimet taulukossa",
         bullets: [
           "Enter tai Tab: seuraava kenttä. Rivin lopussa seuraava rivi tai uusi rivi.",
@@ -497,6 +513,33 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        title: "Maatila kirjaukselle",
+        text: "Jos asiakkaalla on useampi maatila, taulukossa on sarake Maatila. Tasausvaraus lasketaan maatiloittain, joten valitse tila niille kirjauksille, jotka kuuluvat vain yhdelle tilalle.",
+        steps: [
+          "Lisää maatilat Lomake 2 -välilehdellä kohdassa Maatilat.",
+          "Valitse kirjauksen rivillä sarakkeesta Maatila oikea tila.",
+          "Jätä tilaksi Yhteinen, jos kulu tai tulo kuuluu kaikille tiloille.",
+        ],
+        bullets: [
+          "Yhteiset kirjaukset ja poistot jaetaan tiloille niiden tulojen suhteessa.",
+          "Jos asiakkaalla on vain yksi tila, saraketta ei ole. Kaikki kuuluu silloin samalle tilalle.",
+        ],
+      },
+      {
+        title: "Kotieläinten jaksotus",
+        text: "Kotieläinten myynnin tai hankinnan voi jakaa kolmelle vuodelle. Myynnin voi jaksottaa, jos samana vuonna myydään merkittävä osa eläimistä.",
+        steps: [
+          "Kirjaa myynti luokalla 21 Kotieläinten myynti tai hankinta luokalla 40 Kotieläinten hankinta.",
+          "Rastita luokan alla Jaksota 3 vuodelle. Lomakkeessa valinta on Jaksota kolmelle vuodelle.",
+          "Tallenna. Rivin alla näkyvät vuosien osuudet.",
+        ],
+        bullets: [
+          "Summa jaetaan kolmeen yhtä suureen osaan: tälle vuodelle ja kahdelle seuraavalle. Laki ei salli muuta jakoa.",
+          "Jaksotus näkyy Lomake 2 -välilehdellä kohdassa Kotieläinten jaksotukset. Sitä muutetaan kirjanpidossa.",
+          "Jos poistat rastin tai kirjauksen, jaksotus poistuu.",
+        ],
+      },
+      {
         title: "Tositteet",
         text: "Vuoden tositteet ovat asiakkaan yhteisiä. Sama lista näkyy metsän ja maatalouden kirjanpidossa, ja ne tulevat kerran veroraportin liitteiksi.",
         steps: [
@@ -764,9 +807,27 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         title: "Kotieläinten jaksotukset",
         bullets: [
-          "Tämän vuoden jaksotettavat myynnit ja hankinnat tulevat kirjanpidosta.",
-          "Aiempien vuosien jaksotukset kirjoitetaan Lomake 2 -välilehdelle. Jos jätät vuosien osat tyhjiksi, summa jaetaan kolmelle vuodelle tasan.",
+          "Jaksotus syntyy kirjanpidossa, kun valitset kirjaukselle Jaksota. Sellaisen rivin kohdalla on linkki kirjaukseen.",
+          "Aiempien vuosien jaksotukset kirjoitetaan tähän. Jätä vuosien osat tyhjiksi, niin summa jaetaan tasan. Laki edellyttää tasaista jakoa, ja Skog huomauttaa, jos jako ei ole tasan.",
           "Verovuodelle kuuluva osa lasketaan kolmen vuoden jaksotuksista.",
+        ],
+      },
+      {
+        title: "Ajoneuvot ja matkat",
+        text: "Kohdassa Ajoneuvot ja matkat annat auton ja matkojen tiedot. Skog laskee lomakkeen luvut.",
+        steps: [
+          "Maatalouden auto tai traktori: valitse peruste (ajopäiväkirja tai muu selvitys) ja kirjoita kilometrit yhteensä, yksityisajot, metsätalouden ajot ja kokonaismenot.",
+          "Oma auto, jolla ajetaan maatalouden ajoja: kirjoita kilometrit yhteensä ja maatalouden ajot. Jos osa autokuluista on jo kirjattu menoksi, kirjoita se kohtaan Jo vähennetty kirjanpidossa.",
+          "Työmatkat: kirjoita matkapäivät. Jos päivärahoja on jo kirjattu menoksi, kirjoita ne kohtaan Jo vähennetty.",
+          "Valitse Tallenna selvitys.",
+        ],
+        bullets: [
+          "Yksityisajojen ja metsätalouden ajojen osuus kuluista tulee maatalouden tuloksi.",
+          "Metsätalouden ajojen osuus vähennetään metsätaloudessa. Se näkyy metsän veroilmoituksessa kohdassa 630 ja verosuunnitelman menoissa.",
+          "Oman auton kilometrikorvaus ja päivärahat tulevat maatalouden muihin vähennyksiin.",
+          "Älä kirjaa samaa yksityiskäyttöä lisäksi luokalla Tuloutus yksityiskäytöstä. Skog huomauttaa, jos molempia on.",
+          "Jos annat metsätalouden osuuden kirjauksille Toinen %-sarakkeessa, älä anna samoja kuluja enää selvityksessä.",
+          "Kun kentät ovat tyhjiä ja tallennat, selvitys poistuu.",
         ],
       },
       {
@@ -790,7 +851,9 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: "Investointituet ja muut tiedot",
         bullets: [
           "Investointituki kirjataan investoinnille sinä vuonna, kun tuki on saatu. Se ei ole tuloa.",
-          "Harvoin tarvittavat kentät, kuten ajoneuvojen käyttö ja työmatkat, löytyvät kohdasta Muut lomakkeen tiedot. Valitse kenttä ja kirjoita arvo.",
+          "Harvoin tarvittavat kentät, kuten käyttöön ottamattomat investoinnit, löytyvät kohdasta Muut lomakkeen tiedot. Valitse kenttä ja kirjoita arvo.",
+          "Ajoneuvot ja matkat annetaan omassa kohdassaan. Jos niitä on annettu aiemmin käsin, selvitys korvaa ne.",
+          "Maatilaa ei voi poistaa, jos sille on kirjauksia suljetulta vuodelta.",
         ],
       },
     ],
@@ -905,7 +968,9 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Varaus on enintään 40 % maatalouden puhtaasta tuloksesta ennen korkoja.",
           "Varaus on 800–25 000 euroa, täysinä satoina euroina.",
           "Varaus käytetään investointiin tai tuloutetaan viimeistään kolmantena vuonna. Käyttö investointiin kirjataan Lomake 2 -välilehdellä.",
-          "Jos vuodelle on varaus usealle maatilalle, muuta niitä Lomake 2 -välilehdellä.",
+          "Jos asiakkaalla on useampi maatila, varaus tehdään tiloittain. Jokaisella tilalla on oma liukusäädin ja oma enimmäismäärä.",
+          "Tilan tulo lasketaan kirjauksista, joille on valittu tila. Yhteiset kirjaukset ja poistot jaetaan tiloille tulojen suhteessa.",
+          "Jos tilalle on tehty vuodelle useampi varaus, muuta niitä Lomake 2 -välilehdellä.",
         ],
       },
       {
