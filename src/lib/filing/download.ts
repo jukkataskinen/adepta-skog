@@ -3,9 +3,13 @@ import { audit } from "@/lib/audit";
 import { isValidBusinessId, isValidPersonalId, normalizeBusinessId, normalizePersonalId } from "@/lib/validation/finnish";
 import { loadFilingSource } from "./load";
 import { compute2c, encodeLatin1, render2c, SKOG_SOFTWARE, VSY02C_SPECS, type DeliveryWorker } from "./vsy02c";
+import { compute2, render2, VSY002_SPECS } from "./vsy002";
+import { loadForm2 } from "@/lib/tax/agri-form-load";
 
 /**
- * 2C-ilmoitustiedoston muodostus lomakkeelta. Henkilötunnukset (ilmoittaja,
+ * Ilmoitustiedoston muodostus lomakkeelta: metsätalouden 2C ja
+ * maatalousasiakkaalle lomake 2 samaan tiedostoon (ensin VSY002, sitten
+ * VSY02C; sallittu lomakeyhdistelmä). Henkilötunnukset (ilmoittaja,
  * hankintatyön tekijät) ovat vain tämän funktion muuttujissa ja palautettavassa
  * tiedostossa: niitä ei tallenneta kantaan, Storageen, lokiin eikä
  * audit-tietoihin, eivätkä ne näy virheviesteissä (DECISIONS 28.9.2026).
@@ -52,7 +56,16 @@ export async function buildFilingDownload(
   form: FormData,
   now = new Date(),
 ): Promise<FilingResult> {
-  if (!VSY02C_SPECS[year]) return { ok: false, status: 400, error: `Sähköistä 2C-ilmoitusta ei voi vielä tehdä vuodelle ${year}.` };
+  const [client] = await tx.query<{ has_forestry: boolean; has_agriculture: boolean }>(
+    "select has_forestry, has_agriculture from sk_clients where id = $1 and organization_id = $2",
+    [clientId, ctx.organizationId],
+  );
+  if (!client) return { ok: false, status: 404, error: "Asiakasta tai verovuotta ei löytynyt." };
+  // Metsäasiakas saa 2C:n kuten ennen; maatalousasiakas lomakkeen 2, ja molempia harjoittava molemmat.
+  const forestry = client.has_forestry || !client.has_agriculture;
+  const agriculture = client.has_agriculture;
+  if (forestry && !VSY02C_SPECS[year]) return { ok: false, status: 400, error: `Sähköistä 2C-ilmoitusta ei voi vielä tehdä vuodelle ${year}.` };
+  if (agriculture && !VSY002_SPECS[year]) return { ok: false, status: 400, error: `Sähköistä lomaketta 2 ei voi vielä tehdä vuodelle ${year}.` };
   const source = await loadFilingSource(tx, ctx.organizationId, clientId, year);
   if (!source) return { ok: false, status: 404, error: "Asiakasta tai verovuotta ei löytynyt." };
 
@@ -67,31 +80,40 @@ export async function buildFilingDownload(
     if (!isValidPersonalId(filerId)) return { ok: false, status: 400, error: "Ilmoittajan henkilötunnus ei ole oikeaa muotoa." };
   }
 
-  const parsed = form.get("itemizeWorkers") === "1" ? parseWorkers(form) : { workers: [] };
-  if ("error" in parsed) return { ok: false, status: 400, error: parsed.error };
+  const contact = { name: ctx.userName, email: source.office.email, phone: source.office.phone };
+  let text = "";
 
-  const computed = compute2c(source.data);
-  if (computed.errors.length) return { ok: false, status: 400, error: computed.errors.join(" ") };
+  // Lomake 2 ensin: se on pääveroilmoitus, ja 2C on sen sallittu liite.
+  if (agriculture) {
+    const form2 = await loadForm2(tx, clientId, year);
+    if (!form2) return { ok: false, status: 404, error: "Asiakasta tai verovuotta ei löytynyt." };
+    const computed2 = compute2(form2);
+    if (computed2.errors.length) return { ok: false, status: 400, error: `Lomake 2: ${computed2.errors.join(" ")}` };
+    text += render2({ computed: computed2, filerId, software: SKOG_SOFTWARE, createdAt: now, contact });
+    // Lokiin vain se, että tiedosto muodostettiin: ei tunnisteita, nimiä eikä lukuja.
+    await audit(tx, {
+      organizationId: ctx.organizationId, userId: ctx.userId, action: "filing.2.download", entity: "client", entityId: clientId,
+      details: { year, filerIdType: useBusinessId ? "business_id" : "personal_id", fields: computed2.fields.length, empty: computed2.empty },
+    });
+  }
 
-  const text = render2c({
-    computed,
-    filerId,
-    software: SKOG_SOFTWARE,
-    createdAt: now,
-    workers: parsed.workers,
-    contact: { name: ctx.userName, email: source.office.email, phone: source.office.phone },
-  });
-
-  // Lokiin vain se, että tiedosto muodostettiin: ei tunnisteita, nimiä eikä lukuja.
-  await audit(tx, {
-    organizationId: ctx.organizationId,
-    userId: ctx.userId,
-    action: "filing.2c.download",
-    entity: "client",
-    entityId: clientId,
-    details: { year, filerIdType: useBusinessId ? "business_id" : "personal_id", workers: parsed.workers.length, fields: computed.fields.length },
-  });
+  if (forestry) {
+    const parsed = form.get("itemizeWorkers") === "1" ? parseWorkers(form) : { workers: [] };
+    if ("error" in parsed) return { ok: false, status: 400, error: parsed.error };
+    const computed = compute2c(source.data);
+    if (computed.errors.length) return { ok: false, status: 400, error: agriculture ? `2C: ${computed.errors.join(" ")}` : computed.errors.join(" ") };
+    text += render2c({ computed, filerId, software: SKOG_SOFTWARE, createdAt: now, workers: parsed.workers, contact });
+    await audit(tx, {
+      organizationId: ctx.organizationId,
+      userId: ctx.userId,
+      action: "filing.2c.download",
+      entity: "client",
+      entityId: clientId,
+      details: { year, filerIdType: useBusinessId ? "business_id" : "personal_id", workers: parsed.workers.length, fields: computed.fields.length },
+    });
+  }
 
   const safeName = source.client.lastName.normalize("NFD").replace(/[^A-Za-z0-9]/g, "").slice(0, 30) || "asiakas";
-  return { ok: true, bytes: encodeLatin1(text), fileName: `2C_${year}_${safeName}.txt` };
+  const forms = agriculture && forestry ? "2_2C" : agriculture ? "2" : "2C";
+  return { ok: true, bytes: encodeLatin1(text), fileName: `${forms}_${year}_${safeName}.txt` };
 }

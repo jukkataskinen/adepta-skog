@@ -621,6 +621,23 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        title: "Veroilmoitustiedosto",
+        text: "Skog tekee maatalouden veroilmoituksesta (lomake 2) tiedoston. Jos asiakkaalla on myös metsää, metsätalouden 2C tulee samaan tiedostoon.",
+        steps: [
+          "Tallenna ensin maatalouden poistot Maatalous-välilehdellä ja vahvista metsän verosuunnitelma.",
+          "Avaa Veroraportti ja arkisto -välilehti ja valitse vuosi.",
+          "Katso kohdasta Lomake 2: maatalous, mitkä luvut menevät mihinkin kohtaan. Korjaa punaiset virheet.",
+          "Kirjoita henkilötunnus, jos asiakkaalla ei ole Y-tunnusta.",
+          "Valitse Lataa ilmoitustiedosto.",
+          "Lataa tiedosto Ilmoitin.fi-palveluun ja tarkista se ensin toiminnolla Aineiston tarkastus.",
+        ],
+        bullets: [
+          "Lomake 2 annetaan joka vuosi, vaikka maataloutta ei olisi ollut. Silloin tiedostoon tulee tieto Ilmoitettavia tietoja ei ole.",
+          "Tiedoston nimi kertoo lomakkeet, esimerkiksi 2_2C_2025_Nimi.txt.",
+          "Lomakkeen 2 tiedostoa ei ole vielä kokeiltu Ilmoitin.fi:n tarkastuksessa. Tarkista tiedosto aina ennen lähettämistä.",
+        ],
+      },
+      {
         title: "Investointituet ja muut tiedot",
         bullets: [
           "Investointituki kirjataan investoinnille sinä vuonna, kun tuki on saatu. Se ei ole tuloa.",
@@ -772,6 +789,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Jos asiakas ei ole alv-velvollinen, menot menevät ilmoitukselle arvonlisäveron kanssa. Tulot ovat aina ilman veroa.",
           "Tarvitset asiakkaalta Suomi.fi-valtuuden (Veroasioiden hoito tai Veroilmoittaminen).",
           "Tiedoston voi tehdä vuosille 2025 ja 2026, myös suljetulle vuodelle.",
+          "Jos asiakas harjoittaa maataloutta, samaan tiedostoon tulee myös maatalouden veroilmoitus (lomake 2). Katso ohje Maatalous.",
         ],
       },
       {

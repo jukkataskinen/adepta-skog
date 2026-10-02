@@ -357,3 +357,11 @@
 **Purkamattomat varaukset 170–175.** Tekovuoden mukaan: vuodelle Y kentät ovat vuosien Y − 2, Y − 1 ja Y varaukset. Vanhempi purkamaton varaus antaa varoituksen, koska se pitäisi tulouttaa viimeistään kolmantena vuonna.
 
 **Veroraportin maatalousosa (tehtävä 8).** Raportin osat valitaan asiakkaan toiminnoista: metsätalouden osat (verolaskelma, investoinnit, metsävähennys), kun asiakkaalla on metsätaloutta, ja uusi osa Maatalous (lomake 2) maatalousasiakkaalle ennen kirjausluetteloa. Sisällysluettelo muodostuu samoista osista. Yhteenvedossa on metsätalouden pääomatulon vero kuten ennen ja maatalouden tulot, menot ja tulos; maatalouden veroa ei arvioida, koska yritystulon jako pääoma- ja ansiotuloon on vaihe 2. Arvonlisäveron maksulaatikko kattaa molemmat toiminnot. Pelkän metsäasiakkaan raportti on ennallaan.
+
+**VSY002-tiedosto (tehtävä 9).** Muodostin on puhdas funktio kuten 2C:ssä, ja kentät, nimet ja järjestys ovat tietuekuvauksista 2025 (VSY00225) ja 2026 (VSY00226). Rahamäärät R13,2, puoliso-osuudet +D3,2 (kaksi desimaalia pilkulla), kilometrit, matkapäivät ja valinnat kokonaislukuina. Kentät, joita vuoden tietuekuvauksessa ei ole (2026: 364–584), ovat virhe. Ennen latausta tarkistetaan samat kaavat kuin Verohallinnossa (#1987/#2045, #1988/#2046, #1450, #880, #992, #38, #39, #1989/#2047), vaikka laskenta tuottaa ne aina oikein, jotta käsin syötetyt ristiriidat jäävät kiinni.
+
+**Yksi tiedosto: ensin lomake 2, sitten 2C.** Sallittujen lomakeyhdistelmien mukaan 2C kelpaa lomakkeen 2 liitteeksi. Metsäasiakas saa 2C:n kuten ennen (tiedosto 2C_vuosi_nimi.txt), maatalousasiakas lomakkeen 2 (2_…) ja molempia harjoittava molemmat (2_2C_…). Ilmoittajan tunnus, yhteyshenkilö ja ohjelmistotiedot ovat samat. Lokiin kirjataan kummastakin oma rivi (`filing.2.download`, `filing.2c.download`) ilman tunnuksia ja lukuja.
+
+**Lomake 2 annetaan aina.** Jos maatalousasiakkaalla ei ole vuonna maataloutta, tiedostoon tulee 967:1 ja vain pakolliset tiedot (#1445).
+
+**Ilmoitin.fi:n tarkastus odottaa Jukkaa (BLOCKERS 13).** Tiedosto on tarkistettu omilla testeillä tietuekuvausta vasten, ei Verohallinnon tarkistusmoduulilla. Yhteyshenkilön tiedot (041, 044, 042) ovat tietueen lopussa kuten 2C:ssä, jonka Ilmoitin.fi hyväksyi.
