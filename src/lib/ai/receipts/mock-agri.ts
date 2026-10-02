@@ -14,6 +14,7 @@
  *   sähkö                  sähkölasku, yksityisosuuden huomautus
  *   myel, mela             MYEL-maksu ja tapaturmavakuutus
  *   osuusmaksu             maitotilitys, josta osuusmaksu on pidätetty: täsmäytys näyttää eron
+ *   laina, korot           lainan vuosi-ilmoitus: kahden maatilalainan korot, lyhennykset vain huomautuksena
  *
  * Nimen vuosi (2025 tai 2026) valitsee päivät ja alennetun verokannan
  * (14 % 2025, 13,5 % 2026). Rivit ovat raakavastauksen muodossa, ja ne
@@ -122,6 +123,16 @@ function myel(year: number): Raw[] {
   return [line(d, date, "Mela, MYEL-maksu 1. erä", 3120, 0, "agri_myel"), line(d, date, "Mela, tapaturmavakuutus (MATA)", 186, 0, "agri_insurance")];
 }
 
+/** Lainan vuosi-ilmoitus: vain korot ovat kuluja, lyhennykset huomautuksessa. */
+function loan(year: number): Raw[] {
+  const d = doc(1, `Vuosi-ilmoitus lainoista ${year}, Esimerkin Pankki`, "loan_statement", [1], 3184.35, null);
+  const date = `${year}-12-31`;
+  return [
+    line(d, date, "Esimerkin Pankki, korot navettalaina", 2640.1, 0, "agri_interest", { note: "Lyhennykset yhteensä 18 000,00 € eivät ole kuluja." }),
+    line(d, date, "Esimerkin Pankki, korot konelaina", 544.25, 0, "agri_interest"),
+  ];
+}
+
 /**
  * Maatalouden esimerkki nimestä, tai null, jos nimi ei ole maatalouden
  * esimerkki. Vanha kokooma (maatila, maatalous) on mock.ts:ssä ennallaan.
@@ -137,5 +148,6 @@ export function agriExampleByName(name: string): { lines: Raw[] } | null {
   if (/eläinkauppa|elainkauppa|vasikat/.test(name)) return { lines: livestock(year) };
   if (/sähkö|sahko/.test(name)) return { lines: electricity(year) };
   if (/myel|mela/.test(name)) return { lines: myel(year) };
+  if (/laina|korot/.test(name)) return { lines: loan(year) };
   return null;
 }

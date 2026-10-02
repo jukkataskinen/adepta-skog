@@ -93,7 +93,7 @@ export const SUBSIDY_TYPES: SubsidyType[] = [
   {
     code: "investment_aid", label: "Investointituki", examples: "investointituki, investointiavustus, rakentamisen tuki, salaojituksen tuki",
     category: "agri_other_subsidy", field: null, uncertain: false, maxConfidence: 0.4,
-    note: "Investointituki ei ole tuloa. Poista rivi ja kirjaa tuki Lomake 2 -välilehden investointitukiin, jolloin se vähennetään hankintamenosta.",
+    note: "Investointituki ei ole tuloa. Rivi jää odottamaan eikä tallennu tuloksi. Kirjaa tuki Lomake 2 -välilehdellä kohtaan Investointituet sille investoinnille, johon se on myönnetty, jolloin se vähennetään hankintamenosta. Poista rivi sen jälkeen.",
   },
   {
     code: "energy_tax_refund", label: "Energiaveron palautus", examples: "maatalouden energiaveron palautus, energiatuotteiden valmisteveron palautus",
@@ -192,10 +192,31 @@ export function lineNotes(l: AnnotatableLine): string[] {
   if (l.category === "agri_coop_surplus") {
     notes.push("Osuuskunnan ylijäämä: veronalainen osuus lasketaan lomakkeella 2 (327 ja 328).");
   }
+  if (t === "loan_statement" && l.category === "agri_interest") {
+    notes.push("Lainan korot ovat korkomenoja (465). Lyhennykset eivät ole kuluja, eikä niistä tehdä kirjausta.");
+  }
+  if (isLoanPrincipal(l)) {
+    notes.push("Lainan lyhennys ei ole kulu. Rivi jää odottamaan eikä tallennu. Poista rivi.");
+  }
   if (t === "subsidy_decision") {
     notes.push("Tukipäätös ei ole maksu. Tuki kirjataan maksupäivän mukaan maksuilmoituksesta tai Vipun maksetuista tuista.");
   }
   return notes;
+}
+
+/** Lainan vuosi-ilmoituksen lyhennysrivi: lyhennys ei ole kulu, vaikka malli tekisi siitä rivin. */
+export function isLoanPrincipal(l: Pick<AnnotatableLine, "documentType" | "description">): boolean {
+  return l.documentType === "loan_statement" && /lyhenn|pääoma/i.test(l.description) && !/korko|korot/i.test(l.description);
+}
+
+/**
+ * Ehdotusrivi, joka jää taulukossa oletuksena odottamaan (ei tallennu ilman
+ * kirjanpitäjän valintaa): investointituki ei ole tuloa ja lainan lyhennys ei
+ * ole kulu. Tallennettuna ne vääristäisivät tulosta, joten turvallisempi
+ * oletus on, ettei niitä hyväksytä vahingossa (DECISIONS 2.10.2026).
+ */
+export function waitsByDefault(l: Pick<AnnotatableLine, "documentType" | "description" | "subsidyType">): boolean {
+  return l.subsidyType === "investment_aid" || isLoanPrincipal(l);
 }
 
 const joinNotes = (parts: (string | null | undefined)[]) =>
@@ -207,7 +228,28 @@ const joinNotes = (parts: (string | null | undefined)[]) =>
  * (koneet) ja huomautukset. Metsätalouden rivit (ei agri_-luokkaa) jäävät ennalleen.
  */
 export function annotateAgriLine<T extends AnnotatableLine>(l: T): T {
-  if (!l.category.startsWith("agri_")) return { ...l, subsidyType: null, assetClass: null };
+  if (!l.category.startsWith("agri_")) {
+    // Metsätalouden rivi jää ennalleen; vain lainan vuosi-ilmoitus saa huomautuksen,
+    // koska metsän koroille ei ole omaa luokkaa ja lyhennys ei ole kulu.
+    const loan = l.documentType === "loan_statement";
+    const principal = isLoanPrincipal(l);
+    return {
+      ...l,
+      subsidyType: null,
+      assetClass: null,
+      ...(principal ? { confidence: Math.min(l.confidence, 0.2) } : {}),
+      ...(loan
+        ? {
+            note: joinNotes([
+              l.note,
+              principal
+                ? "Lainan lyhennys ei ole kulu. Rivi jää odottamaan eikä tallennu. Poista rivi."
+                : "Metsätalouden lainan korot kirjataan luokkaan Muut vuosimenot. Lyhennykset eivät ole kuluja, eikä niistä tehdä kirjausta.",
+            ]),
+          }
+        : {}),
+    };
+  }
   let out: T = { ...l };
   const sub = subsidyType(l.subsidyType);
   const subsidyDoc = ["subsidy_payment", "subsidy_summary", "subsidy_decision"].includes(l.documentType);
@@ -228,6 +270,7 @@ export function annotateAgriLine<T extends AnnotatableLine>(l: T): T {
   } else {
     out = { ...out, assetClass: null };
   }
+  if (isLoanPrincipal(out)) out = { ...out, confidence: Math.min(out.confidence, 0.2) };
   // Tukipäätös on aina epävarma: summa maksetaan myöhemmin ja voi muuttua.
   if (out.documentType === "subsidy_decision") out = { ...out, confidence: Math.min(out.confidence, 0.3) };
   return { ...out, note: joinNotes([out.note, ...lineNotes(out), vatRateNote(out)]) };

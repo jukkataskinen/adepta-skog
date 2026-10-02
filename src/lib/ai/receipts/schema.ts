@@ -49,11 +49,12 @@ export const DOCUMENT_TYPES = ["invoice", "receipt", "timber_settlement", "timbe
  * Maatalouden asiakirjalajit: vain maatalousasiakkaan tunnistuksessa. Lajit,
  * joista yksi tosite tuottaa usein monta kirjausta (tilitykset, tukien
  * koonti, konekauppa), ja tavalliset maatalouden laskut, joihin liittyy
- * huomautus (polttoaine, sähkö, vakuutus, MYEL). Ohjeet lajeittain: anthropic.ts.
+ * huomautus (polttoaine, sähkö, vakuutus, MYEL, lainan vuosi-ilmoitus). Ohjeet lajeittain: anthropic.ts.
  */
 export const AGRI_DOCUMENT_TYPES = [
   "dairy_settlement", "slaughter_settlement", "crop_settlement", "subsidy_decision", "subsidy_payment", "subsidy_summary",
   "livestock_trade", "machine_trade", "fuel_invoice", "energy_tax_refund", "utility_invoice", "insurance_invoice", "myel_invoice",
+  "loan_statement",
 ] as const;
 export const ALL_DOCUMENT_TYPES = [...DOCUMENT_TYPES, ...AGRI_DOCUMENT_TYPES] as const;
 export type DocumentType = (typeof ALL_DOCUMENT_TYPES)[number];
@@ -77,6 +78,7 @@ export const DOCUMENT_TYPE_LABEL: Record<DocumentType, string> = {
   utility_invoice: "Sähkö-, vesi- tai lämpölasku",
   insurance_invoice: "Vakuutuslasku",
   myel_invoice: "MYEL-lasku",
+  loan_statement: "Lainan vuosi-ilmoitus",
 };
 
 /**

@@ -292,3 +292,65 @@ describe("pitkän vuosiaineiston osat", () => {
     expect(estimateText(150, planChunks(150).length)).toBe("150 sivua, 22 osaa, noin 4–10 min");
   });
 });
+
+describe("lainan vuosi-ilmoitus ja investointituki", () => {
+  const loanRaw = (over: Record<string, unknown> = {}) =>
+    raw({ document_type: "loan_statement", source_document: "Vuosi-ilmoitus lainoista, Pankki", date: "2025-12-31", subsidy_type: null, ...over });
+
+  it("maatilalainan korot luokkaan Korot (465) huomautuksen kanssa", () => {
+    const r = validateRecognition({ lines: [loanRaw({ description: "Pankki, korot navettalaina", amount_gross: 2640.1, category: "agri_interest" })] }, FARM);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(category(r.lines[0].category)?.form2).toBe("465");
+    expect(r.lines[0].note).toMatch(/korkomenoja \(465\).*Lyhennykset eivät ole kuluja/);
+  });
+
+  it("metsälainan korot nykyiseen luokkaan Muut vuosimenot, huomautus", () => {
+    const r = validateRecognition({ lines: [loanRaw({ description: "Pankki, korot metsälaina", amount_gross: 380.2, category: "other_expense" })] }, BOTH);
+    expect(r.ok && [r.lines[0].category, r.lines[0].note]).toEqual(["other_expense", expect.stringMatching(/Muut vuosimenot/)]);
+  });
+
+  it("lyhennysrivi ei tallennu oletuksena: varmuus alas, huomautus ja odottaa", () => {
+    const r = validateRecognition(
+      {
+        lines: [
+          loanRaw({ description: "Pankki, korot navettalaina", amount_gross: 2640.1, category: "agri_interest" }),
+          loanRaw({ description: "Pankki, lyhennykset navettalaina", amount_gross: 18000, category: "agri_interest" }),
+        ],
+      },
+      FARM,
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.lines[1].confidence).toBeLessThanOrEqual(0.2);
+    expect(r.lines[1].note).toMatch(/lyhennys ei ole kulu/);
+    const rows = rowsFromSuggestion({ id: "s1", document_id: "d1", file_name: "laina.pdf", lines: r.lines }, { vatRegistered: true, defaultDate: "1.1.2025", year: 2025 });
+    expect(rows.map((x) => !!x.deferred)).toEqual([false, true]);
+  });
+
+  it("investointituki jää odottamaan eikä tallennu tuloksi vahingossa", async () => {
+    const lines = await recognize("vipu maksetut tuet 2025.pdf");
+    const rows = rowsFromSuggestion({ id: "s2", document_id: "d2", file_name: "vipu.pdf", lines }, { vatRegistered: true, defaultDate: "1.1.2025", year: 2025 });
+    const inv = rows.find((x) => /Investointituki/.test(x.description))!;
+    expect(inv.deferred).toBe(true);
+    expect(inv.suggestion?.note).toMatch(/Investointituki ei ole tuloa.*Investointituet/);
+    expect(rows.filter((x) => x.deferred)).toHaveLength(1);
+    expect(deferredSuggestionLines(rows)).toEqual([{ suggestionId: "s2", lines: [lines.indexOf(lines.find((l) => l.subsidyType === "investment_aid")!)] }]);
+  });
+
+  it("testitilan esimerkki: lainan korot täsmäävät, lyhennys vain huomautuksessa", async () => {
+    const lines = await recognize("laina 2025.pdf");
+    expect(lines.map((l) => [l.category, l.documentType])).toEqual([
+      ["agri_interest", "loan_statement"],
+      ["agri_interest", "loan_statement"],
+    ]);
+    expect(balanceOf(lines)).toMatchObject({ status: "ok" });
+    expect(lines[0].note).toMatch(/Lyhennykset yhteensä/);
+  });
+
+  it("ohje kertoo lainan vuosi-ilmoituksen säännöt", () => {
+    const p = receiptSystemPrompt(BOTH);
+    expect(p).toContain("loan_statement");
+    expect(p).toMatch(/principal.*not costs/);
+  });
+});

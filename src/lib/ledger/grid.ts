@@ -28,6 +28,7 @@ import type { PendingSuggestion } from "@/lib/documents/receipt-suggestions";
 import { isCompilation, parsePagesColumn, type DocumentType } from "@/lib/ai/receipts/schema";
 import { duplicateWarnings, type ExistingEntry } from "@/lib/ai/receipts/duplicates";
 import { documentBalance, type DocumentBalance } from "@/lib/ai/receipts/reconcile";
+import { waitsByDefault } from "@/lib/ai/receipts/agri";
 import {
   AGRI_ASSET_CLASS_MESSAGE,
   ASSET_CLASS_MESSAGE,
@@ -250,6 +251,8 @@ export function rowsFromSuggestion(s: Pick<PendingSuggestion, "id" | "document_i
       assetRatePct: l.category === "agri_asset_purchase" && l.assetClass ? l.assetClass : "",
       suggestionId: s.id,
       suggestionLine: i,
+      // Investointituki ja lainan lyhennys eivät ole tuloa tai kulua: rivi jää odottamaan, kunnes kirjanpitäjä päättää.
+      ...(waitsByDefault({ documentType: l.documentType, description: l.description, subsidyType: l.subsidyType ?? null }) ? { deferred: true } : {}),
       suggestion: {
         documentId: s.document_id, documentName: s.file_name, confidence: l.confidence, reasoning: l.reasoning, first: i === 0, sourceDate: l.date,
         sourceDocument: l.sourceDocument, documentType: l.documentType, documentIndex: l.documentIndex, pages: l.pages, contractNumber: l.contractNumber,
