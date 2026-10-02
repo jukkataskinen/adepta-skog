@@ -4,6 +4,9 @@ import { saveTransaction } from "@/lib/ledger/write";
 import { savePriorAsset } from "@/lib/assets/prior";
 import { addDeferral, addReserve, saveAgriDepreciations, saveAgriYear, EMPTY_AGRI_YEAR } from "@/lib/agriculture/year";
 import { loadForm2 } from "@/lib/tax/agri-form-load";
+import { loadReportData } from "@/lib/reports/data";
+import { renderTaxReport } from "@/lib/reports/pdf";
+import { PDFDocument } from "pdf-lib";
 import { freshDb, seedOrg, type OrgFixture } from "../helpers/db";
 
 /** Lomake 2 kannan tiedoista: kirjaukset, osuudet, poistot, varaukset ja jaksotukset (DECISIONS 2.10.2026). */
@@ -57,5 +60,17 @@ describe("lomake 2 kannasta", () => {
     expect(f.fields["332"]).toBe(20000 + 15000 + 1500);
     expect(f.fields["357"]).toBe(17600.08);
     expect(f.result).toBe(18899.92);
+  });
+
+  it("veroraportissa on maatalousosa, ja pelkän maatalousasiakkaan raportista puuttuvat metsän osat", async () => {
+    const data = (await asStaff((tx) => loadReportData(tx, a.id, a.client, 2025)))!;
+    expect(data.agri?.form2.fields["214"]).toBe(20000);
+    expect(data.agri?.categories.find((c) => c.label === "MYEL-maksut")?.net).toBe(3500);
+    const both = await PDFDocument.load(await renderTaxReport(data));
+    const onlyAgri = await PDFDocument.load(await renderTaxReport({ ...data, client: { ...data.client, hasForestry: false } }));
+    expect(onlyAgri.getPageCount()).toBeLessThan(both.getPageCount());
+    // Pelkkä metsäasiakas: ei maatalousosaa.
+    const forestOnly = await PDFDocument.load(await renderTaxReport({ ...data, agri: null, client: { ...data.client, hasAgriculture: false } }));
+    expect(forestOnly.getPageCount()).toBeLessThan(both.getPageCount());
   });
 });

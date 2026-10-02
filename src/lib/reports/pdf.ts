@@ -4,6 +4,7 @@ import { ADDITIONAL_PREPAYMENT_MIN, additionalPrepaymentDueDate, annualVatDueDat
 import { formatSharePct } from "@/lib/tax/share";
 import { priorOpeningText } from "@/lib/tax/load";
 import type { ReportData } from "./data";
+import { FORM2_ORDER, form2Label } from "@/lib/filing/vsy002-fields";
 
 /**
  * Veroraportti PDF:nä (A4): kansilehti, sisällysluettelo, tulot ja menot
@@ -257,14 +258,30 @@ class Writer {
   }
 }
 
-const SECTIONS: { title: string; description: string }[] = [
-  { title: "Yhteenveto ja maksutiedote", description: "Tuleeko veroa maksettavaksi vai palautusta, ja paljonko arvonlisäveroa tilitetään ja milloin." },
-  { title: "Tulot, menot ja verolaskelma", description: "Tulot ja menot luokittain, poistot, metsävähennys ja arvioitu pääomatulon vero." },
-  { title: "Arvonlisävero", description: "Myynnin ja ostojen vero neljänneksittäin ja koko vuodelta sekä myynnit verokannoittain." },
-  { title: "Investoinnit ja poistot", description: "Investoinnit poistamattomine arvoineen, vuoden poistot ja myynnit." },
-  { title: "Metsävähennys", description: "Metsävähennyksen pohja tiloittain, vuoden vähennys ja metsätilojen myynnit." },
-  { title: "Kirjausluettelo", description: "Kaikki verovuoden kirjaukset päivämäärineen, luokkineen ja summineen." },
-];
+type SectionKey = "summary" | "forestry" | "vat" | "assets" | "deduction" | "agriculture" | "ledger";
+
+const SECTION_DEFS: Record<SectionKey, { title: string; description: string }> = {
+  summary: { title: "Yhteenveto ja maksutiedote", description: "Tuleeko veroa maksettavaksi vai palautusta, ja paljonko arvonlisäveroa tilitetään ja milloin." },
+  forestry: { title: "Tulot, menot ja verolaskelma", description: "Tulot ja menot luokittain, poistot, metsävähennys ja arvioitu pääomatulon vero." },
+  vat: { title: "Arvonlisävero", description: "Myynnin ja ostojen vero neljänneksittäin ja koko vuodelta sekä myynnit verokannoittain." },
+  assets: { title: "Investoinnit ja poistot", description: "Investoinnit poistamattomine arvoineen, vuoden poistot ja myynnit." },
+  deduction: { title: "Metsävähennys", description: "Metsävähennyksen pohja tiloittain, vuoden vähennys ja metsätilojen myynnit." },
+  agriculture: { title: "Maatalous (lomake 2)", description: "Maatalouden tulot ja menot lomakkeen kentittäin, poistot ryhmittäin, varaukset ja varallisuuslaskelma." },
+  ledger: { title: "Kirjausluettelo", description: "Kaikki verovuoden kirjaukset päivämäärineen, luokkineen ja summineen." },
+};
+
+/** Raportin osat: metsätalouden osat metsäasiakkaalle, maatalousosa maatalousasiakkaalle. */
+function sectionsFor(data: ReportData): SectionKey[] {
+  const forest = data.client.hasForestry || !data.client.hasAgriculture;
+  return [
+    "summary",
+    ...(forest ? (["forestry"] as const) : []),
+    "vat",
+    ...(forest ? (["assets", "deduction"] as const) : []),
+    ...(data.agri ? (["agriculture"] as const) : []),
+    "ledger",
+  ];
+}
 
 export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
@@ -277,12 +294,14 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
   };
   const draft = data.status === "open";
   const w = new Writer(doc, f, `${data.client.name} · Veroraportti ${data.year}${draft ? " · LUONNOS" : ""}`);
+  const sections = sectionsFor(data);
+  const forest = sections.includes("forestry");
   const toc: number[] = [];
-  const section = (index: number) => {
+  const section = (key: SectionKey) => {
     w.newPage();
     // Sivunumero kannen ja sisällysluettelon kanssa: ne ovat sivut 1 ja 2.
-    toc[index] = w.pages.length + 2;
-    w.section(`${SECTIONS[index].title} · Verovuosi ${data.year}`);
+    toc[sections.indexOf(key)] = w.pages.length + 2;
+    w.section(`${SECTION_DEFS[key].title} · Verovuosi ${data.year}`);
   };
   const two: Col[] = [{ width: 120 }, { width: 50, align: "right" }];
 
@@ -290,21 +309,44 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
   const dep = data.depreciation.reduce((s, d) => s + d.amount, 0);
 
   // 1. Yhteenveto ja maksutiedote: kaksi asiakkaan tärkeintä kysymystä.
-  section(0);
+  section("summary");
   const taxLeft = Math.round((r.tax.total - data.plan.withholding) * 100) / 100;
+  const agri = data.agri;
+  // Maatalousasiakkaan yhteenvedossa on myös maatalouden tulos. Sen veroa ei arvioida, koska
+  // yritystulon jako pääoma- ja ansiotuloon tehdään vasta myöhemmin (PLAN).
+  const agriRows: [string, string][] = agri
+    ? [
+        ["Maatalouden tulot (lomake 2)", eur(agri.form2.income)],
+        ["Maatalouden menot ja poistot", eur(-agri.form2.expense)],
+        [agri.form2.result < 0 ? "Maatalouden tappio" : "Maatalouden tulos", eur(agri.form2.result)],
+      ]
+    : [];
   w.summaryTable([
-    ["Tulot ilman arvonlisäveroa", eur(data.plan.income)],
-    ["Menot ja poistot", eur(-(data.plan.expense + dep))],
-    ["Metsävähennys ja yrittäjävähennys", eur(-(data.plan.recordedDeduction + r.entrepreneurDeduction))],
-    ...(r.saleResult ? ([["Luovutusvoitot ja -tappiot", eur(r.saleResult)]] as [string, string][]) : []),
-    ["Verotettava pääomatulo", eur(r.taxable)],
-    ["Arvioitu pääomatulon vero", eur(r.tax.total)],
-    ["Ennakonpidätykset", eur(-data.plan.withholding)],
+    ...(forest
+      ? ([
+          [agri ? "Metsätalouden tulot ilman arvonlisäveroa" : "Tulot ilman arvonlisäveroa", eur(data.plan.income)],
+          ["Menot ja poistot", eur(-(data.plan.expense + dep))],
+          ["Metsävähennys ja yrittäjävähennys", eur(-(data.plan.recordedDeduction + r.entrepreneurDeduction))],
+          ...(r.saleResult ? ([["Luovutusvoitot ja -tappiot", eur(r.saleResult)]] as [string, string][]) : []),
+          ["Verotettava pääomatulo", eur(r.taxable)],
+          ["Arvioitu pääomatulon vero", eur(r.tax.total)],
+          ["Ennakonpidätykset", eur(-data.plan.withholding)],
+        ] as [string, string][])
+      : []),
+    ...agriRows,
   ]);
   const vatPayable = data.vat.year.payable;
   const vatRef = data.client.taxAccountReference;
   w.paymentBoxes(
-    {
+    !forest && agri
+      ? {
+          title: agri.form2.result < 0 ? "Maatalouden tappio" : "Maatalouden tulos",
+          amount: eur(Math.abs(agri.form2.result)),
+          tone: "none",
+          lead: "Lomakkeen 2 mukaan",
+          lines: ["Maatalouden tulo jaetaan verotuksessa pääoma- ja ansiotuloon nettovarallisuuden mukaan.", "Veroa ei ole arvioitu tässä raportissa."],
+        }
+      : {
       title: "Pääomatulon vero",
       amount: eur(Math.abs(taxLeft)),
       tone: taxLeft > 0 ? "pay" : "refund",
@@ -319,7 +361,7 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
           : taxLeft < 0
             ? ["Ennakonpidätykset ovat arvioitua veroa suuremmat.", "Verohallinto palauttaa erotuksen, kun verotus valmistuu."]
             : ["Ennakonpidätykset kattavat arvioidun veron."],
-    },
+        },
     !data.client.vatRegistered
       ? { title: "Arvonlisävero", amount: "–", tone: "none", lead: "Asiakas ei ole arvonlisäverorekisterissä", lines: ["Arvonlisäveroa ei tilitetä."] }
       : {
@@ -342,55 +384,65 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
     "Maksutiedote on laskettu kirjanpidon tiedoista. Lopulliset verot vahvistetaan verotuksessa. Arvio ei ota huomioon asiakkaan muita pääomatuloja. Tarkista summat aina OmaVerosta ennen maksua.",
     { size: 8, color: MUTED },
   );
-
-  // 2. Tulot, menot ja verolaskelma
-  section(1);
-  w.figures([
-    { label: "Verotettava pääomatulo", value: eur(r.taxable) },
-    { label: "Arvioitu vero", value: eur(r.tax.total), accent: true },
-    { label: "Ennakonpidätykset", value: eur(data.plan.withholding) },
-  ]);
-  if (!data.confirmed) {
-    w.text("Verosuunnitelmaa ei ole vahvistettu, joten poistot ja metsävähennys ovat nollia.", { size: 9, color: MUTED, gap: 8 });
+  if (agri && forest) {
+    w.text("Pääomatulon vero koskee metsätaloutta. Maatalouden tulon veroa ei ole arvioitu, koska se jaetaan verotuksessa pääoma- ja ansiotuloon.", {
+      size: 8, color: MUTED,
+    });
   }
-  const cat4: Col[] = [{ width: 80 }, { width: 30, align: "right" }, { width: 30, align: "right" }, { width: 30, align: "right" }];
-  for (const [kind, title, tone] of [["income", "Tulot", "income"], ["expense", "Menot", "expense"], ["investment", "Investoinnit", undefined]] as const) {
-    const rows = data.categories.filter((c) => c.kind === kind);
-    if (!rows.length) continue;
-    w.subheading(title);
-    w.head(["Luokka", "Ilman alv", "Alv", "Yhteensä"], cat4);
-    for (const c of rows) w.row([c.label, eur(c.net), eur(c.vat), eur(c.gross)], cat4, { tone });
-    if (rows.length > 1) {
-      const sum = (k: "net" | "vat" | "gross") => rows.reduce((s, c) => s + c[k], 0);
-      w.row(["Yhteensä", eur(sum("net")), eur(sum("vat")), eur(sum("gross"))], cat4, { tone: "total" });
+  if (agri) {
+    w.text("Arvonlisävero on laskettu metsä- ja maataloudesta yhdessä, koska ne ilmoitetaan samalla ilmoituksella.", { size: 8, color: MUTED });
+  }
+
+  // 2. Tulot, menot ja verolaskelma (metsätalous)
+  if (forest) {
+    section("forestry");
+    w.figures([
+      { label: "Verotettava pääomatulo", value: eur(r.taxable) },
+      { label: "Arvioitu vero", value: eur(r.tax.total), accent: true },
+      { label: "Ennakonpidätykset", value: eur(data.plan.withholding) },
+    ]);
+    if (!data.confirmed) {
+      w.text("Verosuunnitelmaa ei ole vahvistettu, joten poistot ja metsävähennys ovat nollia.", { size: 9, color: MUTED, gap: 8 });
     }
-    w.space(4);
+    const cat4: Col[] = [{ width: 80 }, { width: 30, align: "right" }, { width: 30, align: "right" }, { width: 30, align: "right" }];
+    for (const [kind, title, tone] of [["income", "Tulot", "income"], ["expense", "Menot", "expense"], ["investment", "Investoinnit", undefined]] as const) {
+      const rows = data.categories.filter((c) => c.kind === kind);
+      if (!rows.length) continue;
+      w.subheading(title);
+      w.head(["Luokka", "Ilman alv", "Alv", "Yhteensä"], cat4);
+      for (const c of rows) w.row([c.label, eur(c.net), eur(c.vat), eur(c.gross)], cat4, { tone });
+      if (rows.length > 1) {
+        const sum = (k: "net" | "vat" | "gross") => rows.reduce((s, c) => s + c[k], 0);
+        w.row(["Yhteensä", eur(sum("net")), eur(sum("vat")), eur(sum("gross"))], cat4, { tone: "total" });
+      }
+      w.space(4);
+    }
+    w.subheading("Verolaskelma");
+    w.row(["Tulot ilman arvonlisäveroa ja koneiden myyntejä", eur(data.plan.income)], two);
+    w.row(["Menot", eur(-data.plan.expense)], two);
+    w.row(["Poistot", eur(-dep)], two);
+    w.row(["Metsätalouden puhdas pääomatulo", eur(r.netBeforeDeduction)], two, { tone: "total" });
+    w.row(["Metsävähennys", eur(-data.plan.recordedDeduction)], two);
+    w.row(["Yrittäjävähennys 5 %", eur(-r.entrepreneurDeduction)], two);
+    w.row(["Metsätalouden verotettava pääomatulo", eur(r.forestryTaxable)], two, { tone: "total" });
+    if (data.depreciation.some((d) => d.sold) || data.plan.forestSales.length) {
+      w.row([r.saleExempt ? "Myynnit, verovapaa (enintään 1 000 €)" : "Luovutusvoitot ja -tappiot (lomake 9)", eur(r.saleResult)], two);
+    }
+    w.row(["Verotettava pääomatulo", eur(r.taxable)], two, { tone: "result" });
+    w.row(["Arvioitu vero 30 %", eur(r.tax.low)], two);
+    if (r.tax.high) w.row(["Arvioitu vero 34 %", eur(r.tax.high)], two);
+    w.row(["Arvioitu vero yhteensä", eur(r.tax.total)], two, { tone: "total" });
+    if (data.plan.withholding) {
+      w.row(["Ennakonpidätykset", eur(data.plan.withholding)], two);
+      const left = Math.round((r.tax.total - data.plan.withholding) * 100) / 100;
+      w.row([left >= 0 ? "Arviolta maksettavaa" : "Arviolta palautusta", eur(Math.abs(left))], two, { tone: "result" });
+    }
+    w.space(3);
+    w.text("Vero on arvio. Se ei ota huomioon asiakkaan muita pääomatuloja eikä aiempien vuosien tappioita.", { size: 8, color: MUTED });
   }
-  w.subheading("Verolaskelma");
-  w.row(["Tulot ilman arvonlisäveroa ja koneiden myyntejä", eur(data.plan.income)], two);
-  w.row(["Menot", eur(-data.plan.expense)], two);
-  w.row(["Poistot", eur(-dep)], two);
-  w.row(["Metsätalouden puhdas pääomatulo", eur(r.netBeforeDeduction)], two, { tone: "total" });
-  w.row(["Metsävähennys", eur(-data.plan.recordedDeduction)], two);
-  w.row(["Yrittäjävähennys 5 %", eur(-r.entrepreneurDeduction)], two);
-  w.row(["Metsätalouden verotettava pääomatulo", eur(r.forestryTaxable)], two, { tone: "total" });
-  if (data.depreciation.some((d) => d.sold) || data.plan.forestSales.length) {
-    w.row([r.saleExempt ? "Myynnit, verovapaa (enintään 1 000 €)" : "Luovutusvoitot ja -tappiot (lomake 9)", eur(r.saleResult)], two);
-  }
-  w.row(["Verotettava pääomatulo", eur(r.taxable)], two, { tone: "result" });
-  w.row(["Arvioitu vero 30 %", eur(r.tax.low)], two);
-  if (r.tax.high) w.row(["Arvioitu vero 34 %", eur(r.tax.high)], two);
-  w.row(["Arvioitu vero yhteensä", eur(r.tax.total)], two, { tone: "total" });
-  if (data.plan.withholding) {
-    w.row(["Ennakonpidätykset", eur(data.plan.withholding)], two);
-    const left = Math.round((r.tax.total - data.plan.withholding) * 100) / 100;
-    w.row([left >= 0 ? "Arviolta maksettavaa" : "Arviolta palautusta", eur(Math.abs(left))], two, { tone: "result" });
-  }
-  w.space(3);
-  w.text("Vero on arvio. Se ei ota huomioon asiakkaan muita pääomatuloja eikä aiempien vuosien tappioita.", { size: 8, color: MUTED });
 
-  // 2. Arvonlisävero
-  section(2);
+  // 3. Arvonlisävero
+  section("vat");
   if (!data.client.vatRegistered) w.text("Asiakas ei ole arvonlisäverorekisterissä.", { size: 9, color: MUTED, gap: 8 });
   w.figures([
     { label: "Myynnin vero", value: eur(data.vat.year.output) },
@@ -442,42 +494,47 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
     for (const b of data.vat.year.byRate) w.row([`${b.rate.toLocaleString("fi-FI")} %`, eur(b.net), eur(b.vat)], rate3, { tone: "income" });
   }
 
-  // 3. Investoinnit ja poistot
-  section(3);
-  if (!data.depreciation.length) w.text("Ei investointeja tälle vuodelle.", { size: 9, color: MUTED });
-  else {
-    const dep5: Col[] = [{ width: 50 }, { width: 35 }, { width: 28, align: "right" }, { width: 28, align: "right" }, { width: 29, align: "right" }];
-    w.head(["Investointi", "Poistotapa", "Arvo alussa", "Poisto", "Arvo lopussa"], dep5);
-    for (const d of data.depreciation) {
-      w.row([d.description, d.sold ? "Myyty" : d.method, eur(d.bookValueStart), d.sold ? "–" : eur(d.amount), eur(d.bookValueEnd)], dep5);
-      if (d.sold) w.text(d.saleGain ? `Luovutusvoitto ${eur(d.saleGain)}` : `Luovutustappio ${eur(d.saleLoss)}`, { size: 8, color: MUTED, x: LEFT + 4 });
-      if (d.transferred) w.text(`Metsätilan myynnissä hankintamenoon siirtyi ${eur(d.transferred)}`, { size: 8, color: MUTED, x: LEFT + 4 });
-      const prior = priorOpeningText(d.acquisitionCost, d.opening);
-      if (prior) w.text(prior, { size: 8, color: MUTED, x: LEFT + 4 });
+  // 4. Investoinnit ja poistot (metsätalous)
+  if (forest) {
+    section("assets");
+    if (!data.depreciation.length) w.text("Ei investointeja tälle vuodelle.", { size: 9, color: MUTED });
+    else {
+      const dep5: Col[] = [{ width: 50 }, { width: 35 }, { width: 28, align: "right" }, { width: 28, align: "right" }, { width: 29, align: "right" }];
+      w.head(["Investointi", "Poistotapa", "Arvo alussa", "Poisto", "Arvo lopussa"], dep5);
+      for (const d of data.depreciation) {
+        w.row([d.description, d.sold ? "Myyty" : d.method, eur(d.bookValueStart), d.sold ? "–" : eur(d.amount), eur(d.bookValueEnd)], dep5);
+        if (d.sold) w.text(d.saleGain ? `Luovutusvoitto ${eur(d.saleGain)}` : `Luovutustappio ${eur(d.saleLoss)}`, { size: 8, color: MUTED, x: LEFT + 4 });
+        if (d.transferred) w.text(`Metsätilan myynnissä hankintamenoon siirtyi ${eur(d.transferred)}`, { size: 8, color: MUTED, x: LEFT + 4 });
+        const prior = priorOpeningText(d.acquisitionCost, d.opening);
+        if (prior) w.text(prior, { size: 8, color: MUTED, x: LEFT + 4 });
+      }
+      w.row(["Poistot yhteensä", "", "", eur(dep), ""], dep5, { tone: "total" });
     }
-    w.row(["Poistot yhteensä", "", "", eur(dep), ""], dep5, { tone: "total" });
+
+    // 5. Metsätilat ja metsävähennys
+    section("deduction");
+    if (!data.properties.length) w.text("Ei metsätiloja.", { size: 9, color: MUTED });
+    else {
+      const p4: Col[] = [{ width: 80 }, { width: 45, align: "right" }, { width: 45, align: "right" }];
+      w.head(["Metsätila", "Pohjaa ennen vuotta", "Vähennys tänä vuonna"], p4);
+      for (const p of data.properties) w.row([p.name, p.remainingBefore === null ? "Tiedot puuttuvat" : eur(p.remainingBefore), eur(p.deduction)], p4);
+      w.row(["Yhteensä", "", eur(data.plan.recordedDeduction)], p4, { tone: "total" });
+    }
+    for (const s of data.plan.forestSales) {
+      const { lines, result, note } = forestSaleLines(s);
+      w.space(4);
+      w.subheading(`Metsätilan ${s.sharePct < 100 ? "osan myynti" : "myynti"}: ${s.name}, ${date(s.disposedOn)}`);
+      lines.forEach(([label, amount]) => w.row([label, eur(amount)], two));
+      w.row([result[0], eur(result[1])], two, { tone: "result" });
+      if (note) w.text(note, { size: 8, color: MUTED, x: LEFT + 4 });
+    }
   }
 
-  // 4. Metsätilat ja metsävähennys
-  section(4);
-  if (!data.properties.length) w.text("Ei metsätiloja.", { size: 9, color: MUTED });
-  else {
-    const p4: Col[] = [{ width: 80 }, { width: 45, align: "right" }, { width: 45, align: "right" }];
-    w.head(["Metsätila", "Pohjaa ennen vuotta", "Vähennys tänä vuonna"], p4);
-    for (const p of data.properties) w.row([p.name, p.remainingBefore === null ? "Tiedot puuttuvat" : eur(p.remainingBefore), eur(p.deduction)], p4);
-    w.row(["Yhteensä", "", eur(data.plan.recordedDeduction)], p4, { tone: "total" });
-  }
-  for (const s of data.plan.forestSales) {
-    const { lines, result, note } = forestSaleLines(s);
-    w.space(4);
-    w.subheading(`Metsätilan ${s.sharePct < 100 ? "osan myynti" : "myynti"}: ${s.name}, ${date(s.disposedOn)}`);
-    lines.forEach(([label, amount]) => w.row([label, eur(amount)], two));
-    w.row([result[0], eur(result[1])], two, { tone: "result" });
-    if (note) w.text(note, { size: 8, color: MUTED, x: LEFT + 4 });
-  }
+  // 6. Maatalous (lomake 2)
+  if (agri) renderAgriculture(w, data.year, agri, () => section("agriculture"));
 
-  // 5. Kirjausluettelo
-  section(5);
+  // 7. Kirjausluettelo
+  section("ledger");
   // Liite-sarake vain, kun raportin loppuun tulee tositteet: viittaus on liitteen numero ja sivu tiedostossa.
   const refs = data.transactions.some((t) => t.attachment);
   // Osuus-sarake vain, kun jokin kirjaus kuuluu metsätaloudelle vain osittain. Summat ovat koko tositteen,
@@ -507,7 +564,7 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
 
   // Kansilehti ja sisällysluettelo viimeisenä, kun sivunumerot tiedetään.
   drawCover(doc.insertPage(0, [W, H]), f, data, draft);
-  drawToc(doc.insertPage(1, [W, H]), f, data, toc);
+  drawToc(doc.insertPage(1, [W, H]), f, data, sections, toc);
 
   // Sivunumerot, luottamuksellisuusmerkintä ja vesileima.
   const all = doc.getPages();
@@ -519,6 +576,58 @@ export async function renderTaxReport(data: ReportData): Promise<Uint8Array> {
     if (draft) p.drawText("LUONNOS", { x: 45 * MM, y: 90 * MM, size: 96, font: f.bold, color: rgb(0.8, 0.35, 0.25), opacity: 0.08, rotate: degrees(40) });
   });
   return doc.save();
+}
+
+/**
+ * Maatalousosa: tunnusluvut, tulot ja menot luokittain, lomakkeen 2 kentät,
+ * poistot ryhmittäin ja huomautukset. Luvut tulevat samasta laskennasta kuin
+ * Maatalous-välilehti ja VSY002-tiedosto (src/lib/tax/agriculture.ts).
+ */
+function renderAgriculture(w: Writer, year: number, agri: NonNullable<ReportData["agri"]>, start: () => void) {
+  start();
+  const form = agri.form2;
+  w.figures([
+    { label: "Tulot (332)", value: eur(form.income) },
+    { label: "Menot (357)", value: eur(form.expense) },
+    { label: form.result < 0 ? "Tappio (363)" : "Tulos (362)", value: eur(Math.abs(form.result)), accent: form.result >= 0, negative: form.result < 0 },
+  ]);
+  if (form.errors.length) w.text(`Korjattavaa ennen veroilmoitusta: ${form.errors.join(" ")}`, { size: 8.5, color: NEGATIVE, gap: 6 });
+  const cat4: Col[] = [{ width: 80 }, { width: 30, align: "right" }, { width: 30, align: "right" }, { width: 30, align: "right" }];
+  for (const [kind, title, tone] of [["income", "Tulot", "income"], ["expense", "Menot", "expense"], ["investment", "Investoinnit", undefined]] as const) {
+    const rows = agri.categories.filter((c) => c.kind === kind);
+    if (!rows.length) continue;
+    w.subheading(`Maatalouden ${title.toLowerCase()} luokittain`);
+    w.head(["Luokka", "Ilman alv", "Alv", "Yhteensä"], cat4);
+    for (const c of rows) w.row([c.label, eur(c.net), eur(c.vat), eur(c.gross)], cat4, { tone });
+    w.space(3);
+  }
+  w.subheading("Lomakkeen 2 kentät");
+  const f3: Col[] = [{ width: 16 }, { width: 114 }, { width: 40, align: "right" }];
+  const pct = new Set(["413", "414", "415", "416"]);
+  const plain = new Set(["418", "281", "534", "516", "287", "288", "401", "406", "411"]);
+  for (const code of FORM2_ORDER.filter((c) => form.fields[c] !== undefined)) {
+    const v = form.fields[code];
+    const strong = code === "332" || code === "357" || code === "362" || code === "363";
+    w.row([code, form2Label(code, year), pct.has(code) ? `${v.toLocaleString("fi-FI")} %` : plain.has(code) ? v.toLocaleString("fi-FI") : eur(v)], f3, {
+      size: 8, tone: strong ? "total" : undefined,
+    });
+  }
+  if (agri.depreciation.pools.length) {
+    w.space(4);
+    w.subheading("Poistot ryhmittäin");
+    const p6: Col[] = [{ width: 50 }, { width: 24, align: "right" }, { width: 24, align: "right" }, { width: 24, align: "right" }, { width: 24, align: "right" }, { width: 24, align: "right" }];
+    w.head(["Ryhmä", "Alussa", "Lisäys", "Vähennykset", "Poisto", "Lopussa"], p6, 7);
+    for (const p of agri.depreciation.pools) {
+      w.row([`${p.label} ${p.pct} %`, eur(p.start), eur(p.additions), eur(-(p.sales + p.grants + p.equalization)), eur(p.depreciation), eur(p.end)], p6, { size: 8 });
+    }
+    w.row(["Poistot yhteensä", "", "", "", eur(agri.depreciation.total), ""], p6, { tone: "total", size: 8 });
+  }
+  if (form.warnings.length) {
+    w.space(3);
+    for (const t of form.warnings) w.text(t, { size: 8, color: MUTED });
+  }
+  w.space(2);
+  w.text("Maatalouden tulos on laskettu maksuperusteella. Yritystulon jako pääoma- ja ansiotuloon tehdään verotuksessa.", { size: 8, color: MUTED });
 }
 
 /** Tumma kansilehti kuten vanhassa raportissa, Skogin sinisellä. */
@@ -535,7 +644,8 @@ function drawCover(page: PDFPage, f: Fonts, data: ReportData, draft: boolean) {
   page.drawText("Skog", { x: x + 18 + f.serif.widthOfTextAtSize("Adepta ", 13), y: y - 9, size: 13, font: f.bold, color: ON_DARK });
 
   y = H - 110 * MM;
-  page.drawText(safe(f.bold, "METSÄTALOUDEN KIRJANPITO JA VEROLASKELMA"), { x, y, size: 8.5, font: f.bold, color: ON_DARK_MUTED });
+  const kicker = !data.agri ? "METSÄTALOUDEN KIRJANPITO JA VEROLASKELMA" : data.client.hasForestry ? "METSÄ- JA MAATALOUDEN KIRJANPITO JA VEROLASKELMA" : "MAATALOUDEN KIRJANPITO JA VEROLASKELMA";
+  page.drawText(safe(f.bold, kicker), { x, y, size: 8.5, font: f.bold, color: ON_DARK_MUTED });
   y -= 42;
   page.drawText(`Veroraportti ${data.year}`, { x, y, size: 38, font: f.serif, color: WHITE });
   y -= 34;
@@ -578,13 +688,13 @@ function drawCover(page: PDFPage, f: Fonts, data: ReportData, draft: boolean) {
 }
 
 /** Sisällysluettelo omalla sivullaan: iso numero, otsikko, kuvaus ja sivunumero. */
-function drawToc(page: PDFPage, f: Fonts, data: ReportData, pages: number[]) {
+function drawToc(page: PDFPage, f: Fonts, data: ReportData, sections: SectionKey[], pages: number[]) {
   let y = TOP;
   page.drawText(safe(f.bold, "SISÄLLYSLUETTELO"), { x: LEFT, y: y - 9, size: 9, font: f.bold, color: MUTED });
   y -= 15;
   page.drawLine({ start: { x: LEFT, y }, end: { x: RIGHT, y }, thickness: 1.6, color: INK });
   y -= 10;
-  SECTIONS.forEach((s, i) => {
+  sections.map((k) => SECTION_DEFS[k]).forEach((s, i) => {
     y -= 14;
     page.drawText(String(i + 1), { x: LEFT, y: y - 18, size: 24, font: f.serif, color: ACCENT_DARK });
     page.drawText(safe(f.bold, s.title), { x: LEFT + 14 * MM, y: y - 8, size: 11.5, font: f.bold, color: INK });

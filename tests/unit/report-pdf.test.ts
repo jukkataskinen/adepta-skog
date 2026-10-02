@@ -24,6 +24,7 @@ function sample(status: "open" | "closed", transactions = 3): ReportData {
     result: computePlan({ year: 2025, income: 42000, expense: 340, depreciation: 0, saleGain: 0, saleLoss: 0, salePrices: 0, forestDeduction: 0 }),
     depreciation: [{ description: "Metsätraktori", method: "Menojäännöspoisto", bookValueStart: 22500, amount: 5625, bookValueEnd: 16875, transferred: 0, sold: false, salePrice: 0, saleGain: 0, saleLoss: 0, acquisitionCost: 30000, opening: null }],
     properties: [{ name: "Kotimetsä", remainingBefore: 57600, deduction: 0 }],
+    agri: null,
     confirmed: false,
   };
 }

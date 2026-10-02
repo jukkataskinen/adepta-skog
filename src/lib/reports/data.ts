@@ -6,6 +6,10 @@ import { computePlan, type PlanResult } from "@/lib/tax/plan";
 import { vatRowsFrom, vatSummary, type VatPeriod } from "@/lib/tax/vat";
 import { pageLabel, parsePagesColumn } from "@/lib/ai/receipts/schema";
 import { listAttachmentDocuments } from "./attachments";
+import { loadForm2 } from "@/lib/tax/agri-form-load";
+import { loadAgriDepreciation } from "@/lib/tax/agri-load";
+import type { Form2Result } from "@/lib/tax/agriculture";
+import type { AgriDepreciationResult } from "@/lib/tax/agri-depreciation";
 
 /**
  * Veroraportin tiedot yhdeltä asiakkaalta ja vuodelta. Raportti näyttää
@@ -63,6 +67,8 @@ export interface ReportData {
   }[];
   properties: { name: string; remainingBefore: number | null; deduction: number }[];
   confirmed: boolean;
+  /** Maatalousosa (lomake 2), vain maatalousasiakkaalle. */
+  agri: { form2: Form2Result; depreciation: AgriDepreciationResult; categories: ReportCategoryRow[] } | null;
 }
 
 const joinAddress = (street: string | null, postal: string | null, city: string | null) =>
@@ -145,6 +151,27 @@ export async function loadReportData(
   }
 
   const plan = await loadPlanData(tx, clientId, year);
+  // Maatalouden luokkasummat maatalouden osuuksina (activityRows), lomake 2 ja ryhmäpoistot.
+  let agri: ReportData["agri"] = null;
+  if (c.has_agriculture) {
+    const byAgriCat = new Map<string, ReportCategoryRow>();
+    for (const r of activityRows(
+      rows.map((x) => ({
+        ...x, amountNet: Number(x.amount_net), amountGross: Number(x.amount_gross), businessSharePct: Number(x.business_share_pct), otherSharePct: Number(x.other_share_pct),
+      })),
+      "agriculture",
+    )) {
+      const label = category(r.category)?.label ?? r.category;
+      const e = byAgriCat.get(label) ?? { label, kind: r.kind, net: 0, vat: 0, gross: 0 };
+      const s = forestryShare(r);
+      e.net = Math.round((e.net + s.net) * 100) / 100;
+      e.vat = Math.round((e.vat + s.vat) * 100) / 100;
+      e.gross = Math.round((e.gross + s.gross) * 100) / 100;
+      byAgriCat.set(label, e);
+    }
+    const form2 = await loadForm2(tx, clientId, year);
+    if (form2) agri = { form2, depreciation: await loadAgriDepreciation(tx, clientId, year), categories: [...byAgriCat.values()] };
+  }
   // Raportissa käytetään vahvistettuja lukuja, ei laskurin oletuksia.
   const depreciation = plan.assets.map((a) => {
     const amount = a.year.sold ? 0 : (a.recorded ?? 0);
@@ -196,5 +223,6 @@ export async function loadReportData(
     depreciation,
     properties: plan.properties.map((p) => ({ name: p.name, remainingBefore: p.remaining, deduction: p.recordedThisYear })),
     confirmed: plan.confirmed,
+    agri,
   };
 }
