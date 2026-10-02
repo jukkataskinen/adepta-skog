@@ -76,4 +76,4 @@ Säädöt tässä muutoksessa:
 1. Palat luetaan reitillä `/api/tunnistus/pala` eikä server actionilla. Next.js ajaa selaimen server actionit jonossa yksi kerrallaan (`app-router-instance.js`, action queue), joten `CHUNK_PARALLEL = 2` ei toteutunut, ja aika-arvio oli puolet todellisesta.
 2. Yli 6 palan tiedosto luetaan kolmena rinnakkaisena (`chunkParallel`). Kolme palaa noin minuutissa on noin 75 000 syötetokenia minuutissa. Jos Anthropicin käyttötason minuuttiraja on tätä pienempi, osa paloista epäonnistuu (429) ja selain yrittää ne uudelleen; tarvittaessa `CHUNK_PARALLEL_LONG` takaisin kahteen.
 3. Järjestelmäohje merkitään välimuistiin (`cache_control`), koska jokainen pala lähettää saman ohjeen. Lyhyt metsäohje jää alle välimuistin alarajan, jolloin merkintä ei maksa mitään.
-4. Ehdotuksen rivien yläraja 400 → 1000 (migraatio 0018). Maatilan vuosiaineistosta tulee helposti yli 400 riviä, ja raja katkaisi ylimenevät rivit ilman ilmoitusta.
+4. Ehdotuksen rivien yläraja 400 → 1000 (migraatio 0017). Maatilan vuosiaineistosta tulee helposti yli 400 riviä, ja raja katkaisi ylimenevät rivit ilman ilmoitusta.

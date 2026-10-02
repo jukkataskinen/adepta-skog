@@ -1,4 +1,4 @@
--- 0018: tunnistuksen ehdotuksessa enintään 1000 riviä (DECISIONS 2.10.2026,
+-- 0017: tunnistuksen ehdotuksessa enintään 1000 riviä (DECISIONS 2.10.2026,
 -- maatalouden tositteiden tunnistus).
 --
 -- Maatilan koko vuoden aineisto on 150–300 sivua, ja siitä tulee helposti yli

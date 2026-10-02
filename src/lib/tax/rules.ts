@@ -482,3 +482,76 @@ export function annualVatDueDate(year: number): string {
 /** Lisäennakko: maksettu viimeistään verovuotta seuraavan tammikuun 31. päivänä, ei korkoa. Vähimmäismäärä 500 €. */
 export const ADDITIONAL_PREPAYMENT_MIN = 500;
 export const additionalPrepaymentDueDate = (year: number) => `${year + 1}-01-31`;
+
+/**
+ * Maatalouden yritystulon jako (TVL 38 §, Verohallinto: Tuloverotus –
+ * maataloudenharjoittaja, tarkistettu 2.10.2026). Pääomatulo-osuus on 20 %
+ * edellisen vuoden lopun nettovarallisuudesta. Asiakas voi vaatia 10 % tai
+ * 0 % (lomake 2, kohta 418: 1 = 10 %, 2 = kokonaan ansiotuloa).
+ */
+export type IncomeSplitClaim = "ten" | "earned" | null;
+export const CAPITAL_SHARE_PCT: Record<"default" | "ten" | "earned", number> = { default: 20, ten: 10, earned: 0 };
+
+export function capitalSharePct(claim: IncomeSplitClaim): number {
+  return claim === "ten" ? CAPITAL_SHARE_PCT.ten : claim === "earned" ? CAPITAL_SHARE_PCT.earned : CAPITAL_SHARE_PCT.default;
+}
+
+/** Nettovarallisuuteen lisätään 30 % maatalouden ennakonpidätyksen alaisista palkoista (TVL 41 §, lomake 2 kohta 437). */
+export const WAGES_NET_WEALTH_PCT = 30;
+
+/** Maatalouden yrittäjävähennys: 5 % tuloksesta, josta on vähennetty vahvistetut tappiot (TVL 30 a §). */
+export const AGRI_ENTREPRENEUR_DEDUCTION_PCT = 5;
+
+/**
+ * Valtion tuloveroasteikko ansiotulolle (verotettava tulo, euroa). Lähteet:
+ * Veronmaksajain Keskusliitto, Valtion tuloveroasteikko 2025 ja Valtion
+ * tulovero 2026 (tarkistettu 2.10.2026). Rivi: alaraja, vero alarajan
+ * kohdalla, prosentti ylittävästä osasta.
+ */
+const STATE_INCOME_TAX: { year: number; brackets: [number, number, number][] }[] = [
+  {
+    year: 2025,
+    brackets: [
+      [0, 0, 12.64],
+      [21200, 2679.68, 19],
+      [31500, 4636.68, 30.25],
+      [52100, 10868.18, 34],
+      [88200, 23142.18, 41.75],
+      [150000, 48943.68, 44.25],
+    ],
+  },
+  {
+    year: 2026,
+    brackets: [
+      [0, 0, 12.64],
+      [22000, 2780.8, 19],
+      [32600, 4794.8, 30.25],
+      [40100, 7063.55, 33.25],
+      [52100, 11053.55, 37.5],
+    ],
+  },
+];
+
+/** Vuoden asteikko. Vuodelle, jolle asteikkoa ei ole, käytetään lähintä. */
+export function stateIncomeTaxScale(year: number): { year: number; brackets: [number, number, number][] } {
+  const sorted = [...STATE_INCOME_TAX].sort((a, b) => a.year - b.year);
+  let found = sorted[0];
+  for (const s of sorted) if (s.year <= year) found = s;
+  return found;
+}
+
+/**
+ * Keskimääräinen kunnallisveroprosentti (Verohallinto: Kuntien ja
+ * seurakuntien tuloveroprosentit; 2025 7,53 % ja 2026 7,57 %). Käytetään
+ * ansiotulon veron arviossa, kun asiakkaan kunnan prosenttia ei anneta.
+ */
+const MUNICIPAL_TAX_AVG: { year: number; pct: number }[] = [
+  { year: 2025, pct: 7.53 },
+  { year: 2026, pct: 7.57 },
+];
+
+export function municipalTaxAvgPct(year: number): number {
+  let pct = MUNICIPAL_TAX_AVG[0].pct;
+  for (const r of MUNICIPAL_TAX_AVG) if (r.year <= year) pct = r.pct;
+  return pct;
+}

@@ -39,7 +39,7 @@ export const isForestryOnly = (activities: Activity[]) => !activities.includes("
 /**
  * Enintään näin monta riviä yhdestä tositteesta. Koko vuoden aineisto luetaan
  * osissa yhdeksi ehdotukseksi, joten 300 sivun maatilan vuosiaineistosta voi tulla
- * yli 400 riviä (0018: raja 1000).
+ * yli 400 riviä (0017: raja 1000).
  */
 export const MAX_SUGGESTION_LINES = 1000;
 

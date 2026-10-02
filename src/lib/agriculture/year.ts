@@ -10,7 +10,7 @@ import { validateExtra } from "@/lib/filing/vsy002-fields";
  * kirjataan lokiin samassa transaktiossa. Suljetun vuoden lukitus on kannassa.
  *
  * Tasausvaraukset, kotieläinten jaksotukset ja investointituet syötetään
- * käsin (Jukan päätös 2.10.2026); laskurit tehdään myöhemmin.
+ * käsin (Jukan päätös 2.10.2026). Tasausvarauksen laskuri on verosuunnitelmassa (src/lib/tax/agri-plan.ts).
  */
 
 /** Käyttäjälle näytettävä virhe. Heitetään, jotta transaktio perutaan. */

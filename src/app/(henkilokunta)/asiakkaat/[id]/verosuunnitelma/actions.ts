@@ -8,6 +8,11 @@ import { fail } from "@/lib/forms";
 import { audit } from "@/lib/audit";
 import { loadPlanData, planTotals } from "@/lib/tax/load";
 import { archiveReport } from "@/lib/reports/archive";
+import { loadAgriPlanData } from "@/lib/tax/agri-form-load";
+import type { AgriChoices } from "@/lib/tax/agri-plan";
+import type { AgriPool } from "@/lib/tax/agri-depreciation";
+import { saveAgriPlanChoices } from "@/lib/agriculture/plan";
+import { AgriError } from "@/lib/agriculture/year";
 import { allocateForestDeduction, computePlan, forestDeductionIncome, forestDeductionLimits, validateForestDeduction } from "@/lib/tax/plan";
 
 const num = (v: FormDataEntryValue | null) => {
@@ -37,6 +42,7 @@ export async function confirmPlanAction(formData: FormData) {
     if (!y) fail(back, `Verovuotta ${year} ei ole avattu.`);
     if (y.status === "closed") fail(back, `Verovuosi ${year} on suljettu.`);
 
+    const [client] = await tx.query<{ has_agriculture: boolean }>("select has_agriculture from sk_clients where id = $1", [clientId]);
     const data = await loadPlanData(tx, clientId, year);
     const chosen: Record<string, number> = {};
     for (const a of data.assets) {
@@ -68,6 +74,18 @@ export async function confirmPlanAction(formData: FormData) {
         ctx.org.organizationId, part.id, year, part.amount,
       ]);
     }
+    // Maatalous: samat taulut kuin Lomake 2 -välilehdellä (DECISIONS 2.10.2026).
+    if (client?.has_agriculture) {
+      const agri = await loadAgriPlanData(tx, clientId, year);
+      if (agri) {
+        try {
+          await saveAgriPlanChoices(tx, { organizationId: ctx.org.organizationId, userId: ctx.user.id }, clientId, agri, parseAgriChoices(formData));
+        } catch (err) {
+          if (err instanceof AgriError) fail(back, err.message);
+          throw err;
+        }
+      }
+    }
     await audit(tx, {
       organizationId: ctx.org.organizationId, userId: ctx.user.id, action: "tax_plan.confirm", entity: "sk_tax_years", entityId: y.id,
       details: { year, depreciation: totals.depreciation, forestDeduction: deduction, taxable: plan.taxable },
@@ -80,4 +98,22 @@ export async function confirmPlanAction(formData: FormData) {
   });
   revalidatePath(`/asiakkaat/${clientId}`, "layout");
   redirect(`${back}&vahvistettu=${close ? "suljettu" : "1"}`);
+}
+
+/** Maatalouden valinnat lomakkeelta (AgriPlanSection, agriField). Rajat tarkistetaan tallennuksessa. */
+function parseAgriChoices(formData: FormData): AgriChoices {
+  const depreciation: Partial<Record<AgriPool, number>> = {};
+  const releases: Record<string, number> = {};
+  for (const [key, value] of formData.entries()) {
+    if (key.startsWith("agriDep_")) depreciation[key.slice("agriDep_".length) as AgriPool] = Math.max(0, num(value) || 0);
+    else if (key.startsWith("agriRelease_") && /^[0-9a-f-]{36}$/.test(key.slice("agriRelease_".length))) releases[key.slice("agriRelease_".length)] = num(value) || 0;
+  }
+  const claim = String(formData.get("agriClaim") ?? "");
+  return {
+    depreciation,
+    equalization: num(formData.get("agriEq")) || 0,
+    releases,
+    claim: claim === "ten" || claim === "earned" ? claim : null,
+    lossToCapital: formData.get("agriLossToCapital") === "1",
+  };
 }

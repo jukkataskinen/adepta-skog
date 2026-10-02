@@ -8,6 +8,10 @@ import { computePlan, forestDeductionIncome, forestDeductionLimits, validateFore
 import { assetClassLabel, ENTREPRENEUR_DEDUCTION_PCT } from "@/lib/tax/rules";
 import { forestSaleLines } from "@/lib/tax/forest-sale";
 import { formatDate } from "@/lib/format";
+import { agriTips, combinedTax, computeAgriPlan, initialChoices, type AgriChoices, type AgriPlanData } from "@/lib/tax/agri-plan";
+import type { AgriPool } from "@/lib/tax/agri-depreciation";
+import { municipalTaxAvgPct, type IncomeSplitClaim } from "@/lib/tax/rules";
+import { AgriPlanSection, agriField } from "./AgriPlanSection";
 
 // + 0 muuttaa miinusnollan nollaksi, ettei näytölle tule "−0,00 €".
 const eur = (n: number) => (n + 0).toLocaleString("fi-FI", { style: "currency", currency: "EUR" });
@@ -17,6 +21,7 @@ const parse = (v: string) => {
   const n = Number(v.replace(/\s/g, "").replace(",", "."));
   return Number.isFinite(n) ? n : 0;
 };
+const fiNum = (n: number) => String(n).replace(".", ",");
 
 /**
  * Verosuunnitelman laskuri. Laskee samoilla funktioilla kuin palvelin
@@ -29,6 +34,8 @@ export function PlanForm({
   data,
   readOnly,
   canClose,
+  agri = null,
+  forestry = true,
 }: {
   action: (formData: FormData) => Promise<void>;
   clientId: string;
@@ -36,6 +43,9 @@ export function PlanForm({
   data: PlanData;
   readOnly: boolean;
   canClose: boolean;
+  /** Maatalousasiakkaan lomakkeen 2 lähtötiedot. null = pelkkä metsäasiakas, jolloin näkymä on ennallaan. */
+  agri?: AgriPlanData | null;
+  forestry?: boolean;
 }) {
   const [deps, setDeps] = useState<Record<string, string>>(() =>
     Object.fromEntries(data.assets.map((a) => [a.id, String(a.recorded ?? a.year.max).replace(".", ",")])),
@@ -52,6 +62,56 @@ export function PlanForm({
   );
   const error = validateForestDeduction(ded, limits);
 
+  // Maatalous: valinnat tekstinä (kentät), laskenta samoilla funktioilla kuin palvelin.
+  const [agriVals, setAgriVals] = useState<Record<string, string>>(() => {
+    if (!agri) return {};
+    const c = initialChoices(agri);
+    const out: Record<string, string> = { [agriField.eq]: fiNum(c.equalization) };
+    for (const [pool, v] of Object.entries(c.depreciation)) out[agriField.dep(pool as AgriPool)] = fiNum(v ?? 0);
+    for (const [id, v] of Object.entries(c.releases)) out[agriField.release(id)] = fiNum(v);
+    return out;
+  });
+  const [claim, setClaim] = useState<IncomeSplitClaim>(agri?.claim ?? null);
+  const [lossToCapital, setLossToCapital] = useState((agri?.lossToCapitalIncome ?? 0) > 0);
+  // Arvion oletukset: eivät tallennu, koska ne koskevat vain ansiotulon veron arviota.
+  const [otherEarned, setOtherEarned] = useState("0");
+  const [municipal, setMunicipal] = useState(fiNum(municipalTaxAvgPct(year)));
+  const taxOpts = { otherEarned: parse(otherEarned), municipalPct: parse(municipal) };
+  const agriChoices: AgriChoices | null = agri
+    ? {
+        depreciation: Object.fromEntries(
+          Object.entries(agriVals).filter(([k]) => k.startsWith("agriDep_")).map(([k, v]) => [k.slice("agriDep_".length), parse(v)]),
+        ) as Partial<Record<AgriPool, number>>,
+        equalization: parse(agriVals[agriField.eq] ?? "0"),
+        releases: Object.fromEntries(Object.entries(agriVals).filter(([k]) => k.startsWith("agriRelease_")).map(([k, v]) => [k.slice("agriRelease_".length), parse(v)])),
+        claim,
+        lossToCapital,
+      }
+    : null;
+  const agriResult = agri && agriChoices ? computeAgriPlan(agri, agriChoices) : null;
+  const combined = agri && agriResult ? combinedTax(year, plan, agriResult.split, taxOpts) : null;
+  // Vertailu ilman vähennyksiä: ei poistoja, ei metsävähennystä, ei tasausvarausta, oletusjako 20 %.
+  const combinedWithout =
+    agri && agriChoices
+      ? combinedTax(
+          year,
+          { forestryTaxable: Math.round((data.income - data.expense) * 100) / 100, saleResult: plan.saleResult },
+          computeAgriPlan(agri, { ...agriChoices, depreciation: {}, equalization: 0, claim: null }).split,
+          taxOpts,
+        )
+      : null;
+  const combinedSaving = combined && combinedWithout ? Math.round((combinedWithout.total - combined.total) * 100) / 100 : 0;
+  const showForest = forestry || data.assets.length > 0 || data.properties.length > 0 || data.income !== 0 || data.expense !== 0;
+  const agriEqError =
+    agri && agriResult && agri.equalizationThisYear.editable
+      ? (() => {
+          const v = agriChoices!.equalization;
+          if (v === 0) return null;
+          if (v % 100 !== 0 || v < 800 || v > agriResult.equalization.max) return "Tarkista tasausvaraus.";
+          return null;
+        })()
+      : null;
+
   // Vertailuluvut: tulos ennen vähennyksiä, vero ilman vähennyksiä ja todellinen veroaste.
   const resultBefore = Math.round((data.income - data.expense) * 100) / 100;
   const rate = (tax: number) => (resultBefore > 0 ? (tax / resultBefore) * 100 : 0);
@@ -62,34 +122,56 @@ export function PlanForm({
   const setAllDepsMax = () => setDeps(Object.fromEntries(data.assets.map((a) => [a.id, String(a.year.max).replace(".", ",")])));
 
   // Huomiot ja suositukset lasketaan samoilla funktioilla kuin laskelma.
+  // Maatalousasiakkaalla metsän vähennysten vaikutus lasketaan koko verosta, koska pääomatulot ovat yhteiset.
+  const taxOf = (p: ReturnType<typeof computePlan>) => (agriResult ? combinedTax(year, p, agriResult.split, taxOpts).total : p.tax.total);
   const tips: { tone: "warn" | "info" | "ok"; text: string }[] = [];
-  if (!readOnly && ded === 0 && limits.max >= limits.min) {
+  if (agri && agriChoices && !readOnly) tips.push(...agriTips(agri, agriChoices, plan, taxOpts));
+  if (showForest && !readOnly && ded === 0 && limits.max >= limits.min) {
     const withMax = computePlan({ year, income: data.income, expense: data.expense, ...totals, forestDeduction: limits.max });
-    tips.push({ tone: "ok", text: `Metsävähennystä voisi käyttää ${eur(limits.max)}. Enimmäismäärä pienentäisi tämän vuoden veroa ${eur(plan.tax.total - withMax.tax.total)}.` });
+    tips.push({ tone: "ok", text: `Metsävähennystä voisi käyttää ${eur(limits.max)}. Enimmäismäärä pienentäisi tämän vuoden veroa ${eur(taxOf(plan) - taxOf(withMax))}.` });
   }
-  if (!readOnly && depUnused > 0) {
+  if (showForest && !readOnly && depUnused > 0) {
     const withMax = computePlan({ year, income: data.income, expense: data.expense, ...totals, depreciation: depMax, forestDeduction: ded });
     tips.push({
       tone: "info",
-      text: `Poistoja jää tekemättä ${eur(depUnused)}. Täysi poisto pienentäisi tämän vuoden veroa ${eur(plan.tax.total - withMax.tax.total)}. Tekemätön poisto ei katoa: se jää poistamattomaan arvoon ja voidaan tehdä myöhempinä vuosina.`,
+      text: `Poistoja jää tekemättä ${eur(depUnused)}. Täysi poisto pienentäisi tämän vuoden veroa ${eur(taxOf(plan) - taxOf(withMax))}. Tekemätön poisto ei katoa: se jää poistamattomaan arvoon ja voidaan tehdä myöhempinä vuosina.`,
     });
   }
-  if (plan.taxable > 30000) {
+  if (!agri && plan.taxable > 30000) {
     tips.push({ tone: "info", text: `Verotettava pääomatulo ${eur(plan.taxable)} ylittää 30 000 euroa. Ylittävästä osasta vero on 34 %, joten vähennykset säästävät siinä eniten.` });
   }
-  if (plan.netBeforeDeduction < 0) {
+  if (showForest && plan.netBeforeDeduction < 0) {
     tips.push({ tone: "warn", text: "Metsätalouden tulos on tappiollinen. Tarkista kirjanpitäjän kanssa, miten alijäämä vähennetään." });
   }
-  if (limits.available > 0) {
+  if (showForest && limits.available > 0) {
     tips.push({ tone: "info", text: "Metsävähennyksen pohja on rajallinen. Se kannattaa yleensä käyttää vuosina, joina puukaupan tulo on suuri, eikä kerralla." });
   }
-  tips.push({ tone: "info", text: `Yrittäjävähennys ${ENTREPRENEUR_DEDUCTION_PCT} % lasketaan metsätalouden tuloksesta metsävähennyksen jälkeen. Laskelma tekee sen itse.` });
+  if (showForest) {
+    tips.push({ tone: "info", text: `Yrittäjävähennys ${ENTREPRENEUR_DEDUCTION_PCT} % lasketaan metsätalouden tuloksesta metsävähennyksen jälkeen. Laskelma tekee sen itse.` });
+  }
+  if (agri) tips.push({ tone: "info", text: "Ansiotulon vero on arvio: valtion tuloveroasteikko ja kunnallisvero ilman vähennyksiä, kirkollisveroa ja sairausvakuutusmaksuja." });
 
   return (
     <form action={action} className="grid gap-8">
       <input type="hidden" name="clientId" value={clientId} />
       <input type="hidden" name="year" value={year} />
 
+      {combined && combinedWithout ? (
+        <section className="grid gap-4 rounded-[var(--radius-panel)] bg-ink p-6 text-paper sm:grid-cols-2">
+          <div>
+            <p className="text-sm text-paper/60">Verosäästö valinnoilla</p>
+            <p className="tabular mt-1 text-4xl font-bold">{eur(combinedSaving)}</p>
+            <p className="mt-1 text-sm text-paper/60">Ilman poistoja, vähennyksiä ja varausta vero olisi {eur(combinedWithout.total)}.</p>
+          </div>
+          <div className="sm:text-right">
+            <p className="text-sm text-paper/60">Arvioitu vero yhteensä</p>
+            <p className="tabular mt-1 text-3xl font-bold">{eur(combined.total)}</p>
+            <p className="mt-1 text-sm text-paper/60">
+              Pääomatulon vero {eur(combined.capitalTax.total)}, ansiotulon vero arviolta {eur(combined.earnedTax.total)}
+            </p>
+          </div>
+        </section>
+      ) : (
       <section className="grid gap-4 rounded-[var(--radius-panel)] bg-ink p-6 text-paper sm:grid-cols-2">
         <div>
           <p className="text-sm text-paper/60">Verosäästö vähennyksillä</p>
@@ -104,18 +186,47 @@ export function PlanForm({
           <p className="mt-1 text-sm text-paper/60">{pct(rate(plan.tax.total))} tuloksesta ennen vähennyksiä</p>
         </div>
       </section>
+      )}
 
+      {showForest ? (
       <section>
-        <SectionTitle>Lähtötiedot</SectionTitle>
+        <SectionTitle>{agri ? "Metsätalouden lähtötiedot" : "Lähtötiedot"}</SectionTitle>
         <div className="grid gap-3 sm:grid-cols-3">
           <Stat label="Tulot ilman alv" value={eur(data.income)} />
           <Stat label={data.deliveryWork ? `Menot, joista hankintatyö ${eur(data.deliveryWork)}` : "Menot ennen poistoja"} value={eur(data.expense)} />
           <Stat label="Tulos ennen vähennyksiä" value={eur(resultBefore)} tone={resultBefore < 0 ? "alert" : undefined} />
         </div>
       </section>
+      ) : null}
+      {agri && agriResult ? (
+        <section>
+          <SectionTitle>Maatalouden lähtötiedot (lomake 2)</SectionTitle>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Stat label="Tulot" value={eur(agriResult.form2.income)} />
+            <Stat label="Menot, poistot ja varaukset" value={eur(agriResult.form2.expense)} />
+            <Stat label={agriResult.form2.result < 0 ? "Tappio" : "Tulos"} value={eur(agriResult.form2.result)} tone={agriResult.form2.result < 0 ? "alert" : undefined} />
+          </div>
+        </section>
+      ) : null}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
       <fieldset disabled={readOnly} className="grid min-w-0 gap-8">
+        {agri && agriResult ? (
+          <AgriPlanSection
+            clientId={clientId}
+            year={year}
+            data={agri}
+            result={agriResult}
+            values={agriVals}
+            setValue={(name, value) => setAgriVals((v) => ({ ...v, [name]: value }))}
+            claim={claim}
+            setClaim={setClaim}
+            lossToCapital={lossToCapital}
+            setLossToCapital={setLossToCapital}
+          />
+        ) : null}
+        {showForest ? (
+        <>
         <section>
           <SectionTitle
             actions={
@@ -126,7 +237,7 @@ export function PlanForm({
               ) : null
             }
           >
-            Poistot
+            {agri ? "Metsätalouden poistot" : "Poistot"}
           </SectionTitle>
           <Panel>
             {data.assets.length === 0 ? (
@@ -268,10 +379,76 @@ export function PlanForm({
             </div>
           </Panel>
         </section>
+        </>
+        ) : null}
       </fieldset>
 
       <aside className="grid content-start gap-6">
         <SectionTitle>Laskelma {year}</SectionTitle>
+        {combined && agriResult ? (
+          <Panel className="grid gap-2 text-sm">
+            {(
+              [
+                ...(showForest ? [["Metsätalouden verotettava tulo", combined.forestCapital]] : []),
+                ["Maatalouden pääomatulo-osuus", combined.agriCapital],
+                ...(combined.lossToCapital ? [["Maatalouden tappio pääomatuloista", -combined.lossToCapital]] : []),
+              ] as [string, number][]
+            ).map(([label, value]) => (
+              <div key={label} className="flex justify-between gap-3">
+                <span>{label}</span>
+                <span className="tabular">{eur(value)}</span>
+              </div>
+            ))}
+            <div className="mt-1 flex justify-between gap-3 border-t border-line pt-2 font-bold">
+              <span>Verotettava pääomatulo</span>
+              <span className="tabular">{eur(combined.capital)}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span>Vero 30 %</span>
+              <span className="tabular">{eur(combined.capitalTax.low)}</span>
+            </div>
+            {combined.capitalTax.high ? (
+              <div className="flex justify-between gap-3">
+                <span>Vero 34 %</span>
+                <span className="tabular">{eur(combined.capitalTax.high)}</span>
+              </div>
+            ) : null}
+            <div className="mt-1 flex justify-between gap-3 border-t border-line pt-2">
+              <span>Maatalouden ansiotulo-osuus</span>
+              <span className="tabular">{eur(combined.agriEarned)}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span>Ansiotulon vero, arvio {combined.earnedTax.ratePct ? pct(combined.earnedTax.ratePct) : ""}</span>
+              <span className="tabular">{eur(combined.earnedTax.total)}</span>
+            </div>
+            <div className="mt-1 flex justify-between gap-3 border-t border-line pt-2 font-bold">
+              <span>Arvioitu vero yhteensä</span>
+              <span className="tabular">{eur(combined.total)}</span>
+            </div>
+            <div className="flex justify-between gap-3 text-ink/65">
+              <span>Ilman valintoja</span>
+              <span className="tabular">{eur(combinedWithout?.total ?? 0)}</span>
+            </div>
+            <div className="flex justify-between gap-3 font-semibold text-moss">
+              <span>Säästö valinnoilla</span>
+              <span className="tabular">{eur(combinedSaving)}</span>
+            </div>
+            {agriResult.split.spouse ? (
+              <p className="text-xs text-ink/55">
+                Puolison osuudet (pääomatulo {eur(agriResult.split.spouse.capital)}, ansiotulo {eur(agriResult.split.spouse.earned)}) verotetaan puolisolla.
+              </p>
+            ) : null}
+            <div className="mt-2 grid gap-3 border-t border-line pt-3">
+              <Field label="Muut ansiotulot vuodessa (arvio, €)" htmlFor="otherEarned" hint="Vain arviota varten, ei tallennu.">
+                <Input id="otherEarned" inputMode="decimal" className="text-right" value={otherEarned} onChange={(e) => setOtherEarned(e.target.value)} />
+              </Field>
+              <Field label="Kunnallisvero (%)" htmlFor="municipalPct" hint="Oletus on koko maan keskiarvo.">
+                <Input id="municipalPct" inputMode="decimal" className="text-right" value={municipal} onChange={(e) => setMunicipal(e.target.value)} />
+              </Field>
+            </div>
+          </Panel>
+        ) : null}
+        {showForest ? (
         <Panel className="grid gap-2 text-sm">
           {(
             [
@@ -307,7 +484,7 @@ export function PlanForm({
             </div>
           ) : null}
           <div className="flex justify-between gap-3 font-bold">
-            <span>Arvioitu vero</span>
+            <span>{agri ? "Metsätalouden vero yksinään" : "Arvioitu vero"}</span>
             <span className="tabular">{eur(plan.tax.total)}</span>
           </div>
           <div className="flex justify-between gap-3 text-ink/65">
@@ -325,6 +502,8 @@ export function PlanForm({
             </div>
           ) : null}
         </Panel>
+        ) : null}
+        {!agri ? (
         <Panel className="grid gap-3 text-sm">
           <div className="flex justify-between gap-3">
             <span>Veroaste vähennyksillä</span>
@@ -339,16 +518,26 @@ export function PlanForm({
           </div>
           <p className="text-xs text-ink/55">Palkki näyttää veron vähennyksillä verrattuna veroon ilman vähennyksiä.</p>
         </Panel>
+        ) : null}
         {!readOnly ? (
           <div className="grid gap-3">
-            <Button disabled={Boolean(error)}>Vahvista suunnitelma</Button>
+            <Button disabled={Boolean(error || agriEqError)}>Vahvista suunnitelma</Button>
             {canClose ? (
-              <Button variant="secondary" name="close" value="1" disabled={Boolean(error)}>
+              <Button variant="secondary" name="close" value="1" disabled={Boolean(error || agriEqError)}>
                 Vahvista ja sulje vuosi
               </Button>
             ) : null}
-            <p className="text-xs text-ink/55">Vahvistus tallentaa vuoden poistot ja metsävähennyksen. Voit vahvistaa uudelleen, kunnes vuosi suljetaan.</p>
-            <p className="text-xs text-ink/55">Vero on arvio. Se ei ota huomioon asiakkaan muita pääomatuloja eikä aiempien vuosien tappioita.</p>
+            <p className="text-xs text-ink/55">
+              {agri
+                ? "Vahvistus tallentaa metsätalouden poistot ja metsävähennyksen sekä maatalouden poistot, tasausvarauksen, tuloutukset ja jakovaatimuksen. Samat tiedot näkyvät Lomake 2 -välilehdellä."
+                : "Vahvistus tallentaa vuoden poistot ja metsävähennyksen. Voit vahvistaa uudelleen, kunnes vuosi suljetaan."}
+            </p>
+            {agriEqError ? <p className="text-xs text-coral">{agriEqError}</p> : null}
+            <p className="text-xs text-ink/55">
+              {agri
+                ? "Vero on arvio. Se ei ota huomioon asiakkaan muita pääomatuloja, ja ansiotulon vero lasketaan ilman vähennyksiä."
+                : "Vero on arvio. Se ei ota huomioon asiakkaan muita pääomatuloja eikä aiempien vuosien tappioita."}
+            </p>
           </div>
         ) : null}
       </aside>
