@@ -116,6 +116,22 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [ ] Vanha Skog-data pois yhteisestä Supabase-projektista, kun Kasamaster ja adepta-ppr eivät sitä tarvitse
 - [ ] `legacy/` pois
 
+### 8. Maatalous (lomake 2), MVP
+Suunnitelma: `docs/maatalous-suunnitelma-2026-10-02.md`. Verovuodet 2025 ja 2026, yksityinen maataloudenharjoittaja ja kuolinpesä.
+- [x] 1. Migraatio 0015: asiakkaan toiminnot, kirjauksen toiminto ja toisen toiminnon osuus, investoinnin toiminto ja poistoryhmä, maatilat, vuoden tiedot, ryhmäpoistot, investointituet, varaukset ja niiden käyttö, kotieläinten jaksotukset, harvinaiset kentät; RLS, triggerit, lukitus, testit (2.10.2026)
+- [ ] 2. Säännöt ja luokat: maatalouden luokat lomakkeen 2 kenttiin, alennettu alv aikasarjana (14 → 13,5 %), maatalouden poistoryhmät ja rajat, 2025:n korotettu poisto, toiminnon osuudet
+- [ ] 3. Syöttö: taulukko, lomake ja Excel maatalouden luokilla ja toisen toiminnon osuudella, asiakkaan asetus
+- [ ] 4. Yhteinen arvonlisävero metsälle ja maataloudelle, erittely toiminnoittain
+- [ ] 5. Maatalouden investoinnit, aiemmat investoinnit ja ryhmäpoistot
+- [ ] 6. Maatalouden vuoden tiedot -sivu
+- [ ] 7. Lomakkeen 2 laskenta
+- [ ] 8. Veroraportin maatalousosa
+- [ ] 9. VSY002-tiedosto samaan tiedostoon 2C:n kanssa
+
+### 9. Maatalous, myöhemmin
+- [ ] Tilituki-aineiston tuonti (muoto selvitettävä, Jukka toimittaa esimerkin; BLOCKERS 12)
+- [ ] Yhtymät: lomake 2Y (VSY02Y), osakkaat ja osuudet, verovelvollisen laji asiakkaalle
+
 ### Myöhemmin
 - [x] Tositteiden tunnistus tekoälyllä: kokoomaskannaus osissa, ehdotukset taulukkoon, sivuviittaukset; ensimmäinen oikea koe onnistui 28.9.2026. Kuvaus puhelimella myöhemmin
 - [ ] Metsänomistajan oma näkymä (vain luku)

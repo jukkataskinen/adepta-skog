@@ -25,6 +25,14 @@ const TABLES = [
   "sk_feature_requests",
   "sk_forest_property_disposals",
   "sk_receipt_suggestions",
+  "sk_farms",
+  "sk_agri_years",
+  "sk_agri_depreciations",
+  "sk_asset_adjustments",
+  "sk_agri_reserves",
+  "sk_agri_reserve_uses",
+  "sk_agri_deferrals",
+  "sk_agri_form_extras",
 ];
 
 /** Kirjanpitäjälle näkyvät taulut: vastuuasiakkaan rivit (loki on vain pääkäyttäjälle). */
@@ -57,6 +65,39 @@ beforeAll(async () => {
          values ($1, $2, $3, 2025, '[{"date":null}]', 'mock')`,
         [org.id, org.client, doc.id],
       );
+    });
+    // Maatalouden taulut (0015): yksi rivi kuhunkin.
+    await db.asService(async (tx) => {
+      const [farm] = await tx.query<{ id: string }>("insert into sk_farms (organization_id, client_id, name) values ($1, $2, 'Kotitila') returning id", [
+        org.id, org.client,
+      ]);
+      const [asset] = await tx.query<{ id: string }>(
+        `insert into sk_assets (organization_id, client_id, description, acquired_on, acquisition_cost, method, declining_rate_pct, activity, asset_class)
+         values ($1, $2, 'Traktori', '2025-04-01', 40000, 'declining_balance', 25, 'agriculture', 'agri_machinery') returning id`,
+        [org.id, org.client],
+      );
+      await tx.query("insert into sk_agri_years (organization_id, client_id, tax_year) values ($1, $2, 2025)", [org.id, org.client]);
+      await tx.query("insert into sk_agri_depreciations (organization_id, client_id, tax_year, pool, amount) values ($1, $2, 2025, 'agri_machinery', 1000)", [
+        org.id, org.client,
+      ]);
+      await tx.query("insert into sk_asset_adjustments (organization_id, client_id, asset_id, tax_year, amount) values ($1, $2, $3, 2025, 5000)", [
+        org.id, org.client, asset.id,
+      ]);
+      const [reserve] = await tx.query<{ id: string }>(
+        "insert into sk_agri_reserves (organization_id, client_id, farm_id, kind, made_year, amount) values ($1, $2, $3, 'equalization', 2024, 3000) returning id",
+        [org.id, org.client, farm.id],
+      );
+      await tx.query(
+        "insert into sk_agri_reserve_uses (organization_id, client_id, reserve_id, tax_year, use_kind, asset_id, amount) values ($1, $2, $3, 2025, 'asset', $4, 1000)",
+        [org.id, org.client, reserve.id, asset.id],
+      );
+      await tx.query(
+        "insert into sk_agri_deferrals (organization_id, client_id, tax_year, kind, amount, year1, year2, year3) values ($1, $2, 2024, 'livestock_sale', 900, 300, 300, 300)",
+        [org.id, org.client],
+      );
+      await tx.query("insert into sk_agri_form_extras (organization_id, client_id, tax_year, code, value) values ($1, $2, 2025, '516', 12000)", [
+        org.id, org.client,
+      ]);
     });
     await db.asUser(org.owner.sub, (tx) =>
       audit(tx, { organizationId: org.id, userId: org.owner.id, action: "test.seed", entity: "sk_organizations", entityId: org.id }),

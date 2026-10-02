@@ -276,3 +276,24 @@
 **Näkyvyys.** Verosuunnitelman poistorivillä, veroraportin Investoinnit ja poistot -osassa ja Investoinnit-sivulla kohteen alla on hankintahinta, kertynyt poisto 31.12.X ja menojäännös 31.12.X ("Aiempi investointi: …"). Tuoduille riveille, joilla on poistamaton arvo, näytetään sama tieto merkinnällä "Tuotu vanhasta ohjelmasta", ja kertynyt poisto lasketaan hankintahinnasta ja poistamattomasta arvosta.
 
 **Ohjeen esimerkissä ei asiakkaan nimeä.** Julkisessa ohjeessa esimerkki on "metsäautotien menojäännös 31.12.2024 on 3 265,60 euroa" ilman asiakkaan tai tilan nimeä, koska ohjeissa ei ole asiakastietoja.
+
+## 2026-10-02
+
+**Maatalousmoduuli, Jukan vastaukset avoimiin kysymyksiin (docs/maatalous-suunnitelma-2026-10-02.md, luku 5).**
+1. Vuosi: pohjaluvut (investoinnit ja menojäännökset, tasausvaraukset, kotieläinten jaksotukset) otetaan vuodesta 2025, ja järjestelmää testataan vuoden 2025 aineistolla. Siksi verovuosi 2025 tuetaan täysin (VSY00225, 2025:n korotetut 50 %:n poistot 364–584) ja 2026 (VSY00226, alennettu alv 13,5 %).
+2. Maatalousasiakkaita on noin 30. Yhtymistä ja yrittäjäpuolisoista ei ole tietoa: tietomalli sallii molemmat, puoliso-osuudet 413–416 syötetään vuoden tiedoissa, ja 2Y on myöhemmin (PLAN).
+3. Aiempi ohjelma on Tilituki. Tilituki-tuontia ei tehdä MVP:ssä; tehtävä PLANissa ja esimerkkivienti BLOCKERSissa.
+4. Tasausvaraus ja kotieläinten jaksotus mahdollistetaan: MVP:ssä syöttö käsin, laskuri myöhemmin.
+5. MYEL-maksut vähennetään maatalouden menoina omana luokkanaan "MYEL-maksut", joka menee lomakkeen 2 kohtaan 230 (muut arvonlisäverottomat menot). Dokumentin mukaan vaihtoehdot olivat 230, 464 tai henkilökohtainen vähennys; 230 on luonteva, koska maksu on arvonlisäveroton maatalouden meno.
+
+**Tietomalli (0015).** Asiakkaalle `has_forestry` (oletus päällä) ja `has_agriculture` (oletus pois), jotta pelkät metsäasiakkaat näkevät kaiken kuten ennen. Kirjaukselle `activity` ja `other_share_pct`, investoinnille `activity`, `asset_class` ja `accelerated`. Uudet taulut: `sk_farms`, `sk_agri_years`, `sk_agri_depreciations`, `sk_asset_adjustments`, `sk_agri_reserves`, `sk_agri_reserve_uses`, `sk_agri_deferrals`, `sk_agri_form_extras`, kaikissa organization_id, RLS asiakkaan näkyvyydellä, GRANTit, saman organisaation ja asiakkaan triggerit ja suljetun vuoden lukitus. Oletusarvot eivät kirjoita vanhoja rivejä, joten migraatio ei osu suljettujen vuosien lukitukseen.
+
+**Toiminto tulee luokasta, ja kanta valvoo sen.** Maatalouden luokkien tunnukset alkavat `agri_`, ja tarkistus `(activity = 'agriculture') = (category like 'agri\_%')` estää kirjauksen joutumisen väärän toiminnon laskelmaan. Näin luokkaluetteloa ei tarvitse toistaa kannassa.
+
+**Toisen toiminnon osuus vain menoille.** Kanta sallii `other_share_pct` vain kirjaukselle, jonka tyyppi on meno. Tulo ja investointi kuuluvat yhdelle toiminnolle, koska myynnin vero on joka tapauksessa koko myynnistä ja investointi poistetaan yhden toiminnon poistoryhmässä. Yhteiset kulut (sähkö, puhelin, auto) ovat menoja, joten tämä kattaa tavallisen tarpeen.
+
+**Maatalouden poisto valitaan ryhmälle, ei investoinnille.** Lomake 2 ilmoittaa poistot ryhmittäin (240–277, 511–527), ja koneilla on yhteinen menojäännös, jonka myyntihinta pienentää. Siksi `sk_agri_depreciations` tallentaa poiston ryhmälle ja vuodelle, ja ryhmän menojäännös lasketaan investoinneista, tuista, varausten käytöistä, myynneistä ja poistoista. Metsätalous säilyy investointikohtaisena (`sk_depreciations`).
+
+**Maatila (`sk_farms`) on tietomallissa, kirjauksella ei vielä.** Tasausvaraus on tilakohtainen, joten varaus voi viitata tilaan. Kirjauksen tilasarake (`farm_id`) jätettiin pois, koska MVP:n laskenta ei tarvitse sitä; se lisätään tasausvarauksen laskurin yhteydessä (PLAN).
+
+**Verovelvollisen laji (`taxpayer_type`) jätettiin pois.** Kuolinpesän ja henkilön lomake 2 on sama, ja yhtymä (2Y) on myöhemmin. Sarake lisätään 2Y:n kanssa.
