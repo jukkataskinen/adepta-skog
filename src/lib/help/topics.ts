@@ -289,7 +289,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     icon: "list",
     title: "Kirjanpito",
     summary: "Metsätalouden tulot, menot ja investoinnit verovuosittain, tositteet mukana.",
-    highlights: ["Koko vuosi taulukossa, näppäimistöllä", "Summa kuten kuitissa, arvonlisävero lasketaan", "Rivit Excelistä", "Tosite jokaiseen kirjaukseen", "Tekoäly ehdottaa kirjaukset tositteesta"],
+    highlights: ["Koko vuosi taulukossa, näppäimistöllä", "Summa kuten kuitissa, arvonlisävero lasketaan", "Rivit Excelistä", "Tosite jokaiseen kirjaukseen", "Tekoäly ehdottaa kirjaukset tositteesta", "Odotetut kirjaukset edellisiltä vuosilta"],
     sections: [
       {
         title: "Taulukkosyöttö",
@@ -327,6 +327,27 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Uudet ja tallentamattomat rivit näkyvät aina, vaikka ne eivät osuisi suodattimeen.",
           "Tallennus koskee kaikkia rivejä, myös piilossa olevia.",
           "Nuolet ja Enter hyppäävät piilossa olevien rivien yli.",
+        ],
+      },
+      {
+        title: "Odotetut kirjaukset",
+        text: "Ohjelma katsoo asiakkaan edellisten vuosien kirjaukset ja kertoo, mitä tänä vuonna yleensä tulee: esimerkiksi metsänhoitomaksu maaliskuussa tai tiemaksu neljä kertaa vuodessa. Näin huomaat, jos jokin lasku puuttuu.",
+        steps: [
+          "Avaa asiakkaan Kirjanpito ja valitse verovuosi.",
+          "Avaa kohta Odotetut kirjaukset. Otsikossa näkyy yhteenveto, esimerkiksi 12 odotettua, 7 kirjattu, 2 puuttuu.",
+          "Katso jokaisen rivin tila: Kirjattu, Myöhässä, Tulossa tai Ohitettu.",
+          "Jos kirjaus puuttuu, valitse Lisää kirjaukseksi. Lomake aukeaa valmiiksi täytettynä.",
+          "Tarkista päivä ja summa tositteesta. Muuta niitä tarvittaessa ja valitse Lisää kirjaus.",
+          "Jos kirjausta ei tänä vuonna tule, valitse Ei tule tänä vuonna. Rivi merkitään ohitetuksi. Palauta tuo sen takaisin.",
+        ],
+        bullets: [
+          "Kirjaus on odotettu, kun se on ollut ainakin kahtena kolmesta edellisestä vuodesta. Sarake Aiemmin kertoo, monenako vuotena.",
+          "Kirjattu tarkoittaa, että tältä vuodelta löytyy saman luokan kirjaus, jonka selite on samanlainen tai summa lähellä arviota.",
+          "Myöhässä tarkoittaa, että tavallinen kuukausi on jo mennyt eikä kirjausta löydy.",
+          "Arvio on viime vuoden summa. Sen alla näkyy, miten summa on vaihdellut.",
+          "Uudelle asiakkaalle ennuste alkaa toisesta vuodesta. Silloin ennuste perustuu vain edelliseen vuoteen.",
+          "Puukaupat ja investoinnit eivät yleensä toistu, joten niitä ei ennusteta.",
+          "Suljetun vuoden listaa voit vain katsoa.",
         ],
       },
       {
@@ -506,6 +527,10 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Metsätalouden kirjanpito on omalla välilehdellään. Sivun yläosassa on myös linkki toiseen kirjanpitoon.",
           "Lomakkeen 2 tiedot, kuten poistot ja varaukset, ovat välilehdellä Lomake 2.",
         ],
+      },
+      {
+        title: "Odotetut kirjaukset",
+        text: "Maatalouden kirjanpidossa on oma lista odotetuista kirjauksista, esimerkiksi tukien maksut ja vuosittaiset vakuutukset. Lista näyttää vain maatalouden kirjaukset. Käyttö on sama kuin metsätaloudessa: katso ohjeen Kirjanpito kohta Odotetut kirjaukset.",
       },
       {
         title: "Kirjaaminen taulukkoon",
@@ -1473,6 +1498,8 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Yhtymän veroilmoitus (lomake 2Y) ja osakkaiden osuudet.",
           "Metsänomistajan oma näkymä, jossa hän näkee omat tietonsa.",
           "Lomakkeen 2 tiedoston koe Ilmoitin.fi-palvelussa. Siihen asti tarkista tiedosto aina ennen lähettämistä.",
+          "Vihjeet kirjatessa: kun kirjoitat selitteen, ohjelma ehdottaa luokkaa ja summaa edellisten vuosien kirjauksista.",
+          "Verosuunnitelmaan arvio loppuvuoden odotetuista kirjauksista.",
         ],
       },
       {
@@ -1566,6 +1593,10 @@ export const HELP_TOPICS: HelpTopic[] = [
       {
         title: "Verovuosi puuttuu valikosta",
         text: "Vuotta ei ole vielä avattu. Avaa se asiakkaan Tiedot-välilehdellä: kirjoita vuosi kohtaan Uusi vuosi ja valitse Avaa vuosi.",
+      },
+      {
+        title: "Odotettu kirjaus näkyy, vaikka se ei tule enää",
+        text: "Valitse rivillä Ei tule tänä vuonna. Merkintä koskee vain valittua vuotta. Jos kirjaus on loppunut kokonaan, se poistuu listalta itsestään, kun se ei ole enää ollut kahtena kolmesta edellisestä vuodesta.",
       },
       {
         title: "En voi muuttaa kirjausta",

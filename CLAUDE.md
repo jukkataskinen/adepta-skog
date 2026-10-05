@@ -62,7 +62,7 @@ src/lib/email/              sähköposti (mock / Resend)
 src/lib/accounts/           Auth0-tunnusten luonti kutsussa (mock / Management API)
 src/lib/clients/            asiakkaat ja vastuukirjanpitäjä
 src/lib/properties/         metsätilat
-src/lib/ledger/             kirjaukset ja tositteet
+src/lib/ledger/             kirjaukset ja tositteet; odotetut kirjaukset (expected.ts puhtaana, expected-load.ts kanta ja ohitukset)
 src/lib/assets/             aiemmin hankitut investoinnit (prior.ts: menojäännös, lisäys, muutos, poisto)
 src/lib/tax/                verolaskenta: alv, poistot, metsävähennys, verosuunnitelma, säännöt; maatalous (agriculture.ts lomake 2, agri-depreciation.ts ryhmäpoistot, income-split.ts yritystulon jako, agri-plan.ts verosuunnitelman maatalousosa ja tasausvaraus tiloittain, vehicle.ts ajoneuvo- ja matkaselvitys)
 src/lib/reports/            veroraportti PDF:nä, arkistointi
@@ -95,6 +95,7 @@ python scripts/tilituki/parse.py <Tilitukin datakansio>       Tilituki Pro -asia
 npm run tilituki:tuo -- [--kansio N,M] [--vuosi 2002-2025] [--org "Nimi"] [--luo] [--metsa] [--sulje 2024] [--avaa 2026] [--tarkista] [--laaja] [--kuiva] [--tuotanto]   asiakkaat Tilitukista koko historiana, vanhat vuodet suljetaan
 npm run tilituki:tarkista -- [--kansio N,M] [--vuodet 2002-2025] [--laaja] [--tuotanto]   kirjaukset, viennit, menojäännökset ja lomake 2 Tilitukia vasten vuosittain
 npm run tilituki:vertaa -- [--vuosi 2025] [--kansio N] [--tuotanto]   Skogin lomake 2 Tilitukin lomaketta vasten
+npm run odotetut:koe -- [--vuosi 2025] [--tuotanto]   odotettujen kirjausten takautuva koe (vain luku, vain määrät)
 npm run kayttaja:lisaa -- --email x --org "Nimi" --rooli owner [--luo-org] [--tuotanto]
 npm run lint && npm run typecheck && npm run test
 ```

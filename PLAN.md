@@ -92,6 +92,9 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [x] Myyntivoitto (vaihe 5). Korjattu 27.9.2026: myyntihinta ei enää tule laskelmaan tulona myyntivoiton lisäksi
 - [x] Osittain vähennettävä kulu: metsätalouden osuus % kirjaukselle (migraatio 0013), osuus kaikkeen verolaskentaan, alv-yhteenvetoon, raporttiin ja 2C:hen, investoinnin hankintameno osuudesta; taulukon Osuus %-sarake, lomake ja Excel (28.9.2026). Alv-tulkinta odottaa kirjanpitäjän vahvistusta (BLOCKERS 11)
 - [x] Aiemmin hankittu investointi: asiakkaan Investoinnit-välilehti, Lisää aiempi investointi (hankintahinta, kertynyt poisto 31.12.X ja siitä laskettu menojäännös), poistot vuodesta X + 1, muokkaus ja poisto kunnes ensimmäinen poistovuosi suljetaan, näkyy verosuunnitelmassa, veroraportissa ja 2C:ssä (migraatio 0014, 28.9.2026)
+- [x] Odotetut kirjaukset (Jukan pyyntö 5.10.2026, kohdat 1–3): toistuvien kirjausten tunnistus aiemmista vuosista puhtaana funktiona (`src/lib/ledger/expected.ts`), kirjanpidon kohta Odotetut kirjaukset toiminnoittain (kirjattu, myöhässä, tulossa, ohitettu, yhteenveto), Ei tule tänä vuonna -ohitus vuodelle (migraatio 0019 `sk_expected_skips`), Lisää kirjaukseksi esitäytettynä lomakkeena normaalin kirjauspolun kautta; takautuva koe `odotetut:koe` tuotannon datalla (DECISIONS 5.10.2026)
+- [ ] Odotetut kirjaukset, kohta 4: vihjeet kirjatessa (selitteestä luokka, alv ja summa edellisten vuosien kirjauksista taulukossa ja lomakkeella)
+- [ ] Odotetut kirjaukset, kohta 5: verosuunnitelmaan arvio loppuvuoden odotetuista tuloista ja menoista (kirjaamattomat odotetut erät, luotettavuus näkyviin)
 
 ### 5. Verolaskenta (`src/lib/tax`)
 - [x] Verosäännöt `rules.ts`: pääomatulon vero 30/34 % (raja 30 000 €), metsävähennys 60 % ja vähintään 1 500 €, menojäännöspoisto 25 % (26.9.2026)

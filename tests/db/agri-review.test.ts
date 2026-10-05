@@ -54,7 +54,7 @@ describe("migraatiot 0015–0018 peräkkäin", () => {
           reserves: await tx.query("select id, amount from sk_agri_reserves order by id"),
         }));
       const before = await snapshot();
-      expect(await migrateLocal(old)).toEqual(["0016_suggestion_activity.sql", "0017_suggestion_lines_limit.sql", "0018_agri_ledger.sql"]);
+      expect(await migrateLocal(old)).toEqual(["0016_suggestion_activity.sql", "0017_suggestion_lines_limit.sql", "0018_agri_ledger.sql", "0019_expected_skips.sql"]);
       expect(await snapshot()).toEqual(before);
       const [s] = await old.asService((tx) => tx.query<{ activity: string }>("select activity from sk_receipt_suggestions"));
       expect(s.activity).toBe("forestry");

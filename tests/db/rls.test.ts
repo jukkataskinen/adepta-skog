@@ -34,6 +34,7 @@ const TABLES = [
   "sk_agri_deferrals",
   "sk_agri_form_extras",
   "sk_agri_vehicle_reports",
+  "sk_expected_skips",
 ];
 
 /** Kirjanpitäjälle näkyvät taulut: vastuuasiakkaan rivit (loki on vain pääkäyttäjälle). */
@@ -103,6 +104,8 @@ beforeAll(async () => {
       await tx.query("insert into sk_agri_vehicle_reports (organization_id, client_id, tax_year, car_total_km, car_agri_km) values ($1, $2, 2025, 20000, 3000)", [
         org.id, org.client,
       ]);
+      // 0019: odotetun kirjauksen ohitus.
+      await tx.query("insert into sk_expected_skips (organization_id, client_id, tax_year, expected_key) values ($1, $2, 2025, '0a1b2c3d')", [org.id, org.client]);
     });
     await db.asUser(org.owner.sub, (tx) =>
       audit(tx, { organizationId: org.id, userId: org.owner.id, action: "test.seed", entity: "sk_organizations", entityId: org.id }),

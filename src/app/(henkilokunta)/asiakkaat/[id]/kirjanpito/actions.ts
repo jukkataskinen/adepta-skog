@@ -16,9 +16,12 @@ import { GridSaveError, saveLedgerGrid } from "@/lib/ledger/grid-save";
 import { MAX_GRID_ROWS, rowFromStored, rowsFromSuggestion, withDuplicateWarnings, type GridSaveState } from "@/lib/ledger/grid";
 import { listPendingSuggestions } from "@/lib/documents/receipt-suggestions";
 import { listTransactions } from "@/lib/ledger/queries";
+import { loadExpected, setExpectedSkip } from "@/lib/ledger/expected-load";
+import { isoDateHelsinki } from "@/lib/format";
 import { documentPath, getStorage } from "@/lib/storage";
 
 const uuid = z.string().uuid();
+const EXPECTED_KEY = /^[0-9a-f]{8}$/;
 
 // Perustiedot tarkistetaan samalla skeemalla kuin taulukkosyötössä (src/lib/ledger/transaction-input.ts).
 const transactionSchema = transactionFieldsSchema.extend({
@@ -78,6 +81,8 @@ export async function saveTransactionAction(formData: FormData) {
     ? `/asiakkaat/${clientId}/kirjanpito/${formData.get("transactionId")}`
     : `/asiakkaat/${clientId}/kirjanpito?vuosi=${year}&syotto=lomake${viewQuery(paramView)}`;
   const parsed = parseForm(transactionSchema, formData, back);
+  // Odotetusta kirjauksesta esitäytetty lomake: tunniste lokiin, jotta näkyy, mistä kirjaus tuli.
+  const expectedKey = !editing && EXPECTED_KEY.test(String(formData.get("odotettu") ?? "")) ? String(formData.get("odotettu")) : null;
   // Jaksota-valinta vaihtaa kotieläinluokan jaksotettavaksi tai takaisin (rules.ts withLivestockDeferral).
   const input = allowsLivestockDeferral(parsed.category) ? { ...parsed, category: withLivestockDeferral(parsed.category, parsed.livestockDeferral) } : parsed;
   if (isAssetSale(input.category) && !input.saleAssetId && !editing) fail(back, SALE_ASSET_MESSAGE);
@@ -119,7 +124,7 @@ export async function saveTransactionAction(formData: FormData) {
         assetRatePct: input.assetRatePct,
         agriAssetChoice: input.agriAssetChoice,
         saleAssetId: input.saleAssetId,
-      });
+      }, expectedKey ? { expectedKey } : undefined);
     });
   } catch (err) {
     if (err instanceof LedgerError) fail(back, err.message);
@@ -128,7 +133,9 @@ export async function saveTransactionAction(formData: FormData) {
     throw err;
   }
   revalidatePath(`/asiakkaat/${clientId}/kirjanpito`);
-  redirect(`/asiakkaat/${clientId}/kirjanpito?vuosi=${input.bookedOn.slice(0, 4)}${editing ? "" : "&syotto=lomake&lisatty=1"}${viewQuery(view)}`);
+  redirect(
+    `/asiakkaat/${clientId}/kirjanpito?vuosi=${input.bookedOn.slice(0, 4)}${editing ? "" : "&syotto=lomake&lisatty=1"}${viewQuery(view)}${expectedKey ? "&odotetut=1#odotetut" : ""}`,
+  );
 }
 
 const gridRowSchema = z.object({
@@ -325,4 +332,43 @@ export async function deleteDocumentAction(formData: FormData) {
   }
   revalidatePath(back);
   redirect(back);
+}
+
+const skipSchema = z.object({
+  clientId: uuid,
+  year: z.coerce.number().int().min(2000).max(2100),
+  key: z.string().regex(EXPECTED_KEY),
+  skip: z.enum(["0", "1"]),
+});
+
+/**
+ * Odotettu kirjaus "ei tule tänä vuonna" tai palautus (0019). Tunniste
+ * tarkistetaan laskemalla odotetut kirjaukset uudelleen, jotta tauluun ei
+ * tallennu tunnisteita, joita ei ole. Suljettu vuosi estyy myös kannassa.
+ */
+export async function skipExpectedAction(formData: FormData) {
+  const ctx = await requireStaff();
+  const clientId = uuid.parse(formData.get("clientId"));
+  const year = Number(formData.get("year"));
+  const param = formData.get("toiminta");
+  const paramView = param === ACTIVITY_PARAM.agriculture ? "agriculture" : null;
+  const back = `/asiakkaat/${clientId}/kirjanpito?vuosi=${year}${viewQuery(paramView)}&odotetut=1`;
+  const input = parseForm(skipSchema, formData, back);
+  const actor = { organizationId: ctx.org.organizationId, userId: ctx.user.id };
+  try {
+    await ctx.run(async (tx) => {
+      await requireOpenYear(tx, clientId, input.year, back);
+      const found = await clientView(tx, clientId, param);
+      if (!found) fail(back, "Asiakasta ei löytynyt.");
+      const { states } = await loadExpected(tx, { id: clientId, vatRegistered: found.client.vat_registered }, input.year, found.view, isoDateHelsinki());
+      if (!states.some((s) => s.key === input.key)) fail(back, "Odotettua kirjausta ei löytynyt. Lataa sivu uudelleen.");
+      await setExpectedSkip(tx, actor, clientId, input.year, input.key, input.skip === "1");
+    });
+  } catch (err) {
+    const f = friendly(err);
+    if (f) fail(back, f);
+    throw err;
+  }
+  revalidatePath(`/asiakkaat/${clientId}/kirjanpito`);
+  redirect(`${back}#odotetut`);
 }
