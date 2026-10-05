@@ -4,13 +4,14 @@ import { stripSslMode } from "../src/lib/config/deploy-env.ts";
 import type { LegacyAsset, LegacyDeduction, LegacyDepreciation, LegacyTransaction } from "../src/lib/import/legacy.ts";
 import { compareFigures, legacyFigures, newFigures } from "../src/lib/compare/legacy-tax.ts";
 import { loadReportData } from "../src/lib/reports/data.ts";
+import { LEGACY_SKOG_ID_SQL } from "../src/lib/import/origin.ts";
 
 /**
  * Veroraportin luvut vanhaa sovellusta vasten (PLAN vaihe 5).
  *
  *   npm run vertaa:vero -- [--vuosi 2025] [--tuotanto]
  *
- * - Vertaa jokaista uuden kannan asiakasta, joka on tuotu vanhasta (legacy_id).
+ * - Vertaa jokaista uuden kannan asiakasta, joka on tuotu vanhasta (legacy_id; Tilitukista tuodut eivät kuulu tähän).
  * - Vanha kanta luetaan LEGACY_DATABASE_URL-osoitteesta lukutilassa, ja uuden
  *   kannan transaktio perutaan aina. Kumpaankaan ei kirjoiteta.
  * - Tulostaa vain lukuja ja asiakkaan järjestysnumeron ja tunnisteen alun,
@@ -40,7 +41,7 @@ class ReadOnly extends Error {}
 try {
   await db.asService(async (tx) => {
     const clients = await tx.query<{ id: string; organization_id: string; legacy_id: string }>(
-      "select id, organization_id, legacy_id from sk_clients where legacy_id is not null order by created_at",
+      `select id, organization_id, legacy_id from sk_clients where legacy_id is not null and ${LEGACY_SKOG_ID_SQL} order by created_at`,
     );
     const out: Target[] = [];
     for (const c of clients) out.push({ legacyId: c.legacy_id, report: await loadReportData(tx, c.organization_id, c.id, year) });

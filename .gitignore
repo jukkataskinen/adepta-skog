@@ -16,6 +16,16 @@ data/private/
 next-env.d.ts
 # Asiakastiedostot
 *.csv
+# Tilitukin taulut (DBF, muistiot ja indeksit)
+*.dbf
+*.DBF
+*.fpt
+*.FPT
+*.cdx
+*.CDX
 
 # Clauden paikalliset asetukset
 .claude/settings.local.json
+
+# Pythonin välimuisti (scripts/tilituki)
+__pycache__/

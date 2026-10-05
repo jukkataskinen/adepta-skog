@@ -17,7 +17,9 @@
     "db:migrate:remote": "tsx --env-file-if-exists=.env.local scripts/db/migrate-remote.mts",
     "kayttaja:lisaa": "tsx --env-file-if-exists=.env.local scripts/add-user.mts",
     "tuo:vanha": "tsx --env-file-if-exists=.env.local scripts/import-legacy.mts",
-    "vertaa:vero": "tsx --env-file-if-exists=.env.local scripts/compare-tax.mts"
+    "vertaa:vero": "tsx --env-file-if-exists=.env.local scripts/compare-tax.mts",
+    "tilituki:tuo": "tsx --env-file-if-exists=.env.local scripts/import-tilituki.mts",
+    "tilituki:vertaa": "tsx --env-file-if-exists=.env.local scripts/compare-tilituki.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

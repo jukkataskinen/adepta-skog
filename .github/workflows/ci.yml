@@ -21,10 +21,10 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run test
-      # Asiakastiedot eivät kuulu repoon.
+      # Asiakastiedot eivät kuulu repoon. DBF/FPT/CDX = Tilitukin taulut (testit tekevät omansa väliaikaiskansioon).
       - name: Henkilötietovahti
         run: |
-          if git ls-files | grep -iE '\.(csv|xlsx?|dump|bak|sql\.gz)$'; then
+          if git ls-files | grep -iE '\.(csv|xlsx?|dump|bak|sql\.gz|dbf|fpt|cdx)$'; then
             echo "Repossa on tiedosto, joka voi sisältää asiakastietoja"; exit 1; fi
       # Anthropicin API-avain (sk-ant-...) ei kuulu repoon. Avain on vain Vercelin ympäristömuuttujissa.
       - name: Avainvahti

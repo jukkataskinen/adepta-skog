@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Sql } from "@/lib/db/types";
 import { documentPath } from "@/lib/storage";
+import { LEGACY_SKOG_ID_SQL } from "./origin";
 import {
   isSkipped,
   mapAsset,
@@ -291,18 +292,19 @@ export async function importLegacyData(tx: Sql, input: { orgName: string; create
 
   // Vanhasta kannasta poistetut kirjaukset pois avoimilta vuosilta. Vain vanhasta
   // tuodut rivit (legacy_id), jotta uudessa sovelluksessa tehdyt kirjaukset säilyvät.
+  // Tilitukista tuoduilla riveillä on oma tunnisteensa (origin.ts), eikä niihin kosketa.
   // Tositteet jäävät talteen ilman kirjausta (viiteavain nollautuu).
   const legacyIds = data.transactions.map((t) => t.id);
   const clientIds = [...new Set(clientMap.values())];
   if (clientIds.length) {
     const removed = await tx.query<{ closed: boolean }>(
       `select sk_year_is_closed(client_id, tax_year) as closed from sk_transactions
-        where client_id = any($1) and legacy_id is not null and not (legacy_id = any($2::uuid[]))`,
+        where client_id = any($1) and legacy_id is not null and ${LEGACY_SKOG_ID_SQL} and not (legacy_id = any($2::uuid[]))`,
       [clientIds, legacyIds],
     );
     const del = await tx.query(
       `delete from sk_transactions
-        where client_id = any($1) and legacy_id is not null and not (legacy_id = any($2::uuid[]))
+        where client_id = any($1) and legacy_id is not null and ${LEGACY_SKOG_ID_SQL} and not (legacy_id = any($2::uuid[]))
           and not sk_year_is_closed(client_id, tax_year)
        returning id`,
       [clientIds, legacyIds],
