@@ -521,3 +521,16 @@ Päätös: "Tuodaan koko historia tuotantoon, ei vain 2023 vaan myös aiemmat vu
 **Kirjaukset erissä.** Olemassa olevat rivit haetaan vuodelta yhdellä kyselyllä ja uudet lisätään 500 rivin erissä, jotta 25 vuoden tuonti tuotantokantaan kestää minuutteja eikä tunteja (kuiva-ajo 9 min).
 
 **Ristiintarkistus vuosittain.** `tilituki:tarkista` ja `tilituki:tuo --tarkista` tulostavat taulukon vuosi × tarkistus: tuodut kirjaukset luokittain tuontisuunnitelmaa vasten (määrä ja summa), Tilitukin viennit veronumeroittain Tilitukin lomaketta vasten, investoinnit (metsän kortit, 2C:n ryhmät, maatalouden ryhmät) ja lomake 2 vuodelle 2025. Tunnetut erot, joita ei soviteta: kansioiden 15 ja 33 2C-koneryhmä 2007–2022 sisältää koneita, joiden kortti on poistettu Tilitukista (ero poistuu 2023 mennessä); 2C-ryhmät ennen kortiston alkua 2007 (selitetty); vanhan lomakeversion erittely 2003–2006; kansion 9 luontoisetujen vastatili ja verokanta tilin mukaan (BLOCKERS 14 y–z); kansion 11 muut varat (aa) ja sentin pyöristys Tilitukin lomakkeen ja korttien välillä; kansion 14 7L-kentät (ac).
+
+### Ohjekirja (Jukan pyyntö 5.10.2026)
+
+Pyyntö: "Muista tehdä tähänkin sovellukseen kattava ohjekirja ja pitää sitä yllä."
+
+**Luvut aloittelijan järjestyksessä.** Ohjeet ryhmitellään 12 lukuun (`HELP_GROUPS`): Aloitus, Kirjanpito, Tositteet ja tunnistus, Investoinnit ja poistot, Metsätalous, Maatalous, Arvonlisävero, Verosuunnitelma, Raportit ja veroilmoitus, Käyttäjät ja asetukset, Vanhoista ohjelmista siirtyminen ja Usein kysyttyä. /ohjeet näyttää ensin sisällysluettelon ja linkit Aloita tästä ja Usein kysyttyä; aiheen sivulla on Tällä sivulla -luettelo.
+
+**Aiheiden tunnukset säilyvät.** Kehitystoiveet tallentavat aiheen tunnuksen, joten olemassa olevia ei nimetty uudelleen. Tositteet ja sähköinen veroilmoitus siirrettiin omiksi aiheikseen (tositteet, veroilmoitus), ja vanhaan paikkaan jäi lyhyt viittaus.
+
+**Testi vaatii jokaiselle sivulle oman rivin.** Aiemmin sivu sai ohjeen myös yleisestä säännöstä (esim. /asiakkaat), jolloin uusi sivu saattoi osoittaa väärään ohjeeseen huomaamatta. Nyt `tests/unit/help-routes.test.ts` vertaa sivutiedostoja EXPECTED-listaan (aihe, osio ja osoitteen parametrit kuten toiminta=maatalous) ja tarkistaa ohjekirjan eheyden: luvut, viittaukset, ei huutomerkkejä eikä emojeita.
+
+**Kuukausittainen tarkistus.** PLAN.md:n Pysyvät tarkistukset -kohta muistuttaa tarkistamaan ohjekirjan kattavuuden kerran kuussa, koska toimintoja tulee nopeasti ja pieni muutos (napin nimi) jää helposti päivittämättä.
+

@@ -21,13 +21,15 @@ export default async function HelpTopicPage({ params }: { params: Promise<{ aihe
     <div className="grid gap-10 lg:grid-cols-[1fr_16rem]">
       <article className="max-w-3xl">
         <Link href="/ohjeet" className="text-sm font-semibold text-sky hover:underline">
-          ← Kaikki toiminnot
+          ← Ohjekirjan sisällys
         </Link>
         <div className="mt-4 flex items-center gap-3">
           <span className="grid size-11 place-items-center rounded-xl bg-sky-soft text-sky">
             <NavIcon name={t.icon} size={24} />
           </span>
-          <p className="text-sm font-semibold uppercase tracking-wide text-ink/55">{t.group}</p>
+          <Link href={`/ohjeet#${sectionId(t.group)}`} className="text-sm font-semibold uppercase tracking-wide text-ink/55 hover:text-sky">
+            {t.group}
+          </Link>
         </div>
         <h1 className="mt-3 text-3xl">{t.title}</h1>
         {t.upcoming ? (
@@ -86,6 +88,20 @@ export default async function HelpTopicPage({ params }: { params: Promise<{ aihe
       </article>
 
       <aside className="grid content-start gap-4">
+        {t.sections.length > 2 ? (
+          <nav aria-label="Tällä sivulla" className="rounded-[var(--radius-panel)] border border-line bg-paper p-5">
+            <p className="text-sm text-ink/60">Tällä sivulla</p>
+            <ul className="mt-2 grid gap-1.5 text-sm">
+              {t.sections.map((s) => (
+                <li key={s.title}>
+                  <a href={`#${sectionId(s.title)}`} className="hover:text-sky">
+                    {s.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        ) : null}
         {t.appPath ? (
           <div className="rounded-[var(--radius-panel)] border border-line bg-paper p-5">
             <p className="text-sm text-ink/60">Sovelluksessa</p>

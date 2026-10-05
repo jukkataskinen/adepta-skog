@@ -29,7 +29,8 @@ Uusi sovellus rakennetaan `v2`-haaraan (DECISIONS 26.9.2026). `main` on vanha tu
 - **Suljettu verovuosi on lukittu.** Kun vuosi suljetaan, sen kirjauksia, poistoja ja metsävähennyksiä ei voi muuttaa ilman avausta, ja avaus kirjataan lokiin.
 - **Tiedostot** (tositteet, arkistoidut raportit) Supabase Storageen organisaation kansioon, ei kantaan base64:nä.
 - **Ulkoiset palvelut** (sähköposti, tekoälytunnistus) moduulin `index.ts`-rajapinnan takana, ja mock-toteutus on oletus, kun avain puuttuu.
-- **Ohjeet:** kun toiminto muuttuu tai syntyy, päivitä sen ohje `src/lib/help/topics.ts`:ssä samassa muutoksessa, selkokielisenä: lyhyet lauseet, arkisanat, vaiheet numeroituina, ei teknisiä termejä. Kesken oleva toiminto merkitään `upcoming: true`. Uusi sivu lisätään ohjekarttaan `src/lib/help/routes.ts` (testi `tests/unit/help-routes.test.ts`).
+- **Ohjekirja on osa jokaista muutosta (Jukan vaatimus 5.10.2026).** Kun toiminto syntyy tai muuttuu (myös napin nimi, välilehti tai polku), päivitä sen ohje `src/lib/help/topics.ts`:ssä **samassa commitissa**. Muutos ilman ohjeen päivitystä on keskeneräinen. Kirjoita selkokielellä: lyhyet lauseet, arkisanat, vaiheet numeroituina, ei teknisiä termejä, sinuttelu, ei huutomerkkejä eikä emojeita. Käytä käyttöliittymän todellisia sanoja (napit, välilehdet, kentät). Esimerkeissä ei asiakastietoja eikä oikeita nimiä. Kesken oleva toiminto merkitään `upcoming: true`. Jokainen aihe kuuluu yhteen ohjekirjan lukuun (`HELP_GROUPS`), ja usein kysytty asia lisätään aiheeseen Usein kysyttyä.
+- **Uusi sivu ohjekarttaan:** jokainen henkilökunnan sivu (`src/app/(henkilokunta)/**/page.tsx`) lisätään ohjekarttaan `src/lib/help/routes.ts` ja testin `tests/unit/help-routes.test.ts` EXPECTED-listaan samassa commitissa. Testi kaatuu, jos sivu puuttuu tai vie väärään ohjeeseen.
 - **Vanhaan tuotantokantaan ei kirjoiteta.** Tiedot siirretään sieltä vain lukemalla, ja vain Jukan luvalla.
 
 ## Lukitut päätökset
@@ -54,7 +55,7 @@ src/lib/db/                 kantakerros (PGlite / Postgres), kopio Mittarilukema
 src/lib/auth/               istunto, käyttäjä ja roolit, kopio Mittarilukemasta
 src/lib/forms.ts            parseForm, FormError
 src/lib/audit.ts            muutosloki
-src/lib/help/               ohjeet ja ohjekartta
+src/lib/help/               ohjekirja (topics.ts: luvut ja aiheet) ja ohjekartta (routes.ts: sivu → ohje)
 src/lib/feature-requests.ts kehitystoiveet (toiminnot = ohjesivuston aiheet)
 src/lib/members.ts          käyttäjien lisäys, kutsu, roolit, käytöstä poisto
 src/lib/email/              sähköposti (mock / Resend)

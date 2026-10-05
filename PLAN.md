@@ -29,6 +29,10 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - **Investointi** → **poisto** verovuosittain (määrä ja jäännösarvo vuoden lopussa)
 - **Arkisto**: verovuoden raportti ja tositteet (Storage)
 
+## Pysyvät tarkistukset
+
+- [ ] Ohjekirjan kattavuus tarkistettu (kuukausittain, seuraava 5.11.2026): jokainen henkilökunnan sivu on ohjekartassa ja testin listassa, DECISIONS.md:n ja PLAN.md:n edellisen kuukauden toiminnoilla on ohje, ohjeen napit, välilehdet ja polut vastaavat käyttöliittymää, Usein kysyttyä on ajan tasalla. Viimeksi tarkistettu 5.10.2026. Merkitse päivä tähän ja jätä kohta auki.
+
 ## Vaiheet
 
 ### 0. Vanhan sovelluksen korjaukset (`main`)
@@ -73,6 +77,7 @@ Merkinnät: `[x]` valmis, `[ ]` tekemättä, `[~]` kesken tai odottaa estettä (
 - [ ] Kutsujen käyttöönotto tuotannossa: Auth0-hallintasovellus ja Resend-avain Verceliin (BLOCKERS 7)
 - [x] Ohjeet kaikille näkymille, ohjelinkki jokaiselle sivulle; uusi asiakas, uusi tila ja kirjauksen muokkaus osoittavat ohjeen kohtaan (27.9.2026)
 - [x] Kehitystoiveet Mittarilukemasta (sivu, linkki sivun yläkulmaan) (27.9.2026)
+- [x] Ohjekirjan kattavuustarkastus ja rakenne (5.10.2026): sisällysluettelo 12 luvussa (Aloitus … Usein kysyttyä), uudet aiheet Näin pääset alkuun, Tositteet ja tunnistus, Sähköinen veroilmoitus (2 ja 2C), Siirtyminen vanhoista ohjelmista, Usein kysyttyä ja Tulossa olevat toiminnot; vanhentuneet kohdat korjattu (verovuoden valikko, napit, välilehdet); testi vaatii jokaiselle sivulle oman rivin ja oikean ohjeen
 
 ### 4. Kirjanpito
 - [x] Kirjanpito asiakkaan välilehdellä: kirjaukset vuosittain, summat, lisäys, muokkaus ja poisto rivi kerrallaan, suljettu vuosi vain luettavana (26.9.2026)

@@ -33,9 +33,110 @@ export interface HelpTopic {
   upcoming?: boolean;
 }
 
-export const HELP_GROUPS = ["Aloitus", "Asiakkaat ja metsätilat", "Kirjanpito", "Verotus ja raportit", "Hallinta ja tietoturva"];
+/**
+ * Ohjekirjan luvut sisällysluettelon järjestyksessä. Etusivu näyttää ne tässä
+ * järjestyksessä, ja jokaisella aiheella on yksi luku.
+ */
+export const HELP_GROUPS = [
+  "Aloitus",
+  "Kirjanpito",
+  "Tositteet ja tunnistus",
+  "Investoinnit ja poistot",
+  "Metsätalous",
+  "Maatalous",
+  "Arvonlisävero",
+  "Verosuunnitelma",
+  "Raportit ja veroilmoitus",
+  "Käyttäjät ja asetukset",
+  "Vanhoista ohjelmista siirtyminen",
+  "Usein kysyttyä",
+];
 
 export const HELP_TOPICS: HelpTopic[] = [
+  {
+    slug: "aloitus",
+    group: "Aloitus",
+    icon: "door",
+    title: "Näin pääset alkuun",
+    summary: "Ensimmäiset askeleet: kirjaudu, lisää asiakas, avaa verovuosi ja kirjaa. Lopuksi teet verosuunnitelman ja raportin ja suljet vuoden.",
+    highlights: ["Kirjautuminen kutsun sähköpostilla", "Asiakas ja hänen toimintonsa", "Verovuoden avaus ja sulkeminen", "Vuoden työ järjestyksessä"],
+    appPath: "/tyopoyta",
+    appLabel: "Työpöytä",
+    sections: [
+      {
+        title: "Kirjautuminen",
+        steps: [
+          "Saat sähköpostiin kutsun, kun pääkäyttäjä lisää sinut.",
+          "Jos sinulla ei vielä ole tunnusta, aseta salasana kutsun linkistä.",
+          "Avaa Skog selaimessa ja valitse Kirjaudu.",
+          "Kirjaudu samalla sähköpostiosoitteella, johon kutsu tuli.",
+          "Ohjelma avaa työpöydän.",
+        ],
+        bullets: [
+          "Itse ei voi rekisteröityä. Jos et pääse sisään, pyydä pääkäyttäjää lähettämään kutsu uudelleen.",
+          "Kun lopetat, valitse Kirjaudu ulos.",
+        ],
+      },
+      {
+        title: "Ohjelman osat",
+        bullets: [
+          "Vasemmalla on valikko: Työpöytä, Asiakkaat, Asetukset, Kehitystoiveet ja Ohjeet. Asetukset näkyy vain pääkäyttäjälle.",
+          "Asiakkaan sivulla on välilehdet Tiedot, Kirjanpito, Investoinnit, Arvonlisävero, Verosuunnitelma sekä Veroraportti ja arkisto.",
+          "Jos asiakkaalla on maatila, kirjanpito on kahdella välilehdellä: Metsätalouden kirjanpito ja Maatalouden kirjanpito. Lisäksi on välilehti Lomake 2.",
+          "Välilehdillä on ylhäällä Verovuosi-valikko. Kun valitset vuoden, sivu vaihtuu heti.",
+          "Jokaisen sivun yläkulmassa on Ohje. Se avaa sen sivun ohjeen uuteen välilehteen.",
+          "Sen vieressä on Kehitystoive. Sillä kerrot, mitä toivot sivulle.",
+        ],
+      },
+      {
+        title: "Asiakkaan lisäys",
+        steps: [
+          "Valitse valikosta Asiakkaat.",
+          "Valitse Lisää asiakas.",
+          "Kirjoita nimi. Yhtymän tai kuolinpesän nimi kirjoitetaan kenttään Sukunimi tai yrityksen nimi.",
+          "Valitse toiminnot: Harjoittaa metsätaloutta (2C), Harjoittaa maataloutta (lomake 2) tai molemmat.",
+          "Rastita Arvonlisäverorekisterissä, jos asiakas on rekisterissä.",
+          "Valitse Lisää asiakas. Kuluva verovuosi avautuu heti.",
+          "Jos asiakkaalla on metsää, lisää metsätilat asiakkaan sivulla: Lisää metsätila.",
+        ],
+      },
+      {
+        title: "Verovuoden avaus",
+        steps: [
+          "Avaa asiakas. Verovuodet ovat Tiedot-välilehden alaosassa.",
+          "Kirjoita vuosi kohtaan Uusi vuosi. Ohjelma ehdottaa seuraavaa vuotta.",
+          "Valitse Avaa vuosi.",
+          "Vuosi näkyy nyt kaikkien välilehtien Verovuosi-valikossa.",
+        ],
+      },
+      {
+        title: "Vuoden työ järjestyksessä",
+        steps: [
+          "Kirjaa vuoden tulot ja menot kirjanpitoon. Voit lisätä tositteet ja antaa ohjelman ehdottaa kirjaukset.",
+          "Tarkista Arvonlisävero-välilehti, jos asiakas on arvonlisäverorekisterissä.",
+          "Tee verosuunnitelma: valitse poistot ja metsävähennys. Maatilalla valitset myös tasausvarauksen ja pääomatulo-osuuden.",
+          "Valitse Vahvista suunnitelma.",
+          "Avaa Veroraportti ja arkisto. Tarkista raportti ja lataa veroilmoituksen tiedosto.",
+          "Kun kaikki on valmista, pääkäyttäjä sulkee vuoden.",
+        ],
+      },
+      {
+        title: "Vuoden sulkeminen",
+        steps: [
+          "Pääkäyttäjä avaa asiakkaan Tiedot-välilehden.",
+          "Hän valitsee vuoden kohdalta Sulje vuosi. Toinen tapa on verosuunnitelman painike Vahvista ja sulje vuosi.",
+          "Lopullinen veroraportti tallentuu arkistoon.",
+        ],
+        bullets: [
+          "Suljetun vuoden kirjauksia, tositteita, poistoja ja metsävähennystä ei voi muuttaa.",
+          "Jos jotain pitää korjata, pääkäyttäjä valitsee Avaa vuosi. Avaus jää lokiin.",
+          "Kun vuosi suljetaan uudelleen, arkistoon tulee uusi raportti. Vanha säilyy.",
+        ],
+      },
+    ],
+    tips: ["Kokeile ohjelmaa ensin yhdellä tutulla asiakkaalla.", "Jos jokin ei toimi niin kuin odotat, katso Usein kysyttyä tai jätä kehitystoive."],
+    related: ["asiakkaat", "kirjanpito", "usein-kysyttya"],
+  },
   {
     slug: "tyopoyta",
     group: "Aloitus",
@@ -52,13 +153,14 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Ylhäällä on toimiston nimi.",
           "Luku kertoo, montako käyttäjää toimistolla on.",
           "Tulossa-listassa ovat toiminnot, joita tehdään. Ne tulevat valikkoon, kun ne valmistuvat.",
+          "Vasemman reunan valikosta pääset asiakkaisiin, asetuksiin, kehitystoiveisiin ja ohjeisiin.",
         ],
       },
     ],
   },
   {
     slug: "asiakkaat",
-    group: "Asiakkaat ja metsätilat",
+    group: "Aloitus",
     icon: "users",
     title: "Asiakkaat",
     summary: "Kaikki metsänomistajat yhdessä listassa. Jokaisella asiakkaalla on vastuukirjanpitäjä.",
@@ -78,23 +180,41 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: "Uusi asiakas",
         steps: [
           "Avaa Asiakkaat ja valitse Lisää asiakas.",
-          "Kirjoita nimi ja muut tiedot.",
-          "Valitse toiminnot: metsätalous, maatalous tai molemmat. Jos asiakkaalla on maatila, rastita Harjoittaa maataloutta.",
+          "Kirjoita nimi ja muut tiedot. Yhtymän tai kuolinpesän nimi kirjoitetaan kenttään Sukunimi tai yrityksen nimi.",
+          "Valitse toiminnot: Harjoittaa metsätaloutta (2C), Harjoittaa maataloutta (lomake 2) tai molemmat.",
           "Rastita Arvonlisäverorekisterissä, jos asiakas on rekisterissä. Kirjoita myös ALV-numero, jos se on tiedossa.",
-          "Tallenna. Kuluva verovuosi avautuu asiakkaalle heti.",
+          "Valitse Lisää asiakas. Kuluva verovuosi avautuu asiakkaalle heti.",
+        ],
+      },
+      {
+        title: "Tietojen muokkaus",
+        steps: [
+          "Avaa asiakas ja valitse Muokkaa.",
+          "Muuta tiedot, esimerkiksi osoite, verotilin viite tai arvonlisäverorekisteröinti.",
+          "Valitse Tallenna.",
+        ],
+        bullets: [
+          "Verotilin viite tulee veroraportin maksutiedotteeseen.",
+          "Toimintoa ei voi poistaa, jos sillä on jo kirjauksia tai investointeja.",
+          "Kun lisäät maatalouden, asiakkaalle tulevat välilehdet Maatalouden kirjanpito ja Lomake 2.",
         ],
       },
       {
         title: "Vastuukirjanpitäjän vaihto",
-        text: "Pääkäyttäjä vaihtaa vastuukirjanpitäjän asiakkaan sivulla. Vanha kirjanpitäjä ei sen jälkeen näe asiakasta.",
+        text: "Pääkäyttäjä vaihtaa vastuukirjanpitäjän asiakkaan Tiedot-välilehdellä kohdassa Vaihda vastuukirjanpitäjä ja valitsee Tallenna. Vanha kirjanpitäjä ei sen jälkeen näe asiakasta.",
       },
       {
         title: "Verovuodet",
         steps: [
-          "Asiakkaan sivun alaosassa näet asiakkaan verovuodet.",
-          "Avaa uusi vuosi kirjoittamalla vuosi ja valitsemalla Avaa vuosi.",
-          "Kun vuosi on valmis, pääkäyttäjä valitsee Sulje vuosi.",
-          "Suljetun vuoden kirjauksia ei voi muuttaa. Pääkäyttäjä voi avata vuoden uudelleen, ja avaus jää lokiin.",
+          "Asiakkaan Tiedot-välilehden alaosassa on taulukko Verovuodet. Siinä näkyy jokaisen vuoden tila, kirjausten määrä ja sulkemispäivä.",
+          "Avaa uusi vuosi: kirjoita vuosi kohtaan Uusi vuosi ja valitse Avaa vuosi.",
+          "Kun vuosi on valmis, pääkäyttäjä valitsee vuoden kohdalta Sulje vuosi.",
+          "Suljetun vuoden kirjauksia ei voi muuttaa. Pääkäyttäjä voi avata vuoden uudelleen valitsemalla Avaa vuosi, ja avaus jää lokiin.",
+        ],
+        bullets: [
+          "Kaikilla asiakkaan välilehdillä on ylhäällä Verovuosi-valikko. Kun valitset siitä vuoden, sivu vaihtuu heti.",
+          "Suljetun vuoden perässä valikossa lukee (suljettu).",
+          "Vanhasta ohjelmasta tuodut vanhat vuodet ovat valmiiksi suljettuja. Katso ohje Siirtyminen vanhoista ohjelmista.",
         ],
       },
       {
@@ -102,25 +222,25 @@ export const HELP_TOPICS: HelpTopic[] = [
         text: "Asiakasta ei poisteta, koska kirjanpito on säilytettävä. Pääkäyttäjä voi arkistoida asiakkaan, jolloin se piiloutuu listasta. Arkistoidut näet listan linkistä.",
       },
     ],
-    related: ["metsatilat"],
+    related: ["aloitus", "metsatilat"],
   },
   {
     slug: "metsatilat",
-    group: "Asiakkaat ja metsätilat",
+    group: "Metsätalous",
     icon: "map",
-    title: "Metsätilat",
-    summary: "Asiakkaan metsätilat ja niiden hankintatiedot. Niistä lasketaan metsävähennyksen pohja.",
+    title: "Metsätilat ja metsävähennys",
+    summary: "Asiakkaan metsätilat ja niiden hankintatiedot. Niistä lasketaan metsävähennyksen pohja. Tilan myynti kirjataan tilan sivulla.",
     highlights: ["Kiinteistötunnus ja pinta-ala", "Hankintahinta ja -päivä", "Metsävähennyksen pohja ja jäljellä oleva määrä"],
     sections: [
       {
         title: "Uusi metsätila",
         steps: [
-          "Avaa asiakas ja valitse Lisää metsätila.",
+          "Avaa asiakas. Metsätilat ovat Tiedot-välilehdellä. Valitse Lisää metsätila.",
           "Kirjoita tilan nimi ja kiinteistötunnus.",
           "Kirjoita hankintahinta ja metsän osuus hinnasta prosentteina. Metsä tarkoittaa metsämaata ja puustoa yhdessä. Rakennukset, pelto, tiet ja ojat eivät kuulu siihen.",
           "Metsämaan hehtaarit ovat vain tiedoksi. Ne eivät muuta laskelmia.",
-          "Jos vähennystä on käytetty jo ennen Skogia, kirjoita se omaan kenttäänsä.",
-          "Tallenna.",
+          "Jos vähennystä on käytetty jo ennen Skogia, kirjoita se kenttään Metsävähennystä käytetty ennen Skogia.",
+          "Valitse Lisää metsätila.",
         ],
       },
       {
@@ -175,7 +295,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: "Taulukkosyöttö",
         text: "Kirjanpito aukeaa taulukkona. Siinä näkyvät kaikki valitun vuoden kirjaukset, ja voit muuttaa niitä suoraan. Uudet rivit tulevat loppuun.",
         steps: [
-          "Avaa asiakas, valitse välilehti Kirjanpito ja verovuosi.",
+          "Avaa asiakas ja valitse välilehti Kirjanpito. Jos asiakkaalla on myös maatila, välilehti on Metsätalouden kirjanpito.",
+          "Valitse verovuosi sivun yläosan Verovuosi-valikosta.",
           "Uusi rivi: paina taulukon lopussa Lisää rivi tai Enter viimeisen rivin lopussa. Uusi rivi saa saman päivän kuin edellinen.",
           "Kirjoita päivä. Lyhyt muoto riittää, esimerkiksi 5.3., niin vuosi tulee valitusta verovuodesta.",
           "Kirjoita selite.",
@@ -335,119 +456,11 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         title: "Muokkaus ja poisto",
-        text: "Avaa kirjaus päivästä. Voit muuttaa tietoja, lisätä tositteen tai poistaa kirjauksen. Muutokset jäävät lokiin.",
+        text: "Avaa kirjaus päivästä. Voit muuttaa tietoja ja valita Tallenna. Kohdasta Lisää tosite lisäät kirjauksen tositteen, ja Poista kirjaus poistaa kirjauksen. Muutokset jäävät lokiin.",
       },
       {
-        title: "Vuoden tositteet",
-        steps: [
-          "Avaa asiakkaan kirjanpito ja valitse vuosi.",
-          "Valitse Lisää tositteet.",
-          "Vedä tiedostot laatikkoon tai valitse ne. Voit lisätä useita kerralla. PDF, JPG tai PNG, enintään 25 Mt tiedostoa kohden.",
-          "Tositteet tallentuvat heti ja näkyvät listassa. Nimestä tositteen voi avata.",
-          "Kun vuosi suljetaan, kaikki vuoden tositteet liitetään lopullisen veroraportin loppuun.",
-        ],
-        bullets: [
-          "Myös yksittäisten kirjausten tositteet tulevat raportin liitteiksi.",
-          "Veroraportti ja arkisto -välilehdeltä voit avata luonnoksen tositteineen jo ennen sulkemista.",
-          "Suljetun vuoden tositteita ei voi poistaa eikä lisätä.",
-        ],
-      },
-      {
-        title: "Tositteiden tunnistus",
-        text: "Ohjelma voi lukea vuoden tositteen ja ehdottaa kirjauksia. Tekoäly tekee vain ehdotuksen. Sinä tarkistat sen ja päätät, mitä kirjataan.",
-        steps: [
-          "Lisää tosite kohtaan Vuoden tositteet. Voit skannata koko vuoden paperit yhdeksi tiedostoksi.",
-          "Valitse tositteen kohdalta Tunnista. Tunnista kaikki lukee kerralla kaikki tositteet, joista ei vielä ole ehdotusta.",
-          "Pitkästä tiedostosta ohjelma kertoo ensin, kauanko lukeminen kestää, esimerkiksi 40 sivua, 6 osaa, noin 2–4 min. Valitse OK.",
-          "Odota. Ohjelma lukee tiedoston osissa ja näyttää, mitä sivuja se lukee, esimerkiksi Luetaan sivuja 9–16 / 40.",
-          "Ehdotukset tulevat taulukon loppuun sinisinä riveinä, ja niissä on merkki Ehdotus.",
-          "Tarkista jokainen rivi: päivä, selite, luokka, summa, alv ja puukaupan ennakonpidätys. Rivin alla näkyy, kuinka varma tekoäly oli ja mistä se päätteli tiedot. Merkistä Ehdotus tosite aukeaa.",
-          "Korjaa, mikä on väärin. Valitse tarvittaessa metsätila.",
-          "Tallenna taulukko (Ctrl + S). Vasta nyt rivit tallentuvat kirjauksiksi.",
-        ],
-        bullets: [
-          "Jos tiedostossa on vain yksi tosite, se liitetään ensimmäiseen kirjaukseen. Se ei enää ole vuoden tosite vaan kirjauksen tosite. Saman tositteen muissa kirjauksissa on linkki Tosite (s. 1).",
-          "Puukaupan tilityksestä tulee usein monta riviä: puukauppa ennakonpidätyksineen ja esimerkiksi mittauskulut.",
-          "Tilisiirtolomake, viitenumero, tilinumero ja eräpäivä eivät ole kuluja. Ne kuuluvat samaan laskuun, eikä niistä tule omaa riviä.",
-          "Jos ehdotus on väärä, valitse Hylkää ehdotus. Tosite jää vuoden tositteisiin. Voit myös poistaa yksittäisen ehdotusrivin.",
-          "Jos päivä puuttuu tai on toiselta vuodelta, rivillä on varoitus. Päivän on oltava valitulla vuodella.",
-          "Pitkä tiedosto luetaan kahdeksan sivun osissa, kaksi tai kolme osaa yhtä aikaa. Kaikista osista tulee yksi ehdotus. Jos sama tosite näkyy kahdessa osassa, se tulee ehdotukseen vain kerran.",
-          "Koko vuoden aineisto, esimerkiksi 300 sivua, kestää noin 8–18 minuuttia. Pidä sivu auki sen ajan.",
-          "Jos suljet sivun tai yhteys katkeaa kesken, luetut osat säilyvät. Tositteen kohdalla lukee Tunnistus kesken. Valitse Jatka tunnistusta, niin ohjelma jatkaa siitä, mihin jäi.",
-          "Jos jotain osaa ei voitu lukea, näet esimerkiksi Sivuja 17–24 ei voitu lukea. Valitse Yritä uudelleen. Voit myös valita Tee ehdotus luetuista sivuista ja kirjata puuttuvat sivut käsin.",
-          "Aloita alusta lukee koko tiedoston uudelleen.",
-          "Jos tositetta ei voitu tunnistaa, kirjaa se käsin tavalliseen tapaan.",
-          "Tosite lähetetään tunnistuspalveluun (Anthropic) Yhdysvaltoihin. Palveluun ei lähetetä asiakkaan nimeä eikä muita tietoja ohjelmasta. Palvelu ei käytä tositetta tekoälyn kouluttamiseen, ja se poistaa tositteen 30 päivän kuluessa. Lisää tietoa on sivulla Tietosuoja (skog.adepta.fi/tietosuoja).",
-          "Suljetun vuoden tositteita ei tunnisteta.",
-          "Kun kokeilet ohjelmaa ilman tunnistuspalvelua, ehdotus tehdään tiedoston nimestä, eikä tositetta lähetetä minnekään. Nimi, jossa on sana kokooma, antaa esimerkin monen tositteen tiedostosta, ja nimi, jossa on sana maatila, maatilan tositteista. Maatalousasiakkaalla myös nimet meijeri, teurastamo, vilja, vipu, konekauppa, eläinkauppa, sähkö, myel, laina ja osuusmaksu antavat esimerkin. Yli kahdeksan sivun tiedostosta tulee esimerkkilaskuja sivujen mukaan.",
-        ],
-      },
-      {
-        title: "Tilitys, jossa on monta riviä",
-        text: "Yhdestä tositteesta tulee usein monta kirjausta. Esimerkiksi puukaupan tilityksessä on puukauppa ja kulut, ja meijerin tilityksessä maito ja vähennykset. Ohjelma näyttää tällaisen tositteen ryhmänä.",
-        steps: [
-          "Ryhmän yläpuolella on otsikko: tositteen laji, nimi, rivien määrä ja linkki tositteeseen.",
-          "Otsikon alla lukee, täsmäävätkö rivit tositteeseen. Esimerkiksi: Tulot 7 152,50 €, vähennykset 1 677,00 €. Erotus 5 475,50 €. Täsmää tositteen summaan.",
-          "Jos lukee ero, tarkista rivit tositteesta. Ero näkyy punaisena. Puuttuuko rivi, onko summa väärin tai onko tulo merkitty menoksi?",
-          "Korjaa rivit. Täsmäytys päivittyy heti.",
-          "Hyväksy kaikki kerralla: tallenna taulukko. Kaikki ryhmän rivit tallentuvat.",
-          "Hyväksy riveittäin: poista ruksi kohdasta Hyväksy tallennettaessa niiltä riveiltä, joita et vielä halua kirjata. Tallenna.",
-        ],
-        bullets: [
-          "Rivi, jolta poistit ruksin, ei tallennu. Se palaa ehdotukseksi tallennuksen jälkeen, ja voit hyväksyä sen myöhemmin.",
-          "Odottamaan jätetty rivi palaa sellaisena kuin tunnistus sen teki. Jos muutit riviä, muutos ei säily.",
-          "Otsikon painike Jätä tosite odottamaan poistaa ruksin kaikilta ryhmän riveiltä. Hyväksy kaikki rivit palauttaa ruksit.",
-          "Jos poistat rivin (×), sitä ei kirjata eikä se palaa ehdotukseksi.",
-          "Jos tositteesta jää rivejä odottamaan, tiedosto jää vuoden tositteisiin, ja jokaisessa kirjauksessa on linkki oikealle sivulle.",
-          "Jos tositteen loppusummaa ei tunnistettu, täsmäytystä ei tehdä. Tarkista silloin summat itse.",
-        ],
-      },
-      {
-        title: "Monta tositetta samassa tiedostossa",
-        text: "Skannaat ehkä monta paperia yhteen tiedostoon, esimerkiksi puukaupan vuosi-ilmoituksen ja pari laskua. Ohjelma käy läpi kaikki sivut ja tekee rivit jokaisesta tositteesta erikseen.",
-        steps: [
-          "Tunnista tiedosto tavalliseen tapaan.",
-          "Katso rivin alta, mistä tositteesta rivi on ja millä sivulla. Esimerkiksi: Lasku 1182, Metsäpalvelu · Tosite (s. 3).",
-          "Klikkaa sivulinkkiä, niin tiedosto aukeaa oikealta sivulta.",
-          "Tarkista ja tallenna rivit.",
-        ],
-        bullets: [
-          "Tiedosto jää vuoden tositteisiin, koska se kuuluu moneen kirjaukseen. Vuoden tositteissa lukee, montako kirjausta siitä on tehty.",
-          "Jokaisessa kirjauksessa on linkki Tosite (s. 3), joka avaa tiedoston oikealta sivulta. Linkki näkyy taulukossa ja kirjauksen sivulla.",
-          "Raportin liitteissä tiedosto on vain kerran. Kirjausluettelossa näkyy liitteen numero ja sivu.",
-          "Tiedostoa ei voi poistaa, jos siitä on tehty kirjauksia. Poista ensin kirjaukset, jos tiedosto lisättiin väärin.",
-        ],
-      },
-      {
-        title: "Puukaupan vuosi-ilmoitus",
-        text: "Puun ostaja lähettää vuoden lopussa vuosi-ilmoituksen. Se on koko vuoden yhteenveto kaikista kaupoista, ei uusi kauppa.",
-        bullets: [
-          "Ohjelma tekee vuosi-ilmoituksesta rivin jokaisesta kaupasta: myyntitulo arvonlisäveron kanssa ja ennakonpidätys. Pystykauppa ja hankintakauppa ovat eri riveillä.",
-          "Menekinedistämismaksu tulee omaksi menorivikseen, jos se on suurempi kuin nolla.",
-          "Jos ilmoituksessa ei ole kaupan päivää, rivin päivä on vuoden viimeinen päivä.",
-          "Sopimusnumero tallentuu kirjauksen viitteeksi.",
-          "Jos kauppa on jo kirjattu tilityksestä, älä kirjaa sitä toista kertaa. Poista silloin vuosi-ilmoituksen rivi ennen tallennusta.",
-        ],
-      },
-      {
-        title: "Mahdollinen päällekkäisyys",
-        text: "Ohjelma varoittaa, jos ehdotusrivi näyttää jo kirjatulta.",
-        bullets: [
-          "Varoitus näkyy punaisena rivin alla: Mahdollinen päällekkäisyys ja kirjaus tai ehdotus, joka on samanlainen.",
-          "Ohjelma vertaa saman vuoden kirjauksiin ja muiden tositteiden ehdotuksiin.",
-          "Samanlainen tarkoittaa: sama sopimusnumero, sama laskunumero tai sama luokka ja lähes sama summa (euron tarkkuudella).",
-          "Varoitus ei estä tallennusta. Päätä itse, kumpi rivi jää. Poista ylimääräinen rivi ennen tallennusta.",
-        ],
-      },
-      {
-        title: "Tositteet",
-        steps: [
-          "Avaa kirjaus.",
-          "Valitse tiedosto kohdasta Lisää tosite. PDF tai kuva, enintään 4 Mt.",
-          "Valitse Tallenna tosite.",
-          "Tosite aukeaa, kun klikkaat sen nimeä.",
-          "Väärän tositteen voit poistaa, jos vuosi on auki. Silloin myös tiedosto poistuu.",
-        ],
+        title: "Tositteet ja tunnistus",
+        text: "Vuoden tositteet ja tekoälyn ehdotukset ovat kirjanpidon sivulla kohdassa Vuoden tositteet. Katso ohje Tositteet ja tunnistus.",
       },
       {
         title: "Investoinnit",
@@ -464,11 +477,11 @@ export const HELP_TOPICS: HelpTopic[] = [
         text: "Kun verovuosi on suljettu, sen kirjauksia ja tositteita ei voi muuttaa. Pääkäyttäjä voi avata vuoden asiakkaan tiedoissa, ja avaus jää lokiin.",
       },
     ],
-    related: ["asiakkaat", "investoinnit", "maatalouden-kirjanpito"],
+    related: ["tositteet", "investoinnit", "maatalouden-kirjanpito", "alv"],
   },
   {
     slug: "maatalouden-kirjanpito",
-    group: "Kirjanpito",
+    group: "Maatalous",
     icon: "list",
     title: "Maatalouden kirjanpito",
     summary: "Maatilan tulot, menot ja investoinnit samoilla työkaluilla kuin metsässä: taulukko, lomake, Excel ja tositteiden tunnistus.",
@@ -486,7 +499,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         steps: [
           "Avaa asiakas.",
           "Valitse välilehti Maatalouden kirjanpito. Jos asiakkaalla on vain maataloutta, välilehden nimi on Kirjanpito.",
-          "Valitse verovuosi.",
+          "Valitse verovuosi Verovuosi-valikosta.",
         ],
         bullets: [
           "Välilehti näkyy, kun asiakkaan tiedoissa on rasti kohdassa Harjoittaa maataloutta.",
@@ -626,11 +639,152 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
     ],
     tips: ["Jos rivi meni väärään kirjanpitoon, avaa kirjaus päivästä ja vaihda luokka. Rivi siirtyy toisen toiminnon kirjanpitoon."],
-    related: ["kirjanpito", "maatalous", "alv"],
+    related: ["kirjanpito", "tositteet", "maatalous", "alv"],
+  },
+  {
+    slug: "tositteet",
+    group: "Tositteet ja tunnistus",
+    icon: "registry",
+    title: "Tositteet ja tunnistus",
+    summary: "Tositteet tallessa verovuosittain. Tekoäly lukee tositteen ja ehdottaa kirjaukset, ja sinä tarkistat ne.",
+    highlights: [
+      "Koko vuoden paperit yhtenä tiedostona",
+      "Ehdotukset taulukkoon tarkistettaviksi",
+      "Täsmäytys tositteen summaan",
+      "Tositteet veroraportin liitteiksi",
+    ],
+    sections: [
+      {
+        title: "Mistä löydät",
+        steps: [
+          "Avaa asiakas ja valitse kirjanpidon välilehti.",
+          "Valitse verovuosi Verovuosi-valikosta.",
+          "Kohta Vuoden tositteet on korttien alla. Valitse Lisää tositteet tai Näytä tositteet.",
+        ],
+        bullets: [
+          "Vuoden tositteet ovat asiakkaan yhteisiä. Sama lista näkyy metsän ja maatalouden kirjanpidossa.",
+          "Yksittäisen kirjauksen tositteen lisäät kirjauksen sivulla.",
+        ],
+      },
+      {
+        title: "Vuoden tositteet",
+        steps: [
+          "Avaa asiakkaan kirjanpito ja valitse verovuosi Verovuosi-valikosta.",
+          "Valitse Lisää tositteet.",
+          "Vedä tiedostot laatikkoon tai valitse ne. Voit lisätä useita kerralla. PDF, JPG tai PNG, enintään 25 Mt tiedostoa kohden.",
+          "Tositteet tallentuvat heti ja näkyvät listassa. Nimestä tositteen voi avata.",
+          "Kun vuosi suljetaan, kaikki vuoden tositteet liitetään lopullisen veroraportin loppuun.",
+        ],
+        bullets: [
+          "Myös yksittäisten kirjausten tositteet tulevat raportin liitteiksi.",
+          "Veroraportti ja arkisto -välilehdeltä voit avata luonnoksen tositteineen jo ennen sulkemista: Avaa luonnos tositteineen.",
+          "Suljetun vuoden tositteita ei voi poistaa eikä lisätä.",
+        ],
+      },
+      {
+        title: "Tositteiden tunnistus",
+        text: "Ohjelma voi lukea vuoden tositteen ja ehdottaa kirjauksia. Tekoäly tekee vain ehdotuksen. Sinä tarkistat sen ja päätät, mitä kirjataan.",
+        steps: [
+          "Lisää tosite kohtaan Vuoden tositteet. Voit skannata koko vuoden paperit yhdeksi tiedostoksi.",
+          "Valitse tositteen kohdalta Tunnista. Tunnista kaikki lukee kerralla kaikki tositteet, joista ei vielä ole ehdotusta.",
+          "Pitkästä tiedostosta ohjelma kertoo ensin, kauanko lukeminen kestää, esimerkiksi 40 sivua, 6 osaa, noin 2–4 min. Valitse OK.",
+          "Odota. Ohjelma lukee tiedoston osissa ja näyttää, mitä sivuja se lukee, esimerkiksi Luetaan sivuja 9–16 / 40.",
+          "Ehdotukset tulevat taulukon loppuun sinisinä riveinä, ja niissä on merkki Ehdotus.",
+          "Tarkista jokainen rivi: päivä, selite, luokka, summa, alv ja puukaupan ennakonpidätys. Rivin alla näkyy, kuinka varma tekoäly oli ja mistä se päätteli tiedot. Merkistä Ehdotus tosite aukeaa.",
+          "Korjaa, mikä on väärin. Valitse tarvittaessa metsätila.",
+          "Tallenna taulukko (Ctrl + S). Vasta nyt rivit tallentuvat kirjauksiksi.",
+        ],
+        bullets: [
+          "Jos tiedostossa on vain yksi tosite, se liitetään ensimmäiseen kirjaukseen. Se ei enää ole vuoden tosite vaan kirjauksen tosite. Saman tositteen muissa kirjauksissa on linkki Tosite (s. 1).",
+          "Puukaupan tilityksestä tulee usein monta riviä: puukauppa ennakonpidätyksineen ja esimerkiksi mittauskulut.",
+          "Tilisiirtolomake, viitenumero, tilinumero ja eräpäivä eivät ole kuluja. Ne kuuluvat samaan laskuun, eikä niistä tule omaa riviä.",
+          "Jos ehdotus on väärä, valitse Hylkää ehdotus. Tosite jää vuoden tositteisiin. Voit myös poistaa yksittäisen ehdotusrivin.",
+          "Jos päivä puuttuu tai on toiselta vuodelta, rivillä on varoitus. Päivän on oltava valitulla vuodella.",
+          "Pitkä tiedosto luetaan kahdeksan sivun osissa, kaksi tai kolme osaa yhtä aikaa. Kaikista osista tulee yksi ehdotus. Jos sama tosite näkyy kahdessa osassa, se tulee ehdotukseen vain kerran.",
+          "Koko vuoden aineisto, esimerkiksi 300 sivua, kestää noin 8–18 minuuttia. Pidä sivu auki sen ajan.",
+          "Jos suljet sivun tai yhteys katkeaa kesken, luetut osat säilyvät. Tositteen kohdalla lukee Tunnistus kesken. Valitse Jatka tunnistusta, niin ohjelma jatkaa siitä, mihin jäi.",
+          "Jos jotain osaa ei voitu lukea, näet esimerkiksi Sivuja 17–24 ei voitu lukea. Valitse Yritä uudelleen. Voit myös valita Tee ehdotus luetuista sivuista ja kirjata puuttuvat sivut käsin.",
+          "Aloita alusta lukee koko tiedoston uudelleen.",
+          "Jos tositetta ei voitu tunnistaa, kirjaa se käsin tavalliseen tapaan.",
+          "Tosite lähetetään tunnistuspalveluun (Anthropic) Yhdysvaltoihin. Palveluun ei lähetetä asiakkaan nimeä eikä muita tietoja ohjelmasta. Palvelu ei käytä tositetta tekoälyn kouluttamiseen, ja se poistaa tositteen 30 päivän kuluessa. Lisää tietoa on sivulla Tietosuoja (skog.adepta.fi/tietosuoja).",
+          "Suljetun vuoden tositteita ei tunnisteta.",
+          "Kun kokeilet ohjelmaa ilman tunnistuspalvelua, ehdotus tehdään tiedoston nimestä, eikä tositetta lähetetä minnekään. Nimi, jossa on sana kokooma, antaa esimerkin monen tositteen tiedostosta, ja nimi, jossa on sana maatila, maatilan tositteista. Maatalousasiakkaalla myös nimet meijeri, teurastamo, vilja, vipu, konekauppa, eläinkauppa, sähkö, myel, laina ja osuusmaksu antavat esimerkin. Yli kahdeksan sivun tiedostosta tulee esimerkkilaskuja sivujen mukaan.",
+        ],
+      },
+      {
+        title: "Tilitys, jossa on monta riviä",
+        text: "Yhdestä tositteesta tulee usein monta kirjausta. Esimerkiksi puukaupan tilityksessä on puukauppa ja kulut, ja meijerin tilityksessä maito ja vähennykset. Ohjelma näyttää tällaisen tositteen ryhmänä.",
+        steps: [
+          "Ryhmän yläpuolella on otsikko: tositteen laji, nimi, rivien määrä ja linkki tositteeseen.",
+          "Otsikon alla lukee, täsmäävätkö rivit tositteeseen. Esimerkiksi: Tulot 7 152,50 €, vähennykset 1 677,00 €. Erotus 5 475,50 €. Täsmää tositteen summaan.",
+          "Jos lukee ero, tarkista rivit tositteesta. Ero näkyy punaisena. Puuttuuko rivi, onko summa väärin tai onko tulo merkitty menoksi?",
+          "Korjaa rivit. Täsmäytys päivittyy heti.",
+          "Hyväksy kaikki kerralla: tallenna taulukko. Kaikki ryhmän rivit tallentuvat.",
+          "Hyväksy riveittäin: poista ruksi kohdasta Hyväksy tallennettaessa niiltä riveiltä, joita et vielä halua kirjata. Tallenna.",
+        ],
+        bullets: [
+          "Rivi, jolta poistit ruksin, ei tallennu. Se palaa ehdotukseksi tallennuksen jälkeen, ja voit hyväksyä sen myöhemmin.",
+          "Odottamaan jätetty rivi palaa sellaisena kuin tunnistus sen teki. Jos muutit riviä, muutos ei säily.",
+          "Otsikon painike Jätä tosite odottamaan poistaa ruksin kaikilta ryhmän riveiltä. Hyväksy kaikki rivit palauttaa ruksit.",
+          "Jos poistat rivin (×), sitä ei kirjata eikä se palaa ehdotukseksi.",
+          "Jos tositteesta jää rivejä odottamaan, tiedosto jää vuoden tositteisiin, ja jokaisessa kirjauksessa on linkki oikealle sivulle.",
+          "Jos tositteen loppusummaa ei tunnistettu, täsmäytystä ei tehdä. Tarkista silloin summat itse.",
+        ],
+      },
+      {
+        title: "Monta tositetta samassa tiedostossa",
+        text: "Skannaat ehkä monta paperia yhteen tiedostoon, esimerkiksi puukaupan vuosi-ilmoituksen ja pari laskua. Ohjelma käy läpi kaikki sivut ja tekee rivit jokaisesta tositteesta erikseen.",
+        steps: [
+          "Tunnista tiedosto tavalliseen tapaan.",
+          "Katso rivin alta, mistä tositteesta rivi on ja millä sivulla. Esimerkiksi: Lasku 1182, Metsäpalvelu · Tosite (s. 3).",
+          "Klikkaa sivulinkkiä, niin tiedosto aukeaa oikealta sivulta.",
+          "Tarkista ja tallenna rivit.",
+        ],
+        bullets: [
+          "Tiedosto jää vuoden tositteisiin, koska se kuuluu moneen kirjaukseen. Vuoden tositteissa lukee, montako kirjausta siitä on tehty.",
+          "Jokaisessa kirjauksessa on linkki Tosite (s. 3), joka avaa tiedoston oikealta sivulta. Linkki näkyy taulukossa ja kirjauksen sivulla.",
+          "Raportin liitteissä tiedosto on vain kerran. Kirjausluettelossa näkyy liitteen numero ja sivu.",
+          "Tiedostoa ei voi poistaa, jos siitä on tehty kirjauksia. Poista ensin kirjaukset, jos tiedosto lisättiin väärin.",
+        ],
+      },
+      {
+        title: "Puukaupan vuosi-ilmoitus",
+        text: "Puun ostaja lähettää vuoden lopussa vuosi-ilmoituksen. Se on koko vuoden yhteenveto kaikista kaupoista, ei uusi kauppa.",
+        bullets: [
+          "Ohjelma tekee vuosi-ilmoituksesta rivin jokaisesta kaupasta: myyntitulo arvonlisäveron kanssa ja ennakonpidätys. Pystykauppa ja hankintakauppa ovat eri riveillä.",
+          "Menekinedistämismaksu tulee omaksi menorivikseen, jos se on suurempi kuin nolla.",
+          "Jos ilmoituksessa ei ole kaupan päivää, rivin päivä on vuoden viimeinen päivä.",
+          "Sopimusnumero tallentuu kirjauksen viitteeksi.",
+          "Jos kauppa on jo kirjattu tilityksestä, älä kirjaa sitä toista kertaa. Poista silloin vuosi-ilmoituksen rivi ennen tallennusta.",
+        ],
+      },
+      {
+        title: "Mahdollinen päällekkäisyys",
+        text: "Ohjelma varoittaa, jos ehdotusrivi näyttää jo kirjatulta.",
+        bullets: [
+          "Varoitus näkyy punaisena rivin alla: Mahdollinen päällekkäisyys ja kirjaus tai ehdotus, joka on samanlainen.",
+          "Ohjelma vertaa saman vuoden kirjauksiin ja muiden tositteiden ehdotuksiin.",
+          "Samanlainen tarkoittaa: sama sopimusnumero, sama laskunumero tai sama luokka ja lähes sama summa (euron tarkkuudella).",
+          "Varoitus ei estä tallennusta. Päätä itse, kumpi rivi jää. Poista ylimääräinen rivi ennen tallennusta.",
+        ],
+      },
+      {
+        title: "Kirjauksen tosite",
+        steps: [
+          "Avaa kirjaus.",
+          "Valitse tiedosto kohdasta Lisää tosite. PDF tai kuva, enintään 4 Mt.",
+          "Valitse Tallenna tosite.",
+          "Tosite aukeaa, kun klikkaat sen nimeä.",
+          "Väärän tositteen voit poistaa, jos vuosi on auki. Silloin myös tiedosto poistuu.",
+        ],
+      },
+    ],
+    tips: ["Maatilan tositteista, kuten meijerin tilityksestä ja tuista, kerrotaan ohjeessa Maatalouden kirjanpito."],
+    related: ["kirjanpito", "maatalouden-kirjanpito", "veroraportti"],
   },
   {
     slug: "investoinnit",
-    group: "Kirjanpito",
+    group: "Investoinnit ja poistot",
     icon: "hammer",
     title: "Investoinnit ja poistot",
     summary: "Koneet, tiet ja ojat poistetaan vuosittain. Ohjelma laskee poistot ja jäljellä olevan arvon.",
@@ -650,6 +804,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Kirjattu vuosi on vuosi, jonka verosuunnitelma on vahvistettu, tai vuosi, joka on tuotu vanhasta ohjelmasta.",
           "Poistettu kokonaan tarkoittaa, että arvoa ei ole jäljellä. Siitä ei tule enää poistoa, eikä se näy verosuunnitelmassa.",
           "Myyty investointi näyttää myyntivuoden ja myyntihinnan.",
+          "Merkki kertoo, mistä investointi tuli: Kirjauksesta, Aiempi (lisätty käsin) tai Tuotu (vanhasta ohjelmasta). Aiemman investoinnin voit avata Muokkaa-linkistä.",
         ],
         steps: [
           "Valitse investoinnin alta Poistohistoria.",
@@ -661,6 +816,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: "Vanhasta ohjelmasta tuodut investoinnit",
         text: "Tilituki-ohjelmasta tuodaan koko historia: jokainen kone, tie, oja ja rakennus omana investointinaan, ja jokaisen vuoden poisto. Näin seuraavan vuoden kirjanpito alkaa oikeasta menojäännöksestä.",
         bullets: [
+          "Tuodussa investoinnissa on merkki Tuotu.",
           "Hankintavuosi ja hankintahinta tulevat vanhan ohjelman kortilta.",
           "Jos vanha ohjelma ei laskenut jotain vuotta, sen vuoden poisto on 0.",
           "Jos muutat tuotua investointia Skogissa, uusi tuonti ei enää muuta sitä.",
@@ -735,19 +891,19 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
     ],
-    related: ["kirjanpito", "verosuunnitelma", "maatalous"],
+    related: ["kirjanpito", "verosuunnitelma", "maatalous", "siirtyminen"],
   },
   {
     slug: "maatalous",
-    group: "Kirjanpito",
+    group: "Maatalous",
     icon: "building",
     title: "Lomake 2 (maatalous)",
     summary: "Maatalouden veroilmoitus: poistot ryhmittäin, varaukset, jaksotukset ja lomakkeen 2 laskelma.",
     highlights: [
-      "Maatalouden kirjanpito omalla välilehdellään",
-      "Poistot ryhmittäin lomakkeen 2 mukaan",
-      "Tasausvaraus ja kotieläinten jaksotus",
-      "Yksi arvonlisäveroilmoitus",
+      "Maatalouden tulos lomakkeen 2 mukaan",
+      "Poistot ryhmittäin",
+      "Tasausvaraus, jälleenhankintavaraus ja kotieläinten jaksotus",
+      "Ajoneuvo- ja matkaselvitys",
     ],
     sections: [
       {
@@ -779,7 +935,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Ostot viedään veroilmoitukselle arvonlisäverokannan mukaan. Siksi alv-prosentin pitää olla oikein.",
           "Jos meno kuuluu osittain metsätaloudelle, kirjoita osuudet sarakkeisiin Osuus % ja Toinen %.",
           "MYEL-maksut kirjataan luokalla 54. Ne vähennetään maatalouden menoina.",
-          "Jaksotettava kotieläinten myynti (22) ja hankinta (50) jaetaan kolmelle vuodelle tasan.",
+          "Kun valitset kotieläinten myynnille tai hankinnalle Jaksota, summa jaetaan kolmelle vuodelle tasan. Jaksotetut rivit näkyvät luokissa 22 ja 50.",
         ],
       },
       {
@@ -797,7 +953,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: "Poistot ryhmittäin",
         text: "Maatalouden investoinnit poistetaan ryhmittäin. Lomake 2 -välilehdellä näet jokaisen ryhmän menojäännöksen ja enimmäispoiston.",
         steps: [
-          "Avaa Lomake 2 -välilehti ja valitse vuosi.",
+          "Avaa Lomake 2 -välilehti ja valitse verovuosi Verovuosi-valikosta.",
           "Katso taulukosta Poistot ryhmittäin ryhmän poistopohja ja enimmäismäärä.",
           "Kirjoita poisto jokaiselle ryhmälle. Poisto voi olla pienempi kuin enimmäismäärä tai nolla.",
           "Valitse Tallenna poistot.",
@@ -824,8 +980,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: "Tasausvaraus ja jälleenhankintavaraus",
         steps: [
           "Kirjoita tämän vuoden tasausvaraus: laji, vuosi ja määrä. Valitse Lisää varaus.",
-          "Kun aiempi varaus käytetään investointiin, valitse varauksen kohdalla Investointiin, investointi ja määrä.",
-          "Kun varaus tuloutetaan, valitse Tuloutus ja määrä.",
+          "Kun aiempi varaus käytetään investointiin, valitse varauksen rivillä Investointiin, valitse investointi ja kirjoita määrä. Valitse Lisää. Painikkeessa on verovuosi, esimerkiksi Lisää 2025.",
+          "Kun varaus tuloutetaan, valitse Tuloutus, kirjoita määrä ja valitse Lisää.",
         ],
         bullets: [
           "Purkamaton määrä näkyy taulukossa ja veroilmoituksella vuosittain.",
@@ -878,19 +1034,16 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         title: "Veroilmoitustiedosto",
-        text: "Skog tekee maatalouden veroilmoituksesta (lomake 2) tiedoston. Jos asiakkaalla on myös metsää, metsätalouden 2C tulee samaan tiedostoon.",
+        text: "Lomakkeen 2 tiedosto tehdään Veroraportti ja arkisto -välilehdellä. Jos asiakkaalla on myös metsää, lomake 2C tulee samaan tiedostoon. Katso ohje Sähköinen veroilmoitus (2 ja 2C).",
+      },
+      {
+        title: "Maatilat",
+        text: "Maatiloja tarvitaan vain, jos asiakkaalla on useampi maatila. Silloin tasausvaraus lasketaan tiloittain.",
         steps: [
-          "Vahvista ensin verosuunnitelma. Se tallentaa metsän ja maatalouden poistot ja valinnat.",
-          "Avaa Veroraportti ja arkisto -välilehti ja valitse vuosi.",
-          "Katso kohdasta Lomake 2: maatalous, mitkä luvut menevät mihinkin kohtaan. Korjaa punaiset virheet.",
-          "Kirjoita henkilötunnus, jos asiakkaalla ei ole Y-tunnusta.",
-          "Valitse Lataa ilmoitustiedosto.",
-          "Lataa tiedosto Ilmoitin.fi-palveluun ja tarkista se ensin toiminnolla Aineiston tarkastus.",
-        ],
-        bullets: [
-          "Lomake 2 annetaan joka vuosi, vaikka maataloutta ei olisi ollut. Silloin tiedostoon tulee tieto Ilmoitettavia tietoja ei ole.",
-          "Tiedoston nimi kertoo lomakkeet, esimerkiksi 2_2C_2025_Nimi.txt.",
-          "Lomakkeen 2 tiedostoa ei ole vielä kokeiltu Ilmoitin.fi:n tarkastuksessa. Tarkista tiedosto aina ennen lähettämistä.",
+          "Mene Lomake 2 -välilehden alaosaan kohtaan Maatilat.",
+          "Kirjoita maatilan nimi. Ruokaviraston tilatunnus on vapaaehtoinen.",
+          "Valitse Lisää maatila.",
+          "Valitse sen jälkeen kirjanpidossa jokaiselle tilan omalle kirjaukselle oikea maatila.",
         ],
       },
       {
@@ -904,11 +1057,11 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
     ],
     tips: ["Suljetun vuoden maatalouden tietoja ei voi muuttaa. Pääkäyttäjä voi avata vuoden."],
-    related: ["kirjanpito", "investoinnit", "alv", "veroraportti"],
+    related: ["maatalouden-kirjanpito", "investoinnit", "verosuunnitelma", "veroilmoitus"],
   },
   {
     slug: "alv",
-    group: "Verotus ja raportit",
+    group: "Arvonlisävero",
     icon: "stamp",
     title: "Arvonlisävero",
     summary: "Arvonlisävero lasketaan kirjauksista neljänneksittäin ja koko vuodelta.",
@@ -922,6 +1075,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Maksettava on myynnin vero miinus ostojen vero. Jos luku on miinuksella, veroa palautetaan.",
           "Jos kirjauksesta vain osa kuuluu metsätaloudelle, ostojen verosta on mukana vain se osa. Loppu näkyy korttien alla, eikä sitä vähennetä.",
           "Neljännekset auttavat, jos asiakas ilmoittaa useammin kuin kerran vuodessa.",
+          "Vanhoilla vuosilla käytetään sen ajan verokantoja. Esimerkiksi yleinen verokanta oli 24 % vuodesta 2013 elokuuhun 2024.",
         ],
       },
       {
@@ -938,7 +1092,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: "Arvonlisäveroilmoituksen kentät",
         text: "Taulukko näkyy vain, kun asiakas on arvonlisäverorekisterissä.",
         steps: [
-          "Avaa Arvonlisävero-välilehti ja valitse vuosi.",
+          "Avaa Arvonlisävero-välilehti ja valitse verovuosi Verovuosi-valikosta.",
           "Katso sivun alaosasta taulukko Arvonlisäveroilmoituksen kentät.",
           "Kirjoita luvut OmaVeron ilmoitukseen samoihin kohtiin: 301, 302, 303, 307 ja 308.",
           "Tarkista luvut ennen kuin lähetät ilmoituksen.",
@@ -946,11 +1100,11 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
     ],
     tips: ["Jos asiakas ei ole arvonlisäverorekisterissä, sivulla näkyy muistutus."],
-    related: ["kirjanpito"],
+    related: ["kirjanpito", "maatalouden-kirjanpito"],
   },
   {
     slug: "verosuunnitelma",
-    group: "Verotus ja raportit",
+    group: "Verosuunnitelma",
     icon: "coins",
     title: "Verosuunnitelma",
     summary: "Arvio vuoden verosta. Valitse, paljonko metsävähennystä, poistoja ja tasausvarausta käytetään.",
@@ -965,13 +1119,17 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: "Suunnitelman teko",
         steps: [
           "Avaa asiakas ja valitse välilehti Verosuunnitelma.",
-          "Valitse vuosi.",
+          "Valitse verovuosi Verovuosi-valikosta.",
           "Sivun yläosassa näet verosäästön ja arvioidun veron. Niiden alla ovat tulot, menot ja tulos ennen vähennyksiä.",
           "Valitse jokaisen investoinnin poisto liukusäätimellä tai kirjoita summa. Aseta kaikki enimmäismäärään valitsee suurimmat poistot kerralla.",
           "Valitse metsävähennys liukusäätimellä, kirjoita summa tai valitse Käytä enimmäismäärä.",
           "Laskelma oikealla päivittyy heti. Näet myös veroasteen ja veron ilman vähennyksiä.",
           "Katso sivun lopusta Huomiot ja suositukset. Siellä kerrotaan esimerkiksi, paljonko käyttämätön metsävähennys säästäisi.",
           "Valitse Vahvista suunnitelma. Poistot ja metsävähennys tallentuvat.",
+        ],
+        bullets: [
+          "Jos vuodelle on jo vahvistettu suunnitelma, näet vahvistetut luvut. Voit muuttaa niitä ja vahvistaa uudelleen.",
+          "Kokonaan poistettu investointi ei näy suunnitelmassa, koska siitä ei voi enää tehdä poistoa.",
         ],
       },
       {
@@ -1026,7 +1184,7 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         title: "Vuoden sulkeminen",
-        text: "Pääkäyttäjä voi valita Vahvista ja sulje vuosi. Suljetun vuoden suunnitelmaa ei voi muuttaa.",
+        text: "Pääkäyttäjä voi valita Vahvista ja sulje vuosi. Silloin suunnitelma vahvistetaan, vuosi suljetaan ja lopullinen veroraportti tallentuu arkistoon. Suljetun vuoden suunnitelmaa ei voi muuttaa.",
       },
     ],
     tips: [
@@ -1035,22 +1193,23 @@ export const HELP_TOPICS: HelpTopic[] = [
       "Vero on arvio. Asiakkaan muut pääomatulot eivät ole mukana.",
       "Maatalouden poistot ja varaukset voi muuttaa myös Lomake 2 -välilehdellä. Molemmat näyttävät samat luvut.",
     ],
-    related: ["investoinnit", "metsatilat", "maatalous"],
+    related: ["investoinnit", "metsatilat", "maatalous", "veroraportti"],
   },
   {
     slug: "veroraportti",
-    group: "Verotus ja raportit",
+    group: "Raportit ja veroilmoitus",
     icon: "folder",
     title: "Veroraportti ja arkisto",
     summary: "Veroilmoitusta tukeva raportti PDF:nä. Raportit ja tositteet säilyvät arkistossa verovuosittain.",
-    highlights: ["Kansilehti ja sisällysluettelo", "LUONNOS-merkintä avoimelle vuodelle", "Raportti arkistoon, kun vuosi suljetaan", "Veroilmoitus 2C tiedostona Ilmoitin.fi-palveluun"],
+    highlights: ["Kansilehti ja sisällysluettelo", "LUONNOS-merkintä avoimelle vuodelle", "Raportti arkistoon, kun vuosi suljetaan", "Veroilmoituksen tiedosto samalta välilehdeltä"],
     sections: [
       {
         title: "Raportin avaaminen",
         steps: [
           "Avaa asiakas ja valitse välilehti Veroraportti ja arkisto.",
-          "Valitse vuosi.",
-          "Valitse Avaa luonnos tai Avaa raportti. Raportti aukeaa uuteen välilehteen, josta voit tulostaa tai tallentaa sen.",
+          "Valitse verovuosi Verovuosi-valikosta.",
+          "Valitse Avaa luonnos tai suljetulla vuodella Avaa raportti. Raportti aukeaa uuteen välilehteen, josta voit tulostaa tai tallentaa sen.",
+          "Jos haluat tositteet raportin loppuun, valitse Avaa luonnos tositteineen tai Avaa tositteineen.",
         ],
       },
       {
@@ -1073,11 +1232,41 @@ export const HELP_TOPICS: HelpTopic[] = [
       },
       {
         title: "Sähköinen veroilmoitus",
+        text: "Samalla välilehdellä teet veroilmoituksen tiedoston Ilmoitin.fi-palveluun. Katso ohje Sähköinen veroilmoitus (2 ja 2C).",
+      },
+      {
+        title: "Arkisto",
+        bullets: [
+          "Kun pääkäyttäjä sulkee vuoden, lopullinen raportti tallentuu arkistoon.",
+          "Jos vuosi avataan ja suljetaan uudelleen, arkistoon tulee uusi versio. Vanha säilyy.",
+          "Arkistossa näkyvät myös vuoden tositteet.",
+          "Jos vuosi on tuotu vanhasta ohjelmasta valmiiksi suljettuna, arkistossa ei ole raporttia. Sivulla lukee silloin Arkistossa ei ole raporttia tälle vuodelle. Voit silti avata raportin nykyisillä luvuilla.",
+        ],
+      },
+    ],
+    tips: ["Avoimen vuoden raportissa on LUONNOS-merkintä jokaisella sivulla."],
+    related: ["veroilmoitus", "verosuunnitelma", "tositteet"],
+  },
+  {
+    slug: "veroilmoitus",
+    group: "Raportit ja veroilmoitus",
+    icon: "pen",
+    title: "Sähköinen veroilmoitus (2 ja 2C)",
+    summary: "Skog tekee metsätalouden (2C) ja maatalouden (lomake 2) veroilmoituksesta tiedoston. Sinä lähetät sen Ilmoitin.fi-palveluun.",
+    highlights: [
+      "Esikatselu: mikä luku menee mihinkin kohtaan",
+      "Metsä ja maatalous samaan tiedostoon",
+      "Henkilötunnusta ei tallenneta",
+      "Verovuodet 2025 ja 2026",
+    ],
+    sections: [
+      {
+        title: "Metsätalouden ilmoitus (2C)",
         text: "Skog tekee metsätalouden veroilmoituksesta (lomake 2C) tiedoston. Sinä lataat tiedoston Ilmoitin.fi-palveluun, ja se menee sieltä Verohallinnolle. Luvut ovat samat kuin veroraportissa.",
         steps: [
           "Vahvista ensin vuoden verosuunnitelma. Muuten poistot ja metsävähennys puuttuvat.",
-          "Avaa asiakas ja valitse välilehti Veroraportti ja arkisto. Valitse vuosi.",
-          "Katso kohdasta Sähköinen veroilmoitus (2C), mitkä luvut menevät mihinkin kohtaan. Lue myös varoitukset.",
+          "Avaa asiakas ja valitse välilehti Veroraportti ja arkisto. Valitse verovuosi Verovuosi-valikosta.",
+          "Katso kohdasta Sähköinen veroilmoitus (2C), mitkä luvut menevät mihinkin kohtaan. Maatalousasiakkaalla kohta on Sähköinen veroilmoitus (2 ja 2C). Lue myös varoitukset.",
           "Jos asiakkaalla ei ole Y-tunnusta, kirjoita hänen henkilötunnuksensa.",
           "Jos vuonna on hankintatyötä, tarkista tekijät. Kirjoita jokaiselle nimi, henkilötunnus, kuutiot ja arvo. Voit myös jättää tekijät erittelemättä.",
           "Valitse Lataa ilmoitustiedosto. Tiedosto tallentuu koneellesi.",
@@ -1091,41 +1280,58 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Jos asiakas ei ole alv-velvollinen, menot menevät ilmoitukselle arvonlisäveron kanssa. Tulot ovat aina ilman veroa.",
           "Tarvitset asiakkaalta Suomi.fi-valtuuden (Veroasioiden hoito tai Veroilmoittaminen).",
           "Tiedoston voi tehdä vuosille 2025 ja 2026, myös suljetulle vuodelle.",
-          "Jos asiakas harjoittaa maataloutta, samaan tiedostoon tulee myös maatalouden veroilmoitus (lomake 2). Katso ohje Maatalous.",
+          "Jos asiakas harjoittaa maataloutta, samaan tiedostoon tulee myös maatalouden veroilmoitus (lomake 2). Katso alta Maatalouden ilmoitus (lomake 2).",
         ],
       },
       {
-        title: "Arkisto",
+        title: "Maatalouden ilmoitus (lomake 2)",
+        text: "Skog tekee maatalouden veroilmoituksesta (lomake 2) tiedoston. Jos asiakkaalla on myös metsää, metsätalouden 2C tulee samaan tiedostoon.",
+        steps: [
+          "Vahvista ensin verosuunnitelma. Se tallentaa metsän ja maatalouden poistot ja valinnat.",
+          "Avaa Veroraportti ja arkisto -välilehti ja valitse verovuosi Verovuosi-valikosta.",
+          "Katso kohdasta Lomake 2: maatalous, mitkä luvut menevät mihinkin kohtaan. Korjaa punaiset virheet.",
+          "Kirjoita henkilötunnus, jos asiakkaalla ei ole Y-tunnusta.",
+          "Valitse Lataa ilmoitustiedosto.",
+          "Lataa tiedosto Ilmoitin.fi-palveluun ja tarkista se ensin toiminnolla Aineiston tarkastus.",
+        ],
         bullets: [
-          "Kun pääkäyttäjä sulkee vuoden, lopullinen raportti tallentuu arkistoon.",
-          "Jos vuosi avataan ja suljetaan uudelleen, arkistoon tulee uusi versio. Vanha säilyy.",
-          "Arkistossa näkyvät myös vuoden tositteet.",
+          "Lomake 2 annetaan joka vuosi, vaikka maataloutta ei olisi ollut. Silloin tiedostoon tulee tieto Ilmoitettavia tietoja ei ole.",
+          "Tiedoston nimi kertoo lomakkeet, esimerkiksi 2_2C_2025_Nimi.txt.",
+          "Lomakkeen 2 tiedostoa ei ole vielä kokeiltu Ilmoitin.fi:n tarkastuksessa. Tarkista tiedosto aina ennen lähettämistä.",
+        ],
+      },
+      {
+        title: "Kun tiedostoa ei voi ladata",
+        bullets: [
+          "Punainen huomautus Korjaa ennen latausta estää latauksen. Korjaa asia ja yritä uudelleen.",
+          "Keltainen huomautus Tarkista ennen latausta ei estä latausta. Lue se silti.",
+          "Jos sivulla lukee, ettei vuodelle voi vielä tehdä sähköistä ilmoitusta, Skogissa ei ole sen vuoden tiedostokuvausta. Vanhojen vuosien ilmoitukset on jo annettu.",
         ],
       },
     ],
-    tips: ["Avoimen vuoden raportissa on LUONNOS-merkintä jokaisella sivulla."],
-    related: ["verosuunnitelma", "kirjanpito"],
+    related: ["veroraportti", "verosuunnitelma", "maatalous"],
   },
   {
     slug: "asetukset",
-    group: "Hallinta ja tietoturva",
+    group: "Käyttäjät ja asetukset",
     icon: "gear",
     title: "Asetukset",
     summary: "Asetuksissa päätetään toimiston tiedot ja käyttäjät. Asetukset näkee vain pääkäyttäjä.",
-    highlights: ["Toimiston yhteystiedot", "Käyttäjät ja roolit", "Viimeisimmät muutokset"],
+    highlights: ["Toimiston yhteystiedot", "Käyttäjät ja roolit", "Viimeisimmät tapahtumat"],
     appPath: "/asetukset",
     appLabel: "Asetukset",
     sections: [
       {
         title: "Yhteystiedot",
-        text: "Sähköposti, puhelin ja postiosoite tulevat veroraportin kansilehdelle.",
+        text: "Kohdassa Toimiston yhteystiedot kirjoitat sähköpostin, puhelimen ja postiosoitteen ja valitset Tallenna yhteystiedot. Ne tulevat veroraportin kansilehdelle.",
       },
       {
         title: "Käyttäjän lisääminen",
         steps: [
+          "Mene kohtaan Lisää käyttäjä.",
           "Kirjoita uuden käyttäjän sähköposti ja nimi.",
           "Valitse rooli: pääkäyttäjä tai kirjanpitäjä.",
-          "Paina Lisää. Käyttäjä saa sähköpostiin kutsun.",
+          "Valitse Lisää. Käyttäjä saa sähköpostiin kutsun.",
           "Jos hänellä ei ole vielä tunnusta, hän asettaa kutsun linkistä salasanan.",
           "Hän kirjautuu samalla sähköpostiosoitteella, jolla lisäsit hänet.",
         ],
@@ -1134,12 +1340,12 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: "Kutsu uudelleen",
         steps: [
           "Etsi käyttäjä listasta. Hänen kohdallaan lukee Ei vielä kirjautunut.",
-          "Paina Lähetä kutsu uudelleen.",
+          "Valitse Lähetä kutsu uudelleen.",
         ],
       },
       {
         title: "Roolin vaihto",
-        steps: ["Valitse käyttäjän riviltä uusi rooli.", "Paina Tallenna."],
+        steps: ["Valitse käyttäjän riviltä uusi rooli.", "Valitse Tallenna."],
         text: "Toimistolla on aina oltava ainakin yksi pääkäyttäjä. Viimeistä pääkäyttäjää ei voi vaihtaa kirjanpitäjäksi.",
       },
       {
@@ -1147,17 +1353,17 @@ export const HELP_TOPICS: HelpTopic[] = [
         steps: [
           "Etsi käyttäjä listasta.",
           "Jos hänellä on asiakkaita, valitse kenelle ne siirtyvät.",
-          "Paina Poista käytöstä.",
+          "Valitse Poista käytöstä.",
         ],
-        text: "Käytöstä poistettu ei pääse enää kirjautumaan. Hänen tietonsa ja tekemänsä muutokset säilyvät. Voit ottaa hänet takaisin käyttöön painamalla Ota käyttöön. Et voi poistaa itseäsi etkä viimeistä pääkäyttäjää.",
+        text: "Käytöstä poistettu ei pääse enää kirjautumaan. Hänen tietonsa ja tekemänsä muutokset säilyvät. Voit ottaa hänet takaisin käyttöön valitsemalla Ota käyttöön. Et voi poistaa itseäsi etkä viimeistä pääkäyttäjää.",
       },
     ],
-    tips: ["Alimpana näkyvät viimeisimmät muutokset: kuka teki mitä ja milloin."],
-    related: ["kayttajat"],
+    tips: ["Alimpana on kohta Viimeisimmät tapahtumat: kuka teki mitä ja milloin."],
+    related: ["kayttajat", "aloitus"],
   },
   {
     slug: "kehitystoiveet",
-    group: "Hallinta ja tietoturva",
+    group: "Käyttäjät ja asetukset",
     icon: "bolt",
     title: "Kehitystoiveet",
     summary: "Kerro, mitä toivot ohjelmaan. Toiveet kootaan yhteen paikkaan toiminnoittain.",
@@ -1173,8 +1379,16 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Valitse toiminto, jota toive koskee.",
           "Kirjoita lyhyt otsikko.",
           "Kerro, mitä yrität tehdä ja mikä nyt on hankalaa.",
-          "Valitse, kuinka tärkeä asia on.",
-          "Lähetä.",
+          "Valitse, kuinka tärkeä asia on: Olisi mukava, Tärkeä tai Estää työn.",
+          "Valitse Lähetä toive.",
+        ],
+      },
+      {
+        title: "Toiveiden lista",
+        bullets: [
+          "Kehitystoiveet-sivulla näet toimiston toiveet.",
+          "Valitse Avoimet tai Tehdyt ja hylätyt.",
+          "Voit rajata listan toiminnon mukaan. Valitse toiminto ja Näytä.",
         ],
       },
       {
@@ -1193,7 +1407,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Pääkäyttäjä avaa toiveen listalta.",
           "Hän valitsee toiveelle tilan.",
           "Hän voi kirjoittaa vastauksen toiveen jättäjälle.",
-          "Tallenna.",
+          "Hän valitsee Tallenna.",
         ],
       },
     ],
@@ -1204,11 +1418,11 @@ export const HELP_TOPICS: HelpTopic[] = [
   },
   {
     slug: "kayttajat",
-    group: "Hallinta ja tietoturva",
+    group: "Käyttäjät ja asetukset",
     icon: "shield",
     title: "Käyttäjät, roolit ja tietoturva",
     summary: "Jokainen toimisto näkee vain omat tietonsa, ja jokainen muutos jää lokiin.",
-    highlights: ["Roolit: pääkäyttäjä ja kirjanpitäjä", "Toimistojen tiedot erillään tietokannassa", "Kirjautuminen kaksivaiheisella tunnistuksella"],
+    highlights: ["Roolit: pääkäyttäjä ja kirjanpitäjä", "Toimistojen tiedot erillään tietokannassa", "Sisään vain kutsulla"],
     appPath: "/asetukset",
     appLabel: "Asetukset",
     sections: [
@@ -1232,11 +1446,173 @@ export const HELP_TOPICS: HelpTopic[] = [
         bullets: [
           "Tietokanta itse rajaa jokaisen haun käyttäjän toimistoon. Rajaus ei ole pelkästään ohjelman varassa.",
           "Muutokset kirjataan lokiin samalla kertaa kuin itse muutos.",
-          "Henkilötunnuksia ei käsitellä. Henkilötietoja ei kirjoiteta osoitteisiin, lokeihin eikä virheviesteihin.",
+          "Henkilötunnuksia ei tallenneta. Tunnus kysytään vain veroilmoituksen tiedostoa tehtäessä, ja se on vain ladatussa tiedostossa.",
+          "Henkilötietoja ei kirjoiteta osoitteisiin, lokeihin eikä virheviesteihin.",
           "Tietokanta sijaitsee EU:ssa.",
+          "Lisää tietoa on sivulla Tietosuoja.",
         ],
       },
     ],
+    related: ["asetukset"],
+  },
+  {
+    slug: "tulossa",
+    group: "Käyttäjät ja asetukset",
+    icon: "megaphone",
+    title: "Tulossa olevat toiminnot",
+    summary: "Toiminnot, joita suunnitellaan tai tehdään. Ne tulevat ohjelmaan, kun ne valmistuvat.",
+    highlights: ["Arvonlisäveroilmoitus tiedostona", "Pankin tiliotteen sisäänluku", "Yhtymän veroilmoitus", "Vuokratulot samaan tiedostoon"],
+    upcoming: true,
+    sections: [
+      {
+        title: "Mitä on tulossa",
+        bullets: [
+          "Arvonlisäveroilmoitus tiedostona. Nyt luvut kirjoitetaan OmaVeroon käsin.",
+          "Pankin tiliotteen sisäänluku kirjanpitoon.",
+          "Pellon ja metsämaan vuokratulot (lomake 7L) samaan tiedostoon veroilmoituksen kanssa.",
+          "Yhtymän veroilmoitus (lomake 2Y) ja osakkaiden osuudet.",
+          "Metsänomistajan oma näkymä, jossa hän näkee omat tietonsa.",
+          "Lomakkeen 2 tiedoston koe Ilmoitin.fi-palvelussa. Siihen asti tarkista tiedosto aina ennen lähettämistä.",
+        ],
+      },
+      {
+        title: "Toivoisitko jotain muuta",
+        text: "Jätä kehitystoive. Toiveet auttavat päättämään, mitä tehdään seuraavaksi.",
+      },
+    ],
+    related: ["kehitystoiveet"],
+  },
+  {
+    slug: "siirtyminen",
+    group: "Vanhoista ohjelmista siirtyminen",
+    icon: "split",
+    title: "Siirtyminen vanhoista ohjelmista",
+    summary: "Tiedot tuodaan vanhasta Skogista ja Tilituki-ohjelmasta. Näin tunnistat tuodut tiedot ja tarkistat ne.",
+    highlights: ["Tilitukista koko historia vuodesta 2002", "Vanhat vuodet tulevat suljettuina", "Investoinnit poistohistorioineen", "Tuotu-merkki investoinneissa"],
+    sections: [
+      {
+        title: "Kuka siirron tekee",
+        text: "Tietojen siirron tekee ohjelman ylläpitäjä yhdessä toimiston kanssa. Sinun ei tarvitse tuoda mitään itse. Siirron jälkeen tarkistat, että luvut ovat oikein.",
+      },
+      {
+        title: "Mitä Tilitukista tuodaan",
+        bullets: [
+          "Asiakas. Hänet tunnistetaan Y-tunnuksesta, joten sama asiakas ei tule kahteen kertaan.",
+          "Kaikki vuodet, joilta asiakkaalla on kirjanpitoa Tilitukissa, vanhimmillaan vuodesta 2002. Tyhjiä vuosia ei tuoda.",
+          "Kirjaukset luokittain. Arvonlisäverokanta on sama kuin Tilitukissa, myös vanhat kannat, kuten 22 tai 24 prosenttia.",
+          "Metsän koneet, tiet, ojat ja rakennukset omina investointeinaan koko historian ajalta, myös myydyt ja kokonaan poistetut.",
+          "Maatalouden poistoryhmät, vuoden tiedot, tasausvaraukset ja kotieläinten jaksotukset.",
+        ],
+      },
+      {
+        title: "Tuodut ja suljetut vuodet",
+        bullets: [
+          "Vuodet 2024 asti tuodaan suljettuina. Niiden verotus on jo valmis, joten niitä ei voi muuttaa vahingossa.",
+          "Vuosi 2025 jää auki, koska sen veroilmoitus tehdään Skogissa. Vuosi 2026 avataan valmiiksi.",
+          "Näet vuodet asiakkaan Tiedot-välilehdellä taulukossa Verovuodet. Siirron sulkemassa vuodessa on sulkemispäivä mutta ei sulkijan nimeä.",
+          "Verovuosi-valikossa suljetun vuoden perässä lukee (suljettu).",
+          "Siirrossa suljetuista vuosista ei ole arkistossa raporttia. Voit silti avata raportin nykyisillä luvuilla.",
+          "Vanhan vuoden raportti lasketaan nykyisillä säännöillä. Se ei ole verotuksen asiakirja, koska verotus tehtiin jo vanhalla ohjelmalla.",
+          "Jos vanhaa vuotta pitää korjata, pääkäyttäjä voi avata sen. Avaus jää lokiin.",
+        ],
+      },
+      {
+        title: "Investoinnit siirron jälkeen",
+        steps: [
+          "Avaa asiakas ja valitse välilehti Investoinnit.",
+          "Tuoduissa investoinneissa on merkki Tuotu.",
+          "Menojäännös on viimeisen kirjatun vuoden lopussa. Vertaa sitä vanhan ohjelman poistolaskelmaan.",
+          "Valitse Poistohistoria, niin näet jokaisen vuoden poiston.",
+          "Maatalouden poistoryhmät ovat sivun lopussa omana taulukkonaan.",
+        ],
+        bullets: [
+          "Kokonaan poistettu investointi ei näy verosuunnitelmassa.",
+          "Jos muutat tuotua investointia, uusi siirto ei enää muuta sitä.",
+        ],
+      },
+      {
+        title: "Mitä tarkistat siirron jälkeen",
+        steps: [
+          "Valitse kirjanpidossa vuosi 2025. Vertaa korttien tuloja ja menoja vanhaan ohjelmaan.",
+          "Avaa Lomake 2 ja vertaa maatalouden tulosta vanhan ohjelman lomakkeeseen 2.",
+          "Tarkista Investoinnit-sivulta menojäännökset.",
+          "Tarkista Lomake 2 -välilehdeltä purkamattomat tasausvaraukset ja kotieläinten jaksotukset.",
+          "Jos löydät eron, kerro siitä kehitystoiveella. Älä kirjoita toiveeseen asiakkaan nimeä.",
+        ],
+      },
+      {
+        title: "Vanha Skog",
+        text: "Vanhasta Skogista tuodaan asiakkaat, metsätilat, kirjaukset, investoinnit ja tositteet. Vanha Skog on käytössä, kunnes uusi otetaan käyttöön.",
+      },
+      {
+        title: "Asiakas, joka ei ole vanhassa ohjelmassa",
+        text: "Lisää asiakas itse. Aloita edellisen vuoden veroilmoituksesta. Lisää aiemmat investoinnit menojäännöksineen Investoinnit-sivulla. Lisää maatalouden varaukset ja jaksotukset Lomake 2 -välilehdellä. Katso ohjeet Investoinnit ja poistot sekä Lomake 2.",
+      },
+    ],
+    related: ["investoinnit", "maatalous", "asiakkaat"],
+  },
+  {
+    slug: "usein-kysyttya",
+    group: "Usein kysyttyä",
+    icon: "info",
+    title: "Usein kysyttyä",
+    summary: "Lyhyet vastaukset tavallisiin kysymyksiin.",
+    highlights: ["Miksi en voi muuttaa kirjausta", "Mihin kirjaukset katosivat", "Miksi tiedostoa ei voi ladata"],
+    sections: [
+      {
+        title: "En näe asiakasta listassa",
+        text: "Kirjanpitäjä näkee vain asiakkaat, joiden vastuukirjanpitäjä hän on. Pyydä pääkäyttäjää vaihtamaan sinut vastuukirjanpitäjäksi. Asiakas voi olla myös arkistoitu: valitse Näytä arkistoidut.",
+      },
+      {
+        title: "Verovuosi puuttuu valikosta",
+        text: "Vuotta ei ole vielä avattu. Avaa se asiakkaan Tiedot-välilehdellä: kirjoita vuosi kohtaan Uusi vuosi ja valitse Avaa vuosi.",
+      },
+      {
+        title: "En voi muuttaa kirjausta",
+        text: "Vuosi on suljettu. Sivulla lukee silloin, että verovuosi on suljettu. Pääkäyttäjä voi avata vuoden asiakkaan Tiedot-välilehdellä.",
+      },
+      {
+        title: "Kirjaukset katosivat taulukosta",
+        text: "Tarkista ensin suodatin. Näytä kaikki palauttaa koko vuoden. Tarkista myös verovuosi ja välilehti. Metsän ja maatalouden kirjaukset ovat eri välilehdillä.",
+      },
+      {
+        title: "Kirjasin rivin väärään kirjanpitoon",
+        text: "Avaa kirjaus päivästä ja vaihda luokka. Rivi siirtyy toisen toiminnon kirjanpitoon.",
+      },
+      {
+        title: "Ehdotusrivit eivät tallentuneet",
+        text: "Ehdotus tallentuu vasta, kun tallennat taulukon. Rivi, jolta poistit ruksin kohdasta Hyväksy tallennettaessa, jää odottamaan. Jos ilmoitus kertoo, että rivejä odottaa toisessa kirjanpidossa, avaa se ja tallenna rivit siellä.",
+      },
+      {
+        title: "Investointi ei näy verosuunnitelmassa",
+        text: "Kokonaan poistettu investointi ei näy. Aiemmin hankittu investointi näkyy vasta menojäännöksen vuotta seuraavana vuonna. Maatalouden investoinnit ovat ryhmissä, ja ne näkyvät kohdassa Maatalouden poistot.",
+      },
+      {
+        title: "Metsävähennystä ei voi valita",
+        text: "Vähennys on vähintään 1 500 euroa. Jos tuloja on vähän tai pohja puuttuu, vähennystä ei voi tehdä. Tarkista metsätilan hankintahinta ja metsän osuus asiakkaan sivulla.",
+      },
+      {
+        title: "Veroilmoituksen tiedostoa ei voi ladata",
+        text: "Korjaa ensin punaiset virheet. Vahvista verosuunnitelma. Tiedoston voi tehdä vain vuosille, joiden tiedostokuvaus on Skogissa, nyt 2025 ja 2026.",
+      },
+      {
+        title: "Miksi henkilötunnus kysytään joka kerta",
+        text: "Skog ei tallenna henkilötunnuksia. Tunnus on vain ladatussa tiedostossa. Poista tiedosto koneeltasi, kun olet lähettänyt sen.",
+      },
+      {
+        title: "Mitä Tuotu tarkoittaa",
+        text: "Investointi on tuotu vanhasta ohjelmasta. Katso ohje Siirtyminen vanhoista ohjelmista.",
+      },
+      {
+        title: "Kutsu ei tullut perille",
+        text: "Tarkista roskaposti. Pääkäyttäjä voi valita Asetuksissa Lähetä kutsu uudelleen.",
+      },
+      {
+        title: "Miten annan palautetta",
+        text: "Valitse sivun yläkulmasta Kehitystoive. Kerro, mitä yritit tehdä. Älä kirjoita toiveeseen asiakkaiden henkilötietoja.",
+      },
+    ],
+    related: ["aloitus", "kehitystoiveet"],
   },
 ];
 

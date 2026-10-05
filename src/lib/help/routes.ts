@@ -12,6 +12,7 @@ const ROUTES: { pattern: RegExp; query?: RegExp; slug: string; section?: string 
   { pattern: /^\/tyopoyta/, slug: "tyopoyta" },
   { pattern: /^\/asiakkaat\/uusi/, slug: "asiakkaat", section: "Uusi asiakas" },
   { pattern: /^\/asiakkaat\/[^/]+\/metsatilat\/uusi/, slug: "metsatilat", section: "Uusi metsätila" },
+  { pattern: /^\/asiakkaat\/[^/]+\/muokkaa/, slug: "asiakkaat", section: "Tietojen muokkaus" },
   { pattern: /^\/asiakkaat\/[^/]+\/metsatilat/, slug: "metsatilat" },
   { pattern: /^\/asiakkaat\/[^/]+\/kirjanpito\/[^/]+/, slug: "kirjanpito", section: "Muokkaus ja poisto" },
   { pattern: /^\/asiakkaat\/[^/]+\/kirjanpito\/?$/, query: /(^|&)toiminta=maatalous(&|$)/, slug: "maatalouden-kirjanpito" },
