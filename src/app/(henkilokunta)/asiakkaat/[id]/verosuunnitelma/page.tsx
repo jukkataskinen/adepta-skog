@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import { EmptyState, Notice, PageHeader } from "@/components/ui";
 import { FormError } from "@/components/FormError";
@@ -42,7 +43,8 @@ export default async function TaxPlanPage({
   const closed = years.find((y) => y.year === year)?.status === "closed";
 
   return (
-    <>
+    // Avain vuoden mukaan: vuoden vaihto rakentaa sivun alusta, jotta lomakkeiden ja taulukon tila ei jää edellisestä vuodesta.
+    <Fragment key={year}>
       <PageHeader title={`${c.first_name} ${c.last_name}`.trim()} subtitle="Verosuunnitelma" back={{ href: "/asiakkaat", label: "Asiakkaat" }} />
       <ClientTabs clientId={id} active="verosuunnitelma" year={year} agriculture={c.has_agriculture} forestry={c.has_forestry} />
       <FormError message={sp.virhe} />
@@ -95,6 +97,6 @@ export default async function TaxPlanPage({
           </p>
         </>
       )}
-    </>
+    </Fragment>
   );
 }

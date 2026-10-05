@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import { EmptyState, Notice, PageHeader, SectionTitle, Stat, Table, Td, Th } from "@/components/ui";
 import { requireStaff } from "@/lib/auth/current-user";
@@ -31,7 +32,8 @@ export default async function VatPage({ params, searchParams }: { params: Promis
   const s = vatSummary(vatRowsFrom(data.rows));
 
   return (
-    <>
+    // Avain vuoden mukaan: vuoden vaihto rakentaa sivun alusta, jotta lomakkeiden ja taulukon tila ei jää edellisestä vuodesta.
+    <Fragment key={year}>
       <PageHeader title={`${c.first_name} ${c.last_name}`.trim()} subtitle="Arvonlisävero" back={{ href: "/asiakkaat", label: "Asiakkaat" }} />
       <ClientTabs clientId={id} active="alv" year={year} agriculture={c.has_agriculture} forestry={c.has_forestry} />
       {year === null ? (
@@ -163,6 +165,6 @@ export default async function VatPage({ params, searchParams }: { params: Promis
           )}
         </>
       )}
-    </>
+    </Fragment>
   );
 }

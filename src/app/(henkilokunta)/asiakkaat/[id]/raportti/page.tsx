@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import { EmptyState, Notice, PageHeader, Panel, SectionTitle, Table, Td, Th } from "@/components/ui";
 import { requireStaff } from "@/lib/auth/current-user";
@@ -51,7 +52,8 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
   const reports = docs.filter((d) => d.kind === "report");
 
   return (
-    <>
+    // Avain vuoden mukaan: vuoden vaihto rakentaa sivun alusta, jotta lomakkeiden ja taulukon tila ei jää edellisestä vuodesta.
+    <Fragment key={year}>
       <PageHeader title={`${c.first_name} ${c.last_name}`.trim()} subtitle="Veroraportti ja arkisto" back={{ href: "/asiakkaat", label: "Asiakkaat" }} />
       <ClientTabs clientId={id} active="raportti" year={year} agriculture={c.has_agriculture} forestry={c.has_forestry} />
       {year === null ? (
@@ -278,6 +280,6 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
           )}
         </>
       )}
-    </>
+    </Fragment>
   );
 }

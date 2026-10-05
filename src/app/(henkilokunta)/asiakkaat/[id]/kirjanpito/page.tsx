@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button, EmptyState, Field, Input, Notice, PageHeader, Panel, SectionTitle, Select, Stat, Table, Td, Th } from "@/components/ui";
@@ -125,7 +126,8 @@ export default async function LedgerPage({
   const filterCategories = menuCategories({ hasForestry: c.has_forestry, hasAgriculture: c.has_agriculture }, view);
 
   return (
-    <>
+    // Avain vuoden mukaan: vuoden vaihto rakentaa sivun alusta, jotta lomakkeiden ja taulukon tila ei jää edellisestä vuodesta.
+    <Fragment key={`${year}${viewParam ?? ""}`}>
       <PageHeader
         title={`${c.first_name} ${c.last_name}`.trim()}
         subtitle={view ? VIEW_TITLE[view] : "Kirjanpito"}
@@ -411,6 +413,6 @@ export default async function LedgerPage({
           ) : null}
         </>
       )}
-    </>
+    </Fragment>
   );
 }

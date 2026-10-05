@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button, EmptyState, Field, Input, LinkButton, Notice, PageHeader, Panel, SectionTitle, Select, Stat, Table, Td, Th } from "@/components/ui";
@@ -98,7 +99,8 @@ export default async function AgriculturePage({
   );
 
   return (
-    <>
+    // Avain vuoden mukaan: vuoden vaihto rakentaa sivun alusta, jotta lomakkeiden ja taulukon tila ei jää edellisestä vuodesta.
+    <Fragment key={year}>
       <PageHeader title={`${c.first_name} ${c.last_name}`.trim()} subtitle="Lomake 2 (maatalouden veroilmoitus)" back={{ href: "/asiakkaat", label: "Asiakkaat" }} />
       <ClientTabs clientId={id} active="maatalous" year={year} agriculture={c.has_agriculture} forestry={c.has_forestry} />
       <FormError message={sp.virhe} />
@@ -792,6 +794,6 @@ export default async function AgriculturePage({
           </p>
         </>
       )}
-    </>
+    </Fragment>
   );
 }
