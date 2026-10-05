@@ -13,15 +13,13 @@ import { effectiveVatRate, OTHER_SHARE_MESSAGE, SALE_ASSET_MESSAGE, toFinnishDat
 import { ACTIVITY_MESSAGE, FORESTRY_OFF_MESSAGE, inView, viewMessage } from "@/lib/ledger/grid";
 import { deleteTransaction, LedgerError, saveTransaction } from "@/lib/ledger/write";
 import { GridSaveError, saveLedgerGrid } from "@/lib/ledger/grid-save";
-import { MAX_GRID_ROWS, rowFromStored, rowsFromSuggestion, withDuplicateWarnings, type GridSaveState } from "@/lib/ledger/grid";
-import { listPendingSuggestions } from "@/lib/documents/receipt-suggestions";
-import { listTransactions } from "@/lib/ledger/queries";
-import { loadExpected, setExpectedSkip } from "@/lib/ledger/expected-load";
+import { MAX_GRID_ROWS, rowFromStored, type GridSaveState } from "@/lib/ledger/grid";
+import { loadSuggestionRows } from "@/lib/ledger/suggestion-rows";
 import { isoDateHelsinki } from "@/lib/format";
+import { listTransactions } from "@/lib/ledger/queries";
 import { documentPath, getStorage } from "@/lib/storage";
 
 const uuid = z.string().uuid();
-const EXPECTED_KEY = /^[0-9a-f]{8}$/;
 
 // Perustiedot tarkistetaan samalla skeemalla kuin taulukkosyötössä (src/lib/ledger/transaction-input.ts).
 const transactionSchema = transactionFieldsSchema.extend({
@@ -81,8 +79,6 @@ export async function saveTransactionAction(formData: FormData) {
     ? `/asiakkaat/${clientId}/kirjanpito/${formData.get("transactionId")}`
     : `/asiakkaat/${clientId}/kirjanpito?vuosi=${year}&syotto=lomake${viewQuery(paramView)}`;
   const parsed = parseForm(transactionSchema, formData, back);
-  // Odotetusta kirjauksesta esitäytetty lomake: tunniste lokiin, jotta näkyy, mistä kirjaus tuli.
-  const expectedKey = !editing && EXPECTED_KEY.test(String(formData.get("odotettu") ?? "")) ? String(formData.get("odotettu")) : null;
   // Jaksota-valinta vaihtaa kotieläinluokan jaksotettavaksi tai takaisin (rules.ts withLivestockDeferral).
   const input = allowsLivestockDeferral(parsed.category) ? { ...parsed, category: withLivestockDeferral(parsed.category, parsed.livestockDeferral) } : parsed;
   if (isAssetSale(input.category) && !input.saleAssetId && !editing) fail(back, SALE_ASSET_MESSAGE);
@@ -124,7 +120,7 @@ export async function saveTransactionAction(formData: FormData) {
         assetRatePct: input.assetRatePct,
         agriAssetChoice: input.agriAssetChoice,
         saleAssetId: input.saleAssetId,
-      }, expectedKey ? { expectedKey } : undefined);
+      });
     });
   } catch (err) {
     if (err instanceof LedgerError) fail(back, err.message);
@@ -133,9 +129,7 @@ export async function saveTransactionAction(formData: FormData) {
     throw err;
   }
   revalidatePath(`/asiakkaat/${clientId}/kirjanpito`);
-  redirect(
-    `/asiakkaat/${clientId}/kirjanpito?vuosi=${input.bookedOn.slice(0, 4)}${editing ? "" : "&syotto=lomake&lisatty=1"}${viewQuery(view)}${expectedKey ? "&odotetut=1#odotetut" : ""}`,
-  );
+  redirect(`/asiakkaat/${clientId}/kirjanpito?vuosi=${input.bookedOn.slice(0, 4)}${editing ? "" : "&syotto=lomake&lisatty=1"}${viewQuery(view)}`);
 }
 
 const gridRowSchema = z.object({
@@ -203,18 +197,17 @@ export async function saveLedgerGridAction(formData: FormData): Promise<GridSave
       });
       return { counts: c, view: v, vatRegistered: found?.client.vat_registered ?? false };
     });
-    const { all, pending } = await ctx.run(async (tx) => ({
-      all: await listTransactions(tx, clientId, year),
-      pending: await listPendingSuggestions(tx, clientId, year, view),
-    }));
     // Odottavat ehdotukset (myös odottamaan jätetyt rivit) palautetaan samassa muodossa
     // kuin sivu ne näyttää, jotta taulukko näyttää ne heti tallennuksen jälkeen.
-    const today = new Date().toISOString().slice(0, 10);
+    const today = isoDateHelsinki();
     const defaultDate = toFinnishDate(today.startsWith(String(year)) ? today : `${year}-01-01`);
-    const suggestionRows = withDuplicateWarnings(
-      pending.flatMap((sg) => rowsFromSuggestion(sg, { vatRegistered, defaultDate, year })),
-      all,
-    );
+    const { all, suggestionRows } = await ctx.run(async (tx) => {
+      const stored = await listTransactions(tx, clientId, year);
+      return {
+        all: stored,
+        suggestionRows: await loadSuggestionRows(tx, { organizationId: ctx.org.organizationId, clientId, year, view, vatRegistered, defaultDate }, stored),
+      };
+    });
     revalidatePath(`/asiakkaat/${clientId}/kirjanpito`);
     revalidatePath(`/asiakkaat/${clientId}/raportti`);
     return { status: "saved", ...counts, rows: all.filter((t) => inView(t.category, view)).map(rowFromStored), suggestionRows };
@@ -332,43 +325,4 @@ export async function deleteDocumentAction(formData: FormData) {
   }
   revalidatePath(back);
   redirect(back);
-}
-
-const skipSchema = z.object({
-  clientId: uuid,
-  year: z.coerce.number().int().min(2000).max(2100),
-  key: z.string().regex(EXPECTED_KEY),
-  skip: z.enum(["0", "1"]),
-});
-
-/**
- * Odotettu kirjaus "ei tule tänä vuonna" tai palautus (0019). Tunniste
- * tarkistetaan laskemalla odotetut kirjaukset uudelleen, jotta tauluun ei
- * tallennu tunnisteita, joita ei ole. Suljettu vuosi estyy myös kannassa.
- */
-export async function skipExpectedAction(formData: FormData) {
-  const ctx = await requireStaff();
-  const clientId = uuid.parse(formData.get("clientId"));
-  const year = Number(formData.get("year"));
-  const param = formData.get("toiminta");
-  const paramView = param === ACTIVITY_PARAM.agriculture ? "agriculture" : null;
-  const back = `/asiakkaat/${clientId}/kirjanpito?vuosi=${year}${viewQuery(paramView)}&odotetut=1`;
-  const input = parseForm(skipSchema, formData, back);
-  const actor = { organizationId: ctx.org.organizationId, userId: ctx.user.id };
-  try {
-    await ctx.run(async (tx) => {
-      await requireOpenYear(tx, clientId, input.year, back);
-      const found = await clientView(tx, clientId, param);
-      if (!found) fail(back, "Asiakasta ei löytynyt.");
-      const { states } = await loadExpected(tx, { id: clientId, vatRegistered: found.client.vat_registered }, input.year, found.view, isoDateHelsinki());
-      if (!states.some((s) => s.key === input.key)) fail(back, "Odotettua kirjausta ei löytynyt. Lataa sivu uudelleen.");
-      await setExpectedSkip(tx, actor, clientId, input.year, input.key, input.skip === "1");
-    });
-  } catch (err) {
-    const f = friendly(err);
-    if (f) fail(back, f);
-    throw err;
-  }
-  revalidatePath(`/asiakkaat/${clientId}/kirjanpito`);
-  redirect(`${back}#odotetut`);
 }

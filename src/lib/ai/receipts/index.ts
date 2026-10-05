@@ -26,13 +26,21 @@ export interface ReceiptFile {
 }
 
 /**
- * Asiakkaan toiminnot ja oletustoiminto (näkymä, josta tunnistus aloitettiin).
- * Palveluun lähtee vain tämä tieto, ei asiakkaan nimeä eikä muita tietoja.
+ * Asiakkaan toiminnot ja oletustoiminto (näkymä, josta tunnistus aloitettiin)
+ * sekä tavallisimmat tiliöinnit vihjeeksi. Asiakkaan nimeä tai muita
+ * asiakastietoja ei lähetetä.
  * Puuttuva = pelkkä metsätalous kuten ennen.
  */
 export interface RecognitionContext {
   activities: Activity[];
   defaultActivity: Activity;
+  /**
+   * Asiakkaan tavallisimmat tiliöinnit vihjeeksi (DECISIONS 6.10.2026): enintään
+   * 30 riviä "selitteen avainsanat → luokka, alv, osuus". Asiakkaan omaa
+   * kirjanpitoa samalle käsittelijälle kuin tositteet; ei nimeä, summia eikä
+   * viitteitä. Puuttuva = viesti on ennallaan.
+   */
+  postingHints?: string[];
 }
 
 export const FORESTRY_CONTEXT: RecognitionContext = { activities: ["forestry"], defaultActivity: "forestry" };

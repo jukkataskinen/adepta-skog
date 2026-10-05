@@ -84,8 +84,10 @@ alikäsittelijöitä, joiden luettelo on osoitteessa skog.adepta.fi/tietosuoja.
 Tiedot säilytetään EU:ssa (Irlanti). Jos pyydämme ohjelmaa lukemaan tositteen
 puolestamme, tosite lähetetään Anthropic PBC:n tekoälypalveluun
 Yhdysvaltoihin. Palvelu ehdottaa kirjauksia, ja kirjanpitäjämme tarkistaa ne
-ennen tallennusta. Palveluun ei lähetetä nimeäsi eikä muita tietoja
-ohjelmasta, vain tosite. Anthropic ei käytä tositetta tekoälyn
+ennen tallennusta. Palveluun ei lähetetä nimeäsi. Tositteen lisäksi palvelu
+saa vihjeeksi kirjanpitosi tavallisimmat aiemmat tiliöinnit: selitteen
+avainsanat, luokan, arvonlisäveroprosentin ja osuuden, ei summia eikä
+viitteitä. Anthropic ei käytä tositetta tekoälyn
 kouluttamiseen, ja se poistaa tositteen 30 päivän kuluessa. Siirron perusteena
 ovat EU:n vakiosopimuslausekkeet.
 

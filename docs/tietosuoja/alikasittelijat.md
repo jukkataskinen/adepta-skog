@@ -23,7 +23,7 @@ Adepta Oy käyttää Skog-palvelun tuottamiseen seuraavia alikäsittelijöitä.
 | Supabase Inc. | Tietokanta ja tiedostot (tositteet, arkistoidut raportit) | Kaikki palvelun tiedot | Data AWS eu-west-1 (Irlanti). Yhtiö Yhdysvalloissa. | Supabasen DPA, EU:n vakiolausekkeet (moduuli 2) mahdolliselle tukipääsylle |
 | Vercel Inc. | Sovelluspalvelin: sivut ja palvelinfunktiot | Kaikki pyynnöt käsittelyn ajan, palvelimen tekniset lokit | Funktiot alueella dub1 (Dublin, Irlanti). Yhtiö Yhdysvalloissa. | Vercelin DPA, EU:n vakiolausekkeet |
 | Okta Inc. (Auth0) | Käyttäjien kirjautuminen ja kutsut | Käyttäjän sähköposti, nimi, salasanan tiiviste, kirjautumistapahtumat | **Yhdysvallat** (nykyinen tenantti) | Oktan DPA, EU:n vakiolausekkeet |
-| Anthropic PBC | Tositteiden tunnistus tekoälyllä, vain kun kirjanpitäjä pyytää | Tositetiedosto (voi sisältää metsänomistajan ja kolmansien osapuolten nimiä, osoitteita ja summia) | **Yhdysvallat** | Anthropicin DPA (osa kaupallisia ehtoja), EU:n vakiolausekkeet (moduulit 2 ja 3) |
+| Anthropic PBC | Tositteiden tunnistus tekoälyllä, vain kun kirjanpitäjä pyytää | Tositetiedosto (voi sisältää metsänomistajan ja kolmansien osapuolten nimiä, osoitteita ja summia) ja vihjeeksi asiakkaan tavallisimmat tiliöinnit (selitteen avainsanat, luokka, alv-% ja osuus) | **Yhdysvallat** | Anthropicin DPA (osa kaupallisia ehtoja), EU:n vakiolausekkeet (moduulit 2 ja 3) |
 | Resend Inc. | Käyttäjien kutsusähköpostit | Vastaanottajan sähköposti ja nimi, toimiston nimi, kutsulinkki | Tarkistettava (Resendillä on EU-alue) | Resendin DPA |
 
 Resend ei ole vielä tuotantokäytössä: kutsut ovat testitilassa (`EMAIL_MODE=mock`), eikä viestejä lähetetä (BLOCKERS 7). Se on luettelossa, jotta sen voi ottaa käyttöön ilman erillistä ilmoitusta.

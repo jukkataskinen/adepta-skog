@@ -289,7 +289,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     icon: "list",
     title: "Kirjanpito",
     summary: "Metsätalouden tulot, menot ja investoinnit verovuosittain, tositteet mukana.",
-    highlights: ["Koko vuosi taulukossa, näppäimistöllä", "Summa kuten kuitissa, arvonlisävero lasketaan", "Rivit Excelistä", "Tosite jokaiseen kirjaukseen", "Tekoäly ehdottaa kirjaukset tositteesta", "Odotetut kirjaukset edellisiltä vuosilta"],
+    highlights: ["Koko vuosi taulukossa, näppäimistöllä", "Summa kuten kuitissa, arvonlisävero lasketaan", "Rivit Excelistä", "Tosite jokaiseen kirjaukseen", "Tekoäly ehdottaa kirjaukset tositteesta", "Tiliöintiehdotukset aiemmista kirjauksista"],
     sections: [
       {
         title: "Taulukkosyöttö",
@@ -314,6 +314,28 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
+        title: "Tiliöintiehdotukset",
+        text: "Kun kirjoitat selitteen, ohjelma katsoo, miten asiakkaan aiemmat samanlaiset kirjaukset on tiliöity. Se ehdottaa luokkaa, alv-prosenttia, osuutta ja maatilaa. Ehdotus on aina vain ehdotus. Mikään ei muutu, ennen kuin valitset sen, eikä mikään tallennu, ennen kuin tallennat.",
+        steps: [
+          "Kirjoita uudelle riville selite, esimerkiksi tiemaksu.",
+          "Hetken päästä selitteen alle tulee lista Ehdotus aiemmista tiliöinneistä. Ylimpänä on paras ehdotus, alla enintään kaksi muuta.",
+          "Jokaisen ehdotuksen alla lukee, mistä se tulee. Esimerkiksi: Tiliöity kuten 4/2024: 9 Muut vuosimenot, alv 25,5 %, osuus 50 %; 3 kertaa vuosina 2022–2024.",
+          "Jos haluat käyttää ehdotusta, paina nuoli alas ja sitten Enter tai Tab. Voit myös napsauttaa ehdotusta.",
+          "Ohjelma täyttää luokan, alv %:n, osuuden ja maatilan. Kursori siirtyy summaan.",
+          "Kirjoita summa ja tarkista rivi. Tallenna kuten ennenkin.",
+        ],
+        bullets: [
+          "Jos et halua ehdotusta, jatka vain kirjoittamista. Enter ja Tab toimivat kuten ennen, kun et ole valinnut ehdotusta. Esc sulkee listan.",
+          "Päivä, summa ja selite jäävät aina sinulle.",
+          "Ehdotus tulee ensin saman asiakkaan omista kirjauksista kaikilta vuosilta. Uudet ja usein toistuneet kirjaukset painavat eniten.",
+          "Jos alv-kanta on sen jälkeen muuttunut, ehdotuksessa on nykyinen kanta, esimerkiksi 24 % → 25,5 %. Peruste kertoo sen.",
+          "Jos asiakkaalla ei ole samanlaista kirjausta, ehdotus voi tulla toimiston muilta asiakkailta. Silloin siinä on merkki toimisto. Siinä on vain luokka ja alv, joten tarkista osuus itse. Muiden asiakkaiden selitteitä tai summia et näe.",
+          "Saat ehdotuksia vain asiakkaista, joiden kirjanpidon näet.",
+          "Ehdotukset tulevat vain uusille riveille. Tallennetun kirjauksen ja tositteen ehdotusrivin tiliöinti ei muutu, kun muokkaat selitettä.",
+          "Lomakkeella toimii sama: ehdotukset tulevat selitteen alle, ja valinta täyttää kentät.",
+        ],
+      },
+      {
         title: "Suodatus ja haku",
         text: "Voit näyttää vain osan vuoden kirjauksista. Suodatin on taulukon ja luettelon yläpuolella.",
         steps: [
@@ -330,33 +352,13 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
-        title: "Odotetut kirjaukset",
-        text: "Ohjelma katsoo asiakkaan edellisten vuosien kirjaukset ja kertoo, mitä tänä vuonna yleensä tulee: esimerkiksi metsänhoitomaksu maaliskuussa tai tiemaksu neljä kertaa vuodessa. Näin huomaat, jos jokin lasku puuttuu.",
-        steps: [
-          "Avaa asiakkaan Kirjanpito ja valitse verovuosi.",
-          "Avaa kohta Odotetut kirjaukset. Otsikossa näkyy yhteenveto, esimerkiksi 12 odotettua, 7 kirjattu, 2 puuttuu.",
-          "Katso jokaisen rivin tila: Kirjattu, Myöhässä, Tulossa tai Ohitettu.",
-          "Jos kirjaus puuttuu, valitse Lisää kirjaukseksi. Lomake aukeaa valmiiksi täytettynä.",
-          "Tarkista päivä ja summa tositteesta. Muuta niitä tarvittaessa ja valitse Lisää kirjaus.",
-          "Jos kirjausta ei tänä vuonna tule, valitse Ei tule tänä vuonna. Rivi merkitään ohitetuksi. Palauta tuo sen takaisin.",
-        ],
-        bullets: [
-          "Kirjaus on odotettu, kun se on ollut ainakin kahtena kolmesta edellisestä vuodesta. Sarake Aiemmin kertoo, monenako vuotena.",
-          "Kirjattu tarkoittaa, että tältä vuodelta löytyy saman luokan kirjaus, jonka selite on samanlainen tai summa lähellä arviota.",
-          "Myöhässä tarkoittaa, että tavallinen kuukausi on jo mennyt eikä kirjausta löydy.",
-          "Arvio on viime vuoden summa. Sen alla näkyy, miten summa on vaihdellut.",
-          "Uudelle asiakkaalle ennuste alkaa toisesta vuodesta. Silloin ennuste perustuu vain edelliseen vuoteen.",
-          "Puukaupat ja investoinnit eivät yleensä toistu, joten niitä ei ennusteta.",
-          "Suljetun vuoden listaa voit vain katsoa.",
-        ],
-      },
-      {
         title: "Näppäimet taulukossa",
         bullets: [
           "Enter tai Tab: seuraava kenttä. Rivin lopussa seuraava rivi tai uusi rivi.",
           "Enter hyppää Osuus %:n yli, koska se on harvoin tarpeen. Tab tai hiiren napsautus vie siihen.",
           "Shift + Tab tai Shift + Enter: edellinen kenttä.",
           "Nuoli ylös tai alas: sama kenttä edellisellä tai seuraavalla rivillä. Selitteessä nuolet liikkuvat tekstissä.",
+          "Selitteessä, kun ehdotuslista näkyy: nuoli alas valitsee ehdotuksen, Enter tai Tab käyttää sitä ja Esc sulkee listan. Ilman valintaa Enter ja Tab siirtävät kuten ennen.",
           "Luokassa: numero valitsee suoraan. Numerot 10, 11 ja 12 kirjoitetaan peräkkäin. Nuolet liikkuvat valikossa, Enter valitsee ja Esc sulkee.",
           "T vaihtaa tulon menoksi tai menon tuloksi. Investoinnissa tyyppi ei vaihdu.",
           "Delete tyyppisarakkeessa poistaa rivin. Ctrl + Z palauttaa sen.",
@@ -470,6 +472,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         steps: [
           "Valitse taulukon yläpuolelta Lomake, jos haluat kirjata yhden rivin kerrallaan.",
           "Täytä päivä, luokka, selite ja summa arvonlisäveron kanssa.",
+          "Kun kirjoitat selitteen, sen alle voi tulla ehdotus aiemmista tiliöinneistä. Napsauta sitä, jos haluat käyttää sitä. Luokka, alv ja osuus täyttyvät, mutta mitään ei tallenneta vielä.",
           "Jätä Alv % tyhjäksi, niin ohjelma käyttää oletusta.",
           "Jos vain osa kuuluu metsätaloudelle, avaa Lisätiedot ja kirjoita metsätalouden osuus prosentteina.",
           "Valitse Lisää kirjaus.",
@@ -529,8 +532,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         ],
       },
       {
-        title: "Odotetut kirjaukset",
-        text: "Maatalouden kirjanpidossa on oma lista odotetuista kirjauksista, esimerkiksi tukien maksut ja vuosittaiset vakuutukset. Lista näyttää vain maatalouden kirjaukset. Käyttö on sama kuin metsätaloudessa: katso ohjeen Kirjanpito kohta Odotetut kirjaukset.",
+        title: "Tiliöintiehdotukset",
+        text: "Kun kirjoitat selitteen, ohjelma ehdottaa tiliöintiä asiakkaan aiemmista maatalouden kirjauksista: luokan, alv-prosentin, osuuden ja maatilan. Ehdotus ei täytä mitään itse. Käyttö on sama kuin metsätaloudessa: katso ohjeen Kirjanpito kohta Tiliöintiehdotukset.",
       },
       {
         title: "Kirjaaminen taulukkoon",
@@ -731,9 +734,25 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Jos jotain osaa ei voitu lukea, näet esimerkiksi Sivuja 17–24 ei voitu lukea. Valitse Yritä uudelleen. Voit myös valita Tee ehdotus luetuista sivuista ja kirjata puuttuvat sivut käsin.",
           "Aloita alusta lukee koko tiedoston uudelleen.",
           "Jos tositetta ei voitu tunnistaa, kirjaa se käsin tavalliseen tapaan.",
-          "Tosite lähetetään tunnistuspalveluun (Anthropic) Yhdysvaltoihin. Palveluun ei lähetetä asiakkaan nimeä eikä muita tietoja ohjelmasta. Palvelu ei käytä tositetta tekoälyn kouluttamiseen, ja se poistaa tositteen 30 päivän kuluessa. Lisää tietoa on sivulla Tietosuoja (skog.adepta.fi/tietosuoja).",
+          "Tosite lähetetään tunnistuspalveluun (Anthropic) Yhdysvaltoihin. Palveluun ei lähetetä asiakkaan nimeä. Tositteen lisäksi palvelu saa vihjeeksi asiakkaan tavallisimmat tiliöinnit: selitteen avainsanat, luokan, alv-prosentin ja osuuden, ei summia eikä viitteitä. Palvelu ei käytä tositetta tekoälyn kouluttamiseen, ja se poistaa tositteen 30 päivän kuluessa. Lisää tietoa on sivulla Tietosuoja (skog.adepta.fi/tietosuoja).",
           "Suljetun vuoden tositteita ei tunnisteta.",
           "Kun kokeilet ohjelmaa ilman tunnistuspalvelua, ehdotus tehdään tiedoston nimestä, eikä tositetta lähetetä minnekään. Nimi, jossa on sana kokooma, antaa esimerkin monen tositteen tiedostosta, ja nimi, jossa on sana maatila, maatilan tositteista. Maatalousasiakkaalla myös nimet meijeri, teurastamo, vilja, vipu, konekauppa, eläinkauppa, sähkö, myel, laina ja osuusmaksu antavat esimerkin. Yli kahdeksan sivun tiedostosta tulee esimerkkilaskuja sivujen mukaan.",
+        ],
+      },
+      {
+        title: "Tiliöintiehdotus tunnistuksessa",
+        text: "Tunnistuksessa ohjelma vertaa jokaista riviä asiakkaan aiempiin kirjauksiin. Jos samanlainen kirjaus on aiemmin tiliöity selvästi samalla tavalla, ohjelma käyttää sitä tiliöintiä tekoälyn arvauksen sijaan. Kaikki on silti ehdotusta: mitään ei tallenneta, ennen kuin tallennat taulukon.",
+        steps: [
+          "Katso ehdotusrivin alta kohta Tiliöintiehdotus aiemmista kirjauksista. Siinä lukee peruste, esimerkiksi Tiliöity kuten 4/2024: 9 Muut vuosimenot, alv 25,5 %; 3 kertaa vuosina 2022–2024.",
+          "Jos tekoäly ehdotti jotain muuta, se näkyy kohdassa Tekoäly ehdotti. Valitse Käytä tätä, jos se on oikein.",
+          "Jos aiemmista kirjauksista löytyy muitakin tiliöintejä, ne näkyvät kohdassa Aiemmin myös. Käytä tätä vaihtaa rivin tiliöinnin.",
+          "Tarkista rivi ja tallenna taulukko.",
+        ],
+        bullets: [
+          "Ohjelma käyttää aiempaa tiliöintiä vain, kun se on selvä: samanlaiset kirjaukset on tiliöity lähes aina samoin. Muuten rivillä on tekoälyn arvaus, ja aiemmat tiliöinnit näkyvät vaihtoehtoina.",
+          "Alv % tulee aina tositteelta. Jos aiemmin käytettiin eri kantaa, rivillä on huomautus.",
+          "Puukauppa ennakonpidätyksineen, investoinnit ja tuet pitävät tekoälyn tiliöinnin, koska ne riippuvat tositteesta.",
+          "Jos asiakkaalla ei ole samanlaista kirjausta, vaihtoehto voi tulla toimiston muilta asiakkailta. Sitä ohjelma ei käytä itse, vaan näyttää sen vaihtoehtona.",
         ],
       },
       {
@@ -1498,8 +1517,6 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Yhtymän veroilmoitus (lomake 2Y) ja osakkaiden osuudet.",
           "Metsänomistajan oma näkymä, jossa hän näkee omat tietonsa.",
           "Lomakkeen 2 tiedoston koe Ilmoitin.fi-palvelussa. Siihen asti tarkista tiedosto aina ennen lähettämistä.",
-          "Vihjeet kirjatessa: kun kirjoitat selitteen, ohjelma ehdottaa luokkaa ja summaa edellisten vuosien kirjauksista.",
-          "Verosuunnitelmaan arvio loppuvuoden odotetuista kirjauksista.",
         ],
       },
       {
@@ -1595,8 +1612,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         text: "Vuotta ei ole vielä avattu. Avaa se asiakkaan Tiedot-välilehdellä: kirjoita vuosi kohtaan Uusi vuosi ja valitse Avaa vuosi.",
       },
       {
-        title: "Odotettu kirjaus näkyy, vaikka se ei tule enää",
-        text: "Valitse rivillä Ei tule tänä vuonna. Merkintä koskee vain valittua vuotta. Jos kirjaus on loppunut kokonaan, se poistuu listalta itsestään, kun se ei ole enää ollut kahtena kolmesta edellisestä vuodesta.",
+        title: "Tiliöintiehdotus on väärä",
+        text: "Ehdotus tulee asiakkaan aiemmista kirjauksista. Jos samanlainen selite on tiliöity eri tavoin, ehdotus voi olla väärä. Älä valitse sitä, vaan valitse luokka itse. Ehdotus ei koskaan tallennu itsestään. Kun tallennat oikean tiliöinnin, se painaa jatkossa eniten, koska uudet kirjaukset painavat enemmän kuin vanhat.",
       },
       {
         title: "En voi muuttaa kirjausta",

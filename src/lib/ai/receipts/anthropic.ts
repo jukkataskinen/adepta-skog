@@ -11,8 +11,9 @@ import { SUBSIDY_TYPES } from "./agri";
 /**
  * Tositteen tunnistus Anthropicin Claude-mallilla (DECISIONS 28.9.2026).
  *
- * Palveluun lähtee vain tositetiedosto ja alla oleva ohje luokkalistoineen:
- * ei asiakkaan nimeä, verovuotta eikä muita kannan tietoja. Vastaus tulee
+ * Palveluun lähtee tositetiedosto, alla oleva ohje luokkalistoineen ja
+ * vihjeeksi asiakkaan tavallisimmat tiliöinnit avainsanoina (DECISIONS
+ * 6.10.2026): ei asiakkaan nimeä, summia, viitteitä eikä muita kannan tietoja. Vastaus tulee
  * rakenteisena JSONina (output_config.format), ja se tarkistetaan vielä
  * validateRecognition-funktiolla. Raakavastausta ei tallenneta eikä lokiteta.
  * Avainta ei koskaan kirjoiteta lokiin eikä virheviestiin.
@@ -151,12 +152,27 @@ export function activityInstruction(context: RecognitionContext): string {
 }
 
 /**
+ * Asiakkaan tavallisimmat tiliöinnit vihjeeksi (DECISIONS 6.10.2026). Vihje on
+ * käyttäjän viestissä, jotta järjestelmäohje pysyy samana ja välimuistissa.
+ * Ilman vihjeitä teksti on tyhjä, joten viesti on ennallaan.
+ */
+export function postingHintText(hints: string[] | undefined): string {
+  if (!hints?.length) return "";
+  return [
+    "",
+    "",
+    "Asiakkaan aiemmat tiliöinnit vihjeeksi (selitteen avainsanat → luokka, alv-%, oman toiminnon osuus %). Käytä niitä luokan valintaan, kun tositteen vastapuoli tai sisältö vastaa jotakin riviä. Tositteen omat tiedot (summa, päivä, alv) ratkaisevat aina:",
+    ...hints.slice(0, 30).map((h) => `- ${h}`),
+  ].join("\n");
+}
+
+/**
  * Palan kertova teksti. Ohje (system) pysyy samana kaikissa kutsuissa, ja palan
  * tiedot tulevat käyttäjän viestiin. Koko tiedostolle teksti on sama kuin ennen.
  */
 export function chunkInstruction(chunk?: ChunkRange, context: RecognitionContext = FORESTRY_CONTEXT): string {
   const activity = activityInstruction(context);
-  const base = `${activity ? `${activity} ` : ""}Tunnista tämän tiedoston kaikki asiakirjat ja niiden kirjausehdotukset.`;
+  const base = `${activity ? `${activity} ` : ""}Tunnista tämän tiedoston kaikki asiakirjat ja niiden kirjausehdotukset.${postingHintText(context.postingHints)}`;
   if (!chunk || isWholeFile(chunk)) return base;
   return [
     `Tämä tiedosto on osa pidempää skannausta: sivut ${pageRangeText(chunk.first, chunk.last)} kokonaisuudesta ${chunk.total}.`,

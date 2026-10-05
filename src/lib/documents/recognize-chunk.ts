@@ -6,6 +6,7 @@ import { getStorage } from "@/lib/storage";
 import { receiptRecognizer, recognizeChunk, type RecognitionContext, type RecognizeOutcome } from "@/lib/ai/receipts";
 import { activitiesOf, ledgerView, type Activity } from "@/lib/tax/rules";
 import { recognizableDocument, SuggestionError } from "./receipt-suggestions";
+import { loadPostingHints } from "@/lib/ledger/posting-memory-load";
 import { jobChunk, storeChunkResult, type JobChunk } from "./recognition-jobs";
 
 /**
@@ -54,7 +55,10 @@ export async function runRecognitionChunk(ctx: StaffContext, input: ChunkRequest
     const { chunk, status, attempts, doc, context } = await ctx.run(async (tx) => {
       const c = await jobChunk(tx, { clientId, jobId, index });
       // Oletustoiminto on tallennettu tunnistukseen, joten jatko toisesta näkymästä käyttää samaa.
-      return { ...c, doc: await recognizableDocument(tx, { clientId, year, documentId: c.documentId }), context: await recognitionContext(tx, clientId, c.activity) };
+      const context = await recognitionContext(tx, clientId, c.activity);
+      // Asiakkaan tavallisimmat tiliöinnit tekoälyn vihjeeksi (posting-memory.ts postingHints).
+      const postingHints = await loadPostingHints(tx, { organizationId: ctx.org.organizationId, clientId }, `${year}-12-31`, context.activities);
+      return { ...c, doc: await recognizableDocument(tx, { clientId, year, documentId: c.documentId }), context: { ...context, postingHints } };
     });
     if (status === "done") return { ok: true, value: { first: chunk.first, last: chunk.last, status, attempts } };
     let result: RecognizeOutcome;

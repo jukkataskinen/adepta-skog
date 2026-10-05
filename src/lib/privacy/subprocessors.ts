@@ -43,7 +43,7 @@ export const SUBPROCESSORS: Subprocessor[] = [
   {
     name: "Anthropic PBC",
     purpose: "Tositteen tunnistus tekoälyllä, vain pyydettäessä",
-    data: "Tositetiedosto",
+    data: "Tositetiedosto ja vihjeeksi asiakkaan tavallisimmat tiliöinnit (selitteen avainsanat, luokka, alv-% ja osuus)",
     location: "Yhdysvallat",
     outsideEu: true,
   },

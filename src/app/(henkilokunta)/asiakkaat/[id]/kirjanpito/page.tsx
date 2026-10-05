@@ -9,11 +9,11 @@ import { defaultYear, listAssets, listFarmOptions, listPropertyOptions, listTran
 import { summarize } from "@/lib/ledger/summary";
 import { vatOf } from "@/lib/tax/amounts";
 import { activityRows, formatSharePct, isPartialShare } from "@/lib/tax/share";
-import { inView, isFilterActive, matchesLedgerFilter, menuCategories, MONTH_NAMES, parseLedgerFilter, rowFromStored, rowsFromSuggestion, withDuplicateWarnings } from "@/lib/ledger/grid";
-import { listPendingSuggestions } from "@/lib/documents/receipt-suggestions";
+import { inView, isFilterActive, matchesLedgerFilter, menuCategories, MONTH_NAMES, parseLedgerFilter, rowFromStored } from "@/lib/ledger/grid";
+import { loadSuggestionRows } from "@/lib/ledger/suggestion-rows";
 import { receiptRecognizer } from "@/lib/ai/receipts";
 import { ACTIVITY_LABEL, ACTIVITY_PARAM, activitiesOf, category, ledgerView, type Activity } from "@/lib/tax/rules";
-import { formatDate, formatEur } from "@/lib/format";
+import { formatDate, formatEur, isoDateHelsinki } from "@/lib/format";
 import { ClientTabs } from "../../ClientTabs";
 import { YearNav } from "../../YearNav";
 import { TransactionForm } from "./TransactionForm";
@@ -23,11 +23,6 @@ import { toFinnishDate } from "@/lib/ledger/transaction-input";
 import { listYearReceipts } from "@/lib/documents/year-receipts";
 import { YearReceipts } from "./YearReceipts";
 import { documentHref, parsePagesColumn, sourceDocumentLabel } from "@/lib/ai/receipts/schema";
-import { loadExpected } from "@/lib/ledger/expected-load";
-import { summarizeExpected } from "@/lib/ledger/expected";
-import type { TransactionRow } from "@/lib/ledger/queries";
-import { isoDateHelsinki } from "@/lib/format";
-import { ExpectedEntries } from "./ExpectedEntries";
 
 export const metadata = { title: "Kirjanpito" };
 // Tositteen tunnistus osissa: yksi pala (server action tältä sivulta) kestää enintään
@@ -42,14 +37,13 @@ export default async function LedgerPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{
-    vuosi?: string; virhe?: string; lisatty?: string; syotto?: string; toiminta?: string; luokka?: string; kk?: string; haku?: string; odotetut?: string; odotettu?: string;
-  }>;
+  searchParams: Promise<{ vuosi?: string; virhe?: string; lisatty?: string; syotto?: string; toiminta?: string; luokka?: string; kk?: string; haku?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const ctx = await requireStaff();
+  // Helsingin päivä: oletuspäivä ei vaihdu vuodenvaihteessa UTC:n mukaan.
   const today = isoDateHelsinki();
   const data = await ctx.run(async (tx) => {
     const client = await getClient(tx, ctx.org.organizationId, id);
@@ -59,19 +53,26 @@ export default async function LedgerPage({
     const year = years.some((y) => y.year === requested) ? requested : defaultYear(years);
     // Kirjanpito toiminnoittain: pelkällä metsäasiakkaalla ei rajausta (null).
     const view = ledgerView({ hasForestry: client.has_forestry, hasAgriculture: client.has_agriculture }, sp.toiminta);
+    const rows = year ? await listTransactions(tx, id, year) : [];
+    const defaultDate = year && today.startsWith(String(year)) ? today : `${year}-01-01`;
     return {
       client,
       years,
       year,
       view,
-      rows: year ? await listTransactions(tx, id, year) : [],
+      rows,
       assets: await listAssets(tx, id),
       properties: await listPropertyOptions(tx, id),
       farms: await listFarmOptions(tx, id),
       receipts: year ? await listYearReceipts(tx, id, year) : [],
-      suggestions: year ? await listPendingSuggestions(tx, id, year, view) : [],
-      // Odotetut kirjaukset aiemmista vuosista (src/lib/ledger/expected.ts), vain tämän näkymän toiminto.
-      expected: year ? await loadExpected(tx, { id, vatRegistered: client.vat_registered }, year, view, today) : null,
+      // Tunnistuksen ehdotukset taulukon riveinä tiliöintimuistin ehdotuksineen (src/lib/ledger/suggestion-rows.ts).
+      suggestionRows: year
+        ? await loadSuggestionRows(
+            tx,
+            { organizationId: ctx.org.organizationId, clientId: id, year, view, vatRegistered: client.vat_registered, defaultDate: toFinnishDate(defaultDate) },
+            rows,
+          )
+        : [],
     };
   });
   if (!data) notFound();
@@ -111,18 +112,6 @@ export default async function LedgerPage({
     : rows;
   const shownIds = new Set(shownRows.map((r) => r.id));
   const shownSum = filtering ? summarize(inputs.filter((r) => shownIds.has(r.id))) : sum;
-  // Lisää kirjaukseksi: lomake esitäytetään odotetun kirjauksen arvoilla. Osoitteessa on vain tunniste, ei selitettä.
-  const expectedStates = data.expected?.states ?? [];
-  const prefillFrom = !closed && sp.odotettu ? expectedStates.find((s) => s.key === sp.odotettu && !s.skipped) : undefined;
-  const prefill: TransactionRow | undefined = prefillFrom
-    ? {
-        id: "", booked_on: (prefillFrom.next ?? prefillFrom.states[prefillFrom.states.length - 1]).date, kind: prefillFrom.kind, category: prefillFrom.category,
-        description: prefillFrom.description, amount_net: "", amount_gross: String(prefillFrom.estimate), vat_rate: String(prefillFrom.vatRate), withholding: "0.00",
-        business_share_pct: String(prefillFrom.businessSharePct), other_share_pct: String(prefillFrom.otherSharePct), activity: prefillFrom.activity, reference: null,
-        asset_id: null, asset_description: null, forest_property_id: prefillFrom.forestPropertyId, farm_id: prefillFrom.farmId, document_count: 0,
-        source_document_id: null, source_pages: null,
-      }
-    : undefined;
   const filterCategories = menuCategories({ hasForestry: c.has_forestry, hasAgriculture: c.has_agriculture }, view);
 
   return (
@@ -205,20 +194,6 @@ export default async function LedgerPage({
             </p>
           ) : null}
 
-          {data.expected ? (
-            <ExpectedEntries
-              clientId={id}
-              year={year}
-              viewQuery={viewParam}
-              toiminta={viewParam ? ACTIVITY_PARAM.agriculture : ""}
-              states={expectedStates}
-              summary={summarizeExpected(expectedStates)}
-              historyYears={data.expected.historyYears}
-              readOnly={closed}
-              open={sp.odotetut === "1"}
-            />
-          ) : null}
-
           <YearReceipts
             clientId={id}
             year={year}
@@ -248,10 +223,7 @@ export default async function LedgerPage({
               clientId={id}
               year={year}
               initialRows={rows.map(rowFromStored)}
-              suggestionRows={withDuplicateWarnings(
-                data.suggestions.flatMap((sg) => rowsFromSuggestion(sg, { vatRegistered: c.vat_registered, defaultDate: toFinnishDate(defaultDate), year })),
-                allRows,
-              )}
+              suggestionRows={data.suggestionRows}
               properties={view === "agriculture" ? [] : data.properties}
               farms={view === "agriculture" ? data.farms : []}
               initialFilter={filter}
@@ -383,18 +355,8 @@ export default async function LedgerPage({
           {!closed && !gridMode ? (
             <section className="mt-8" id="uusi">
               <SectionTitle>Uusi kirjaus</SectionTitle>
-              {prefill ? (
-                <div className="mb-4">
-                  <Notice tone="info" title="Lomakkeella on odotetun kirjauksen tiedot.">
-                    Päivä ja summa ovat arvioita aiemmista vuosista. Tarkista ne tositteesta ja valitse sitten Lisää kirjaus.
-                  </Notice>
-                </div>
-              ) : null}
               <Panel>
                 <TransactionForm
-                  key={prefill ? `odotettu-${sp.odotettu}` : "uusi"}
-                  prefill={prefill}
-                  expectedKey={prefill ? sp.odotettu : undefined}
                   action={saveTransactionAction}
                   clientId={id}
                   assets={data.assets}

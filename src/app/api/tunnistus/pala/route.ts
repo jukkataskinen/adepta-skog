@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireStaff } from "@/lib/auth/current-user";
 import { chunkRequestSchema, runRecognitionChunk } from "@/lib/documents/recognize-chunk";
+import { sameOrigin } from "@/lib/security/same-origin";
 
 export const dynamic = "force-dynamic";
 /** Sama enimmäisaika kuin kirjanpitosivulla: pala mahtuu CHUNK_TIMEOUT_MS:n ja tallennuksen aikaan. */
@@ -29,14 +30,4 @@ export async function POST(request: NextRequest) {
   const parsed = chunkRequestSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ ok: false, error: "Pyyntöä ei voitu lukea." }, { status: 400 });
   return NextResponse.json(await runRecognitionChunk(ctx, parsed.data));
-}
-
-/** Origin "null" tai muuten jäsentymätön osoite hylätään eikä kaada reittiä. */
-function sameOrigin(origin: string | null, host: string | null): boolean {
-  if (!origin || !host) return false;
-  try {
-    return new URL(origin).host === host;
-  } catch {
-    return false;
-  }
 }

@@ -86,7 +86,7 @@ export default function PrivacyPage() {
         </p>
         <Bullets
           items={[
-            "Palveluun lähtee vain tositetiedosto. Asiakkaan nimeä tai muita tietoja ohjelmasta ei lähetetä.",
+            "Palveluun lähtee tositetiedosto ja vihjeeksi asiakkaan tavallisimmat aiemmat tiliöinnit: selitteen avainsanat, luokka, alv-prosentti ja osuus. Asiakkaan nimeä, summia, viitteitä tai muiden asiakkaiden tietoja ei lähetetä.",
             "Anthropic ei käytä tositetta tekoälyn kouluttamiseen.",
             "Anthropic poistaa tositteen 30 päivän kuluessa.",
             "Voit aina kirjata tositteen käsin. Silloin se ei lähde palvelun ulkopuolelle.",

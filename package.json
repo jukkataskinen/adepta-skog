@@ -21,7 +21,7 @@
     "tilituki:tuo": "tsx --env-file-if-exists=.env.local scripts/import-tilituki.mts",
     "tilituki:vertaa": "tsx --env-file-if-exists=.env.local scripts/compare-tilituki.mts",
     "tilituki:tarkista": "tsx --env-file-if-exists=.env.local scripts/check-tilituki-history.mts",
-    "odotetut:koe": "tsx --env-file-if-exists=.env.local scripts/expected-backtest.mts"
+    "tiliointi:koe": "tsx --env-file-if-exists=.env.local scripts/posting-backtest.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",

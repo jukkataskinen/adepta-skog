@@ -23,6 +23,9 @@ import { normalizeDate, parseAmount, parseClipboard, toFinnishDate } from "@/lib
 import {
   addButtonKeyAction,
   applyGridPaste,
+  applyPostingChoice,
+  choosePostingOption,
+  hintKeyAction,
   asksWithholding,
   CATEGORY_DIGIT_WINDOW_MS,
   categoryByNo,
@@ -72,6 +75,7 @@ import { GridDialog } from "./GridDialog";
 import { DeliveryWorkInputs, useDeliveryWork } from "./DeliveryWorkCalculator";
 import { dismissSuggestionAction } from "./receipt-actions";
 import { DOCUMENT_TYPE_LABEL, documentHref, pageLabel, sourceDocumentLabel } from "@/lib/ai/receipts/schema";
+import { usePostingSuggestions } from "./usePostingSuggestions";
 
 let seq = 0;
 const newKey = () => `n${Date.now().toString(36)}${(seq++).toString(36)}`;
@@ -162,6 +166,11 @@ export function LedgerGrid({
   const [toast, setToast] = useState<string | null>(null);
   const [pendingFocus, setPendingFocus] = useState<{ row: number; col: number } | "add" | null>(null);
   const [filter, setFilter] = useState<LedgerFilter>(initialFilter);
+  // Tiliöintiehdotukset selitteelle (DECISIONS 6.10.2026): lista näkyy selitteen alla,
+  // mutta mikään ei muutu ennen kuin käyttäjä valitsee ehdotuksen nuolella ja Enterillä tai napsauttaa sitä.
+  const posting = usePostingSuggestions(clientId, activity);
+  const [hintHi, setHintHi] = useState<number | null>(null);
+  const [hintPos, setHintPos] = useState<{ left: number; top: number; width: number } | null>(null);
 
   const tableRef = useRef<HTMLTableElement>(null);
   const addRef = useRef<HTMLButtonElement>(null);
@@ -374,9 +383,37 @@ export function LedgerGrid({
     return true;
   }
 
+  function closeHint() {
+    posting.clear();
+    setHintHi(null);
+  }
+
+  /** Ehdotuksen käyttö: luokka, alv, osuudet ja maatila. Summa ja päivä jäävät käyttäjälle, joten fokus siirtyy summaan. */
+  function acceptHint(index: number, i: number) {
+    const r = rowsRef.current[index];
+    const item = posting.hint?.items[i];
+    if (!r || !item) return;
+    const next = applyPostingChoice(r, item, year, client);
+    patchRow(r.key, () => next);
+    rowsRef.current = rowsRef.current.map((x) => (x.key === r.key ? next : x));
+    closeHint();
+    moveTo(index, col("amountGross"));
+  }
+
   function onCellKeyDown(e: KeyboardEvent<HTMLElement>, index: number, c: number) {
     if (dialog) return;
     const field = columns[c];
+    // Ehdotuslista ottaa vain nuolet, Escin sekä Enterin ja Tabin valitun ehdotuksen kohdalla (grid.ts hintKeyAction).
+    if (field === "description" && posting.hint && posting.hint.key === rowsRef.current[index]?.key) {
+      const h = hintKeyAction(e.key, { count: posting.hint.items.length, highlighted: hintHi, shift: e.shiftKey, ctrl: e.ctrlKey || e.metaKey || e.altKey });
+      if (h) {
+        e.preventDefault();
+        if (h.type === "highlight") setHintHi(h.index);
+        else if (h.type === "close") closeHint();
+        else acceptHint(index, h.index);
+        return;
+      }
+    }
     if (field === "category" && !e.ctrlKey && !e.altKey && /^[0-9]$/.test(e.key)) {
       e.preventDefault();
       onCategoryDigit(index, e.key);
@@ -463,6 +500,30 @@ export function LedgerGrid({
     if (!menu) return;
     document.querySelector(`[data-menu-item="${menu.hi}"]`)?.scrollIntoView({ block: "nearest" });
   }, [menu]);
+
+  // Ehdotuslista kiinteästi selitteen alle kuten luokkavalikko, jotta vierityslaatikko ei leikkaa sitä.
+  const hintKey = posting.hint?.key ?? null;
+  useLayoutEffect(() => {
+    if (!hintKey) {
+      setHintPos(null);
+      return;
+    }
+    const place = () => {
+      const row = rowsRef.current.findIndex((r) => r.key === hintKey);
+      const el = tableRef.current?.querySelector<HTMLElement>(`[data-cell="${row}-${col("description")}"]`);
+      if (!el) return setHintPos(null);
+      const rect = el.getBoundingClientRect();
+      setHintPos({ left: rect.left, top: rect.bottom, width: Math.max(rect.width, 360) });
+    };
+    place();
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hintKey]);
 
   // ---------------------------------------------------------------------------
   // Summa ja ikkunat
@@ -867,7 +928,18 @@ export function LedgerGrid({
                       className={cellClass(Boolean(err.description))}
                       value={r.description}
                       autoComplete="off"
-                      onChange={(e) => patchRow(r.key, { description: e.target.value })}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        patchRow(r.key, { description: value });
+                        // Ehdotukset vain uudelle, käsin kirjoitettavalle riville. Tallennettu kirjaus ja tositteen ehdotus pitävät tiliöintinsä.
+                        if (!r.id && !r.suggestionId) {
+                          setHintHi(null);
+                          const amount = parseAmount(r.amountGross);
+                          posting.request(r.key, value, normalizeDate(r.bookedOn, year) ?? `${year}-12-31`, amount !== null && Number.isFinite(amount) ? amount : null);
+                        }
+                      }}
+                      // Fokus pois selitteestä: lista ja kesken oleva haku pois. Napsautus listassa ei vie fokusta.
+                      onBlur={closeHint}
                     />
                   </td>
                   <td className="px-1 py-1 min-w-[11rem]">
@@ -1126,6 +1198,33 @@ export function LedgerGrid({
                           Rivi on vuosi-ilmoituksesta eli koko vuoden yhteenvedosta. Jos kauppa on jo kirjattu tilityksestä, poista tämä rivi.
                         </span>
                       ) : null}
+                      {sg.posting ? (
+                        <span className="block">
+                          {sg.posting.applied === "memory" ? (
+                            <>
+                              <span className="font-semibold text-moss">Tiliöintiehdotus aiemmista kirjauksista</span> (ehdotus, ohittaa tekoälyn luokan): {sg.posting.basis}
+                            </>
+                          ) : sg.posting.basis ? (
+                            <>
+                              <span className="font-semibold text-moss">Tiliöinti</span> (ehdotus): {sg.posting.basis}
+                            </>
+                          ) : null}
+                          {sg.posting.note ? <span className="block font-semibold text-amber">{sg.posting.note}</span> : null}
+                          {sg.posting.options.map((o, oi) => (
+                            <span key={`${o.source}-${o.category}-${oi}`} className="block" title={o.basis}>
+                              {o.source === "ai" ? "Tekoäly ehdotti" : o.source === "office" ? "Toimiston muilta asiakkailta" : "Aiemmin myös"}: {o.label}.{" "}
+                              <button
+                                type="button"
+                                tabIndex={-1}
+                                className="font-semibold text-sky hover:underline"
+                                onClick={() => patchRow(r.key, (x) => choosePostingOption(x, oi, year, client))}
+                              >
+                                Käytä tätä
+                              </button>
+                            </span>
+                          ))}
+                        </span>
+                      ) : null}
                       {sg.note ? <span className="block font-semibold text-amber">{sg.note}</span> : null}
                       {singleMismatch ? <span className="block font-semibold text-coral">{balanceText(singleMismatch)}</span> : null}
                       {sg.duplicateWarning ? <span className="block font-semibold text-coral">{sg.duplicateWarning}</span> : null}
@@ -1245,6 +1344,33 @@ export function LedgerGrid({
         </div>
       ) : null}
 
+      {posting.hint && hintPos ? (
+        <div
+          role="listbox"
+          aria-label="Tiliöintiehdotukset"
+          className="fixed z-40 rounded-xl border border-line bg-paper py-1 text-sm shadow-lg"
+          style={{ left: hintPos.left, top: hintPos.top + 2, width: hintPos.width }}
+        >
+          <div className="px-3 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink/45">Ehdotus aiemmista tiliöinneistä</div>
+          {posting.hint.items.map((it, idx) => (
+            <div
+              key={`${it.category}-${idx}`}
+              role="option"
+              aria-selected={hintHi === idx}
+              className={`cursor-pointer px-3 py-1.5 ${hintHi === idx ? "bg-sky-soft" : "hover:bg-cloud"}`}
+              // Painallus ei vie fokusta selitteestä, jotta lista ei sulkeudu ennen valintaa.
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => acceptHint(rows.findIndex((x) => x.key === posting.hint?.key), idx)}
+            >
+              <span className="font-semibold">{it.label}</span>
+              {it.source === "office" ? <span className="ml-2 rounded-full bg-amber-soft px-1.5 text-[10px] font-bold text-amber">toimisto</span> : null}
+              <span className="block text-xs text-ink/60">{it.basis}</span>
+            </div>
+          ))}
+          <div className="px-3 pb-1.5 pt-1 text-xs text-ink/55">Ehdotus. Nuoli alas valitsee, Enter tai Tab käyttää, Esc sulkee. Ilman valintaa Enter jatkaa kuten ennen.</div>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-3">
         <Button type="button" onClick={save} disabled={pending || !dirty}>
           {pending ? "Tallennetaan..." : count ? `Tallenna ${count === 1 ? "1 muutos" : `${count} muutosta`}` : "Ei tallennettavaa"}
@@ -1276,6 +1402,10 @@ export function LedgerGrid({
           sarakkeeseen toisella rivillä (ei selitteessä). Luokka: <b>numero</b> valitsee suoraan ({activity === "agriculture" ? "21–59" : activity === "forestry" ? "1–12" : hasAgriculture ? "metsä 1–12, maatalous 21–59" : "1–12"}), nuolet ja Enter valikossa, Esc sulkee. <b>T</b> vaihtaa tulon
           ja menon. <b>Delete</b> tyyppisarakkeessa poistaa rivin, <b>Ctrl + Z</b> palauttaa sen. <b>Ctrl + S</b> tallentaa. <b>Ctrl + N</b> tai Lisää rivi lisää rivin. Voit liittää
           rivejä Excelistä (summat arvonlisäveron kanssa).
+        </p>
+        <p className="mt-1">
+          Selitteen alle voi tulla <b>ehdotus aiemmista tiliöinneistä</b>. Se ei täytä mitään itse: <b>nuoli alas</b> valitsee ehdotuksen, <b>Enter</b> tai <b>Tab</b> käyttää
+          sitä, <b>Esc</b> sulkee. Ilman valintaa Enter ja Tab toimivat kuten ennen.
         </p>
       </div>
 

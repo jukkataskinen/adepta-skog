@@ -14,6 +14,7 @@ import {
 import type { AssetOption, PropertyOption, TransactionRow } from "@/lib/ledger/queries";
 import { isPartialShare } from "@/lib/tax/share";
 import { DeliveryWorkCalculator } from "./DeliveryWorkCalculator";
+import { FormPostingHint } from "./FormPostingHint";
 
 const fi = (v: string | null | undefined) => (v === null || v === undefined ? "" : String(Number(v)).replace(".", ","));
 
@@ -35,8 +36,6 @@ export function TransactionForm({
   hasForestry = true,
   hasAgriculture = false,
   activity = null,
-  prefill,
-  expectedKey,
 }: {
   action: (formData: FormData) => Promise<void>;
   clientId: string;
@@ -55,34 +54,27 @@ export function TransactionForm({
   hasAgriculture?: boolean;
   /** Kirjanpidon näkymä: uusi kirjaus saa vain tämän toiminnon luokat. null = asiakkaan kaikki luokat. */
   activity?: Activity | null;
-  /** Uuden kirjauksen esitäyttö (odotettu kirjaus). Ei tunnistetta: tallennus luo uuden kirjauksen. */
-  prefill?: TransactionRow;
-  /** Odotetun kirjauksen tunniste lokiin (0019). */
-  expectedKey?: string;
 }) {
-  // Kenttien oletukset: muokattava kirjaus tai esitäyttö. Tunniste ja investointi vain muokattavalta.
-  const values = transaction ?? prefill;
   const saleOptions = assets.filter((a) => (!a.disposed_on || a.id === transaction?.asset_id) && (!activity || a.activity === activity));
-  const partial = values ? isPartialShare(values.business_share_pct) : false;
-  const other = values && Number(values.other_share_pct) ? fi(values.other_share_pct) : "";
+  const partial = transaction ? isPartialShare(transaction.business_share_pct) : false;
+  const other = transaction && Number(transaction.other_share_pct) ? fi(transaction.other_share_pct) : "";
   const both = hasForestry && hasAgriculture;
   // Jaksotettavat kotieläinluokat valitaan Jaksota-valinnalla, joten niitä ei ole luettelossa.
   const categories = viewCategories({ hasForestry, hasAgriculture }, activity).filter((c) => !isLivestockDeferral(c.code));
-  const deferred = values ? isLivestockDeferral(values.category) : false;
-  const shownCategory = values ? withLivestockDeferral(values.category, false) : "";
+  const deferred = transaction ? isLivestockDeferral(transaction.category) : false;
+  const shownCategory = transaction ? withLivestockDeferral(transaction.category, false) : "";
   const forestryFields = activity ? activity === "forestry" : hasForestry || !hasAgriculture;
   const agriFields = activity ? activity === "agriculture" : hasAgriculture;
   const groups = [...new Set(categories.map((c) => c.group))];
-  const year = Number((values?.booked_on ?? defaultDate).slice(0, 4));
+  const year = Number((transaction?.booked_on ?? defaultDate).slice(0, 4));
   return (
     <form action={action} className="grid gap-4">
       <input type="hidden" name="clientId" value={clientId} />
       {transaction ? <input type="hidden" name="transactionId" value={transaction.id} /> : null}
-      {!transaction && expectedKey ? <input type="hidden" name="odotettu" value={expectedKey} /> : null}
       {activity ? <input type="hidden" name="toiminta" value={ACTIVITY_PARAM[activity]} /> : null}
       <div className="grid gap-4 sm:grid-cols-[9rem_minmax(0,1.3fr)_minmax(0,2fr)_8rem]">
         <Field label="Päivä" htmlFor="bookedOn">
-          <Input id="bookedOn" name="bookedOn" type="date" required defaultValue={values?.booked_on ?? defaultDate} />
+          <Input id="bookedOn" name="bookedOn" type="date" required defaultValue={transaction?.booked_on ?? defaultDate} />
         </Field>
         <Field label="Luokka" htmlFor="category">
           <Select id="category" name="category" required defaultValue={shownCategory}>
@@ -101,25 +93,27 @@ export function TransactionForm({
           </Select>
         </Field>
         <Field label="Selite" htmlFor="description">
-          <Input id="description" name="description" defaultValue={values?.description ?? ""} autoComplete="off" />
+          <Input id="description" name="description" defaultValue={transaction?.description ?? ""} autoComplete="off" />
         </Field>
         <Field label="Summa (sis. alv) (€)" htmlFor="amountGross">
-          <Input id="amountGross" name="amountGross" inputMode="decimal" required defaultValue={fi(values?.amount_gross)} className="text-right" />
+          <Input id="amountGross" name="amountGross" inputMode="decimal" required defaultValue={fi(transaction?.amount_gross)} className="text-right" />
         </Field>
       </div>
+      {/* Uudelle kirjaukselle tiliöintiehdotukset aiemmista kirjauksista; valinta täyttää kentät, tallennus vasta painikkeesta. */}
+      {transaction ? null : <FormPostingHint clientId={clientId} activity={activity} vatRegistered={vatRegistered} />}
       <div className={`grid gap-4 ${properties.length ? "sm:grid-cols-[8rem_9rem_minmax(0,1fr)_minmax(0,1fr)]" : "sm:grid-cols-[8rem_9rem_minmax(0,1fr)]"}`}>
         <Field label="Alv %" htmlFor="vatRate" hint={compact ? undefined : vatRegistered ? "Tyhjä = luokan oletus." : "Tyhjä = 0 %, koska asiakas ei ole arvonlisäverorekisterissä."}>
-          <Input id="vatRate" name="vatRate" inputMode="decimal" defaultValue={fi(values?.vat_rate)} placeholder="oletus" className="text-right" />
+          <Input id="vatRate" name="vatRate" inputMode="decimal" defaultValue={fi(transaction?.vat_rate)} placeholder="oletus" className="text-right" />
         </Field>
         <Field label="Ennakonpidätys (€)" htmlFor="withholding">
-          <Input id="withholding" name="withholding" inputMode="decimal" defaultValue={fi(values?.withholding === "0.00" ? null : values?.withholding)} className="text-right" />
+          <Input id="withholding" name="withholding" inputMode="decimal" defaultValue={fi(transaction?.withholding === "0.00" ? null : transaction?.withholding)} className="text-right" />
         </Field>
         <Field label="Viite tai tositenumero" htmlFor="reference">
-          <Input id="reference" name="reference" defaultValue={values?.reference ?? ""} autoComplete="off" />
+          <Input id="reference" name="reference" defaultValue={transaction?.reference ?? ""} autoComplete="off" />
         </Field>
         {properties.length ? (
           <Field label="Metsätila" htmlFor="forestPropertyId">
-            <Select id="forestPropertyId" name="forestPropertyId" defaultValue={values?.forest_property_id ?? ""}>
+            <Select id="forestPropertyId" name="forestPropertyId" defaultValue={transaction?.forest_property_id ?? ""}>
               <option value="">Ei valittu</option>
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -133,7 +127,7 @@ export function TransactionForm({
       {agriFields && farms.length > 1 ? (
         <div className="grid gap-4 sm:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
           <Field label="Maatila" htmlFor="farmId" hint="Tasausvaraus lasketaan maatiloittain. Tyhjä = yhteinen kaikille tiloille.">
-            <Select id="farmId" name="farmId" defaultValue={values?.farm_id ?? ""}>
+            <Select id="farmId" name="farmId" defaultValue={transaction?.farm_id ?? ""}>
               <option value="">Ei valittu</option>
               {farms.map((f) => (
                 <option key={f.id} value={f.id}>
@@ -156,7 +150,7 @@ export function TransactionForm({
       <details className="rounded-xl border border-line bg-cloud/40 px-4 py-3 text-sm" open={partial || Boolean(other)}>
         <summary className="cursor-pointer font-semibold">
           Lisätiedot: vain osa kuuluu {hasAgriculture ? "tälle toiminnolle" : "metsätaloudelle"}
-          {partial ? ` (${fi(values?.business_share_pct)} %)` : ""}
+          {partial ? ` (${fi(transaction?.business_share_pct)} %)` : ""}
         </summary>
         <div className={`mt-3 grid gap-4 ${both ? "sm:grid-cols-[10rem_10rem_minmax(0,1fr)]" : "sm:grid-cols-[10rem_minmax(0,1fr)]"}`}>
           <Field label={activity === "agriculture" ? "Maatalouden osuus %" : activity === "forestry" ? "Metsätalouden osuus %" : hasAgriculture ? "Oman toiminnon osuus %" : "Metsätalouden osuus %"} htmlFor="businessSharePct" hint="Tyhjä = 100 %.">
@@ -164,7 +158,7 @@ export function TransactionForm({
               id="businessSharePct"
               name="businessSharePct"
               inputMode="decimal"
-              defaultValue={partial ? fi(values?.business_share_pct) : ""}
+              defaultValue={partial ? fi(transaction?.business_share_pct) : ""}
               placeholder="100"
               className="text-right"
             />
@@ -183,7 +177,7 @@ export function TransactionForm({
           </p>
         </div>
       </details>
-      {forestryFields ? <DeliveryWorkCalculator year={year} /> : null}
+      {forestryFields ? <DeliveryWorkCalculator year={Number((transaction?.booked_on ?? defaultDate).slice(0, 4))} /> : null}
       <details className="rounded-xl border border-line bg-cloud/40 px-4 py-3 text-sm" open={Boolean(transaction?.asset_id)}>
         <summary className="cursor-pointer font-semibold">Investointi (hankinta tai myynti)</summary>
         <div className="mt-3 grid gap-4 sm:grid-cols-2">

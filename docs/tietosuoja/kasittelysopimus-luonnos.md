@@ -209,7 +209,8 @@ henkilötietoja.
 | Kohta | Kuvaus |
 |---|---|
 | Käsittelyn kohde | Skog-palvelu: metsätalouden kirjanpito ja verosuunnittelu tilitoimiston asiakkaille (metsänomistajille). Kirjaukset, tositteet, arvonlisävero, poistot, metsävähennys, verosuunnitelma, veroraportti ja 2C-ilmoitustiedoston muodostaminen. |
-| Luonne | Tallennus, järjestäminen, säilytys, haku, laskenta, käyttö raporteissa, tositteen lähettäminen tunnistettavaksi (liite 3), arkistointi ja poisto. |
+| Luonne | Tallennus, järjestäminen, säilytys, haku, laskenta, käyttö raporteissa, tositteen lähettäminen tunnistettavaksi (liite 3), tiliöintiehdotukset aiemmista kirjauksista, arkistointi ja poisto. |
+| Tiliöintiehdotukset | Palvelu ehdottaa uudelle kirjaukselle luokkaa, arvonlisäveroprosenttia ja osuutta saman asiakkaan aiemmista kirjauksista. Jos asiakkaalla ei ole vastaavaa kirjausta, ehdotus voi tulla saman tilitoimiston muiden asiakkaiden tiliöinneistä; silloin kirjanpitäjälle näytetään vain luokka, arvonlisäveroprosentti, kertojen määrä ja vuodet, ei toisen asiakkaan selitettä, summaa eikä nimeä, ja vain niistä asiakkaista, joiden kirjanpitoon käyttäjällä on oikeus. Toisen tilitoimiston tietoja ei käytetä. Ehdotuksia ei tallenneta, ja kirjanpitäjä hyväksyy jokaisen erikseen. |
 | Tarkoitus | Tilitoimiston asiakkaille tuottama metsätalouden kirjanpito-, veroilmoitus- ja veronsuunnittelupalvelu. |
 | Kesto | Palvelusopimuksen voimassaolo ja sen jälkeen kohdan 11 mukainen aika. |
 
@@ -270,9 +271,15 @@ skannaus lähetetään kahdeksan sivun osissa.
   ja kolmansien osapuolten nimiä, osoitteita, tilinumeroita ja summia.
 - Vakio-ohje ja kirjausluokkien luettelo, jotka ovat samat kaikille.
 - Tieto siitä, mitkä sivut osa kattaa (esimerkiksi "sivut 9–16 / 40").
+- Vihjeeksi enintään 30 asiakkaan tavallisinta aiempaa tiliöintiä: selitteen
+  avainsanat (numerot, päivät, viitteet, vuodet ja yhtiömuodot poistettu),
+  luokka, arvonlisäveroprosentti ja osuus. Avainsanoissa voi olla vastapuolen
+  nimi, joka voi olla yksityishenkilön nimi. Tiedot ovat saman asiakkaan
+  kirjanpidosta, ja ne lähtevät samalle käsittelijälle kuin tosite.
 
 **Mitä ei lähetetä.** Asiakkaan nimeä, Y-tunnusta, verovuotta, tiedoston nimeä,
-arvonlisäverorekisteröintiä tai muita palvelun tietokannan tietoja ei lähetetä.
+arvonlisäverorekisteröintiä, kirjausten summia, päiviä tai viitteitä, muiden
+asiakkaiden tietoja tai muita palvelun tietokannan tietoja ei lähetetä.
 Käyttäjän tietoja ei lähetetä.
 
 **Ohje palvelulle.** Ohje kieltää kirjoittamasta selitteeseen henkilötunnuksia,
@@ -281,7 +288,9 @@ ei ohjeina.
 
 **Ihminen päättää.** Tunnistuksen tulos on ehdotus. Se näkyy kirjanpitäjälle
 taulukossa, ja hän tarkistaa, muuttaa, hyväksyy tai hylkää jokaisen rivin.
-Mitään ei kirjata ilman kirjanpitäjän tallennusta. Palvelu ei tee
+Mitään ei kirjata ilman kirjanpitäjän tallennusta. Jos asiakkaan aiemmat
+kirjaukset on tiliöity selvästi samoin, palvelu ehdottaa sitä tiliöintiä
+tekoälyn luokan sijaan, ja tekoälyn arvaus jää vaihtoehdoksi; tämäkin on ehdotus. Palvelu ei tee
 automaattisia päätöksiä, joilla olisi oikeusvaikutuksia rekisteröidylle
 (tietosuoja-asetuksen 22 artikla ei sovellu).
 

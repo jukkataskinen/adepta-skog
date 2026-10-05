@@ -29,6 +29,9 @@ import { isCompilation, parsePagesColumn, type DocumentType } from "@/lib/ai/rec
 import { duplicateWarnings, type ExistingEntry } from "@/lib/ai/receipts/duplicates";
 import { documentBalance, type DocumentBalance } from "@/lib/ai/receipts/reconcile";
 import { waitsByDefault } from "@/lib/ai/receipts/agri";
+import { mergeLinePosting, type PostingChoice } from "@/lib/ai/receipts/posting";
+import type { SuggestionLine } from "@/lib/ai/receipts/schema";
+import { postingLabel, type PostingLookup } from "@/lib/ledger/posting-memory";
 import {
   AGRI_ASSET_CLASS_MESSAGE,
   ASSET_CLASS_MESSAGE,
@@ -128,6 +131,18 @@ export interface SuggestionInfo {
   documentTotal?: number | null;
   /** Huomautus kirjanpitäjälle (maatalous). */
   note?: string | null;
+  /**
+   * Tiliöintimuistin ehdotus (DECISIONS 6.10.2026): kumpi tiliöinti rivillä on,
+   * peruste ja vaihtoehdot. Kaikki on ehdotusta, kunnes taulukko tallennetaan.
+   */
+  posting?: SuggestionPosting;
+}
+
+export interface SuggestionPosting {
+  applied: "memory" | "ai";
+  basis: string | null;
+  note: string | null;
+  options: PostingChoice[];
 }
 
 export type GridField = "bookedOn" | "description" | "category" | "amountGross" | "vatRate" | "businessSharePct" | "otherSharePct" | "forestPropertyId" | "farmId" | "kind";
@@ -232,19 +247,37 @@ export function rowFromStored(t: StoredTransaction): GridRow {
  * Metsätalouden osuus on aina 100 % (tyhjä): tositteesta ei voi päätellä,
  * kuuluuko osa muulle toiminnalle, joten kirjanpitäjä muuttaa sen tarvittaessa.
  */
-export function rowsFromSuggestion(s: Pick<PendingSuggestion, "id" | "document_id" | "file_name" | "lines">, opts: { vatRegistered: boolean; defaultDate: string; year?: number }): GridRow[] {
+export function rowsFromSuggestion(
+  s: Pick<PendingSuggestion, "id" | "document_id" | "file_name" | "lines">,
+  opts: {
+    vatRegistered: boolean;
+    defaultDate: string;
+    year?: number;
+    /** Tiliöintimuistin haku riville (posting-memory.ts). Puuttuva = tekoälyn tiliöinti sellaisenaan. */
+    posting?: (line: SuggestionLine) => PostingLookup | null;
+  },
+): GridRow[] {
   const compilation = isCompilation(s.lines);
   return s.lines.map((l, i) => {
-    const cat = category(l.category);
+    // Vahva muistin osuma ohittaa tekoälyn luokan; alv on aina tositteelta (src/lib/ai/receipts/posting.ts).
+    const p = opts.posting ? mergeLinePosting(l, opts.posting(l), { vatRegistered: opts.vatRegistered }) : null;
+    const cat = category(p ? p.category : l.category);
     const missingDate = l.documentType === "timber_annual_summary" && opts.year ? `31.12.${opts.year}` : opts.defaultDate;
     const reference = l.contractNumber ? `Sopimus ${l.contractNumber}` : l.invoiceNumber ? `Lasku ${l.invoiceNumber}` : "";
     return {
       ...emptyGridRow(`s-${s.id}-${i}`, l.date ? toFinnishDate(l.date) : missingDate),
       description: l.description,
       category: cat ? cat.code : "",
-      kind: cat ? cat.kind : "",
+      kind: p ? p.kind : cat ? cat.kind : "",
       amountGross: formatAmountInput(l.amountGross),
       vatRate: numberInput(opts.vatRegistered ? l.vatRate : 0),
+      ...(p && p.applied === "memory"
+        ? {
+            businessSharePct: p.businessSharePct === 100 ? "" : formatSharePct(p.businessSharePct),
+            otherSharePct: p.otherSharePct ? formatSharePct(p.otherSharePct) : "",
+            farmId: p.farmId ?? "",
+          }
+        : {}),
       withholding: l.withholding > 0 && TIMBER_SALE_CODES.includes(l.category) ? formatAmountInput(l.withholding) : "",
       reference: reference.slice(0, 100),
       // Maatalouden investointi saa tunnistetun poistoryhmän valmiiksi; kirjanpitäjä voi vaihtaa sen.
@@ -257,6 +290,7 @@ export function rowsFromSuggestion(s: Pick<PendingSuggestion, "id" | "document_i
         documentId: s.document_id, documentName: s.file_name, confidence: l.confidence, reasoning: l.reasoning, first: i === 0, sourceDate: l.date,
         sourceDocument: l.sourceDocument, documentType: l.documentType, documentIndex: l.documentIndex, pages: l.pages, contractNumber: l.contractNumber,
         invoiceNumber: l.invoiceNumber, compilation, documentTotal: l.documentTotal ?? null, note: l.note ?? null,
+        ...(p && (p.applied === "memory" || p.basis || p.options.length) ? { posting: { applied: p.applied, basis: p.basis, note: p.note, options: p.options } } : {}),
       },
     };
   });
@@ -466,6 +500,92 @@ export function selectCategory(r: GridRow, code: string, year: number, client: {
     // Maatila vain maatalouden kirjauksella.
     farmId: cat.activity === "agriculture" ? (r.farmId ?? "") : "",
   };
+}
+
+/**
+ * Tiliöintiehdotuksen käyttö rivillä (DECISIONS 6.10.2026): luokka, tyyppi,
+ * osuudet ja maatila ehdotuksesta. Summa, päivä ja selite jäävät käyttäjälle.
+ * Tositteen ehdotusrivillä alv säilyy tositteen mukaisena (keepVat); käsin
+ * syötetyllä rivillä alv tulee ehdotuksesta. Mitään ei tallenneta: rivi
+ * tallentuu vasta taulukon tallennuksessa.
+ */
+export function applyPostingChoice(
+  r: GridRow,
+  p: Pick<PostingChoice, "category" | "kind" | "vatRate" | "businessSharePct" | "otherSharePct" | "farmId">,
+  year: number,
+  client: { vatRegistered: boolean },
+  opts: { keepVat?: boolean } = {},
+): GridRow {
+  const next = selectCategory(r, p.category, year, client);
+  if (next === r) return r;
+  return {
+    ...next,
+    kind: p.kind,
+    vatRate: opts.keepVat ? r.vatRate : client.vatRegistered ? numberInput(p.vatRate) : next.vatRate,
+    businessSharePct: p.businessSharePct === 100 ? "" : formatSharePct(p.businessSharePct),
+    otherSharePct: allowsOtherShare(p.category) && p.otherSharePct ? formatSharePct(p.otherSharePct) : "",
+    farmId: categoryActivity(p.category) === "agriculture" ? (p.farmId ?? "") : "",
+  };
+}
+
+/**
+ * Ehdotusrivin vaihtoehtoinen tiliöinti käyttöön (tekoälyn arvaus tai muistin
+ * vaihtoehto). Rivin nykyinen tiliöinti siirtyy vaihtoehdoksi, jotta valinnan
+ * voi perua. Alv säilyy tositteen mukaisena.
+ */
+export function choosePostingOption(r: GridRow, index: number, year: number, client: { vatRegistered: boolean }): GridRow {
+  const p = r.suggestion?.posting;
+  const opt = p?.options[index];
+  if (!p || !opt || !r.suggestion) return r;
+  const current: PostingChoice = {
+    source: p.applied === "memory" ? "memory" : "ai",
+    category: r.category,
+    kind: rowKind(r) ?? opt.kind,
+    vatRate: rowVatRate(r, year, client) ?? 0,
+    businessSharePct: rowSharePct(r) ?? 100,
+    otherSharePct: rowOtherSharePct(r) ?? 0,
+    farmId: r.farmId || null,
+    label: "",
+    basis: p.applied === "memory" ? (p.basis ?? "") : "Tekoälyn arvio tositteesta.",
+  };
+  current.label = postingLabel(current);
+  const next = applyPostingChoice(r, opt, year, client, { keepVat: true });
+  if (next === r) return r;
+  return {
+    ...next,
+    suggestion: {
+      ...r.suggestion,
+      posting: { applied: opt.source === "ai" ? "ai" : "memory", basis: opt.source === "ai" ? null : opt.basis, note: null, options: [current, ...p.options.filter((_, i) => i !== index)] },
+    },
+  };
+}
+
+/**
+ * Selitteen ehdotuslista näppäimillä. Lista ei muuta tavallista syöttöä:
+ * Enter ja Tab siirtävät kuten ennen, ellei ehdotusta ole valittu nuolella.
+ * - Nuoli alas: seuraava ehdotus (ensimmäinen, jos mitään ei ole valittu).
+ * - Nuoli ylös: edellinen; ensimmäisestä ylös poistaa valinnan.
+ * - Enter tai Tab valitun kohdalla: käytä ehdotusta. Esc sulkee listan.
+ * null = näppäin kuuluu taulukolle (gridKeyAction).
+ */
+export type HintKeyAction = { type: "highlight"; index: number | null } | { type: "accept"; index: number } | { type: "close" };
+
+export function hintKeyAction(key: string, opts: { count: number; highlighted: number | null; shift?: boolean; ctrl?: boolean }): HintKeyAction | null {
+  if (opts.ctrl || opts.count === 0) return null;
+  const h = opts.highlighted;
+  switch (key) {
+    case "ArrowDown":
+      return { type: "highlight", index: h === null ? 0 : Math.min(opts.count - 1, h + 1) };
+    case "ArrowUp":
+      return h === null ? null : { type: "highlight", index: h === 0 ? null : h - 1 };
+    case "Enter":
+    case "Tab":
+      return h !== null && !opts.shift ? { type: "accept", index: h } : null;
+    case "Escape":
+      return { type: "close" };
+    default:
+      return null;
+  }
 }
 
 /**
