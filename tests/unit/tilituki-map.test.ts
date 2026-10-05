@@ -84,7 +84,10 @@ describe("Tilitukin vuoden tuontisuunnitelma", () => {
     const opening = Object.fromEntries(plan.openingAssets.map((a) => [a.key, a.openingBookValue]));
     // Rakennus kortistosta, koska summa täsmää lomakkeeseen; poistoprosentiton asuinrakennus jää pois.
     expect(opening).toEqual({ "pool-agri_machinery": 12000, "building-B1": 45000 });
-    expect(plan.openingAssets.every((a) => a.openingYear === 2025 && a.acquiredOn === "2024-12-31")).toBe(true);
+    expect(plan.openingAssets.every((a) => a.openingYear === 2025)).toBe(true);
+    // Ryhmän hankintaa ei tiedetä; rakennuksen hankintavuosi ja -hinta tulevat kortistosta (kertynyt poisto on erotus).
+    expect(plan.openingAssets.find((a) => a.key === "pool-agri_machinery")).toMatchObject({ acquiredOn: "2024-12-31", acquisitionCost: 12000 });
+    expect(plan.openingAssets.find((a) => a.key === "building-B1")).toMatchObject({ acquiredOn: "2010-12-31", acquisitionCost: 100000 });
     expect(plan.notes["rakennus ilman poistoprosenttia jätettiin pois (ei Tilitukin lomakkeella)"]).toBe(1);
     expect(plan.agriDepreciations).toEqual([{ pool: "agri_production_building", amount: 4500 }, { pool: "agri_machinery", amount: 5500 }]);
   });

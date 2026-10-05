@@ -9,7 +9,10 @@
   - client      perustiedot (YR.DBF): nimi, Y-tunnus, osoite, avoin verovuosi
   - accounts    tilikartta (KPTILIT.DBF): tilinumero, nimi, luokka, veronumero, alv-%
   - entries     viennit (KPVIHIST.DBF ja KPVIENTI.DBF) vuosittain
-  - machinery   kalusto ja sen poistot vuosittain (KALUSTO.DBF, KALUSPOI.DBF)
+  - machinery   kalusto ja sen poistot vuosittain koko historialta (KALUSTO.DBF, KALUSPOI.DBF):
+                kortin laji (Kone / Oja/Tie / Rakennus), ostopäivä, hankintahinta, ja vuosittain
+                arvo alussa (PPEVLARVOA), lisäys (PPLISAYS), vähennys eli myynti (PPVAHENNYS),
+                poistopohja (PPEVLMENOJ), poisto-% (PPEVLPROS), poisto (PPEVLPSUMM), arvo lopussa (PPEVLARVOL)
   - buildings   rakennukset ja niiden poistot vuosittain (RAKENNUS.DBF, RAKVUOSI.DBF)
   - form2       lomakkeen 2 luvut tietuetunnuksittain vuosittain (LOMAKE2_YYYY.DBF)
   - form2c      lomakkeen 2C luvut samasta taulusta
@@ -146,7 +149,10 @@ def parse_entries(folder):
 def parse_machinery(folder):
     years = {}
     for p in table(folder, "KALUSPOI.DBF"):
-        years.setdefault(p["PKUNIIKKI"], {})[p["PPVUOSI"]] = {
+        # Vuodeton rivi on Tilitukin keskeneräinen tietue ilman lukuja.
+        if not (p["PPVUOSI"] or "").strip().isdigit():
+            continue
+        years.setdefault(p["PKUNIIKKI"], {})[p["PPVUOSI"].strip()] = {
             "pct": r2(p["PPEVLPROS"]),
             "start": r2(p["PPEVLARVOA"]),
             "additions": r2(p["PPLISAYS"]),
@@ -163,6 +169,7 @@ def parse_machinery(folder):
             "type": k["PKTYYPPI"],
             "source": k["PKTULOLAHD"],
             "acquiredOn": k["PKOSTOPVM"],
+            "usedFrom": k["PKKAYTTOPV"],
             "cost": r2(k["PKHHINTA"]),
             "maxPct": r2(k["PKMAXPPROS"]),
             "years": years.get(k["PKUNIIKKI"], {}),
@@ -173,13 +180,17 @@ def parse_machinery(folder):
 def parse_buildings(folder):
     years = {}
     for v in table(folder, "RAKVUOSI.DBF"):
-        years.setdefault(v["TRVRNRO"], {})[v["TRVVUOSI"]] = {
+        if not (v["TRVVUOSI"] or "").strip().isdigit():
+            continue
+        years.setdefault(v["TRVRNRO"], {})[v["TRVVUOSI"].strip()] = {
             "start": r2(v["TRVPTAMALK"]),
             "additions": r2(v["TRVMENOT"]) + r2(v["TRVMUUMENO"]),
             "sales": r2(v["TRVLUOVHIN"]),
             "compensation": r2(v["TRVKORVAUS"]),
             "grants": r2(v["TRVAVUSTUS"]),
             "equalization": r2(v["TRVTASVARA"]),
+            "replacementReserve": r2(v["TRVJHVARA"]),
+            "transfers": r2(v["TRVSIIRTOT"]),
             "base": r2(v["TRVMENOJ"]),
             "pct": r2(v["TRVPOISTOP"]),
             "depreciation": r2(v["TRVPOISTMK"]),

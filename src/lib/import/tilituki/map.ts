@@ -57,6 +57,8 @@ export interface TtMachine {
   type: string;
   source: string;
   acquiredOn: string | null;
+  /** Käyttöönottopäivä (PKKAYTTOPV), jos annettu. */
+  usedFrom?: string | null;
   cost: number;
   maxPct: number;
   years: Record<string, TtMachineYear>;
@@ -64,6 +66,9 @@ export interface TtMachine {
 
 export interface TtBuildingYear {
   start: number; additions: number; sales: number; compensation: number; grants: number; equalization: number; base: number; pct: number; depreciation: number; end: number;
+  /** Jälleenhankintavarauksen käyttö (TRVJHVARA) ja siirrot (TRVSIIRTOT); uudemmassa jäsennyksessä. */
+  replacementReserve?: number;
+  transfers?: number;
 }
 export interface TtBuilding {
   id: string;
@@ -184,7 +189,7 @@ const UNSUPPORTED_TAX_CODES: Record<string, string> = {
   L2_178: "metsämaan vuokratulo (7L): ei Skogissa",
   L2_179: "metsämaan vuokratulo (7L): ei Skogissa",
   L2C_115: "metsätalouden muu pääomatulo: Skogissa ei luokkaa",
-  KALUSTOMETSÄ: "metsätalouden investointi: kirjaa hankinta käsin",
+  KALUSTOMETSÄ: "metsätalouden investointi: tuodaan kalustokortistosta (ei kirjausta)",
 };
 
 /**
@@ -324,12 +329,11 @@ export interface YearPlan {
   forestry: boolean;
   vatRegistered: boolean;
   transactions: PlannedTransaction[];
-  /** Aiemmat investoinnit (menojäännös vuoden alussa). Tuodaan vain asiakkaan ensimmäiselle tuontivuodelle. */
+  /** Maatalouden aiemmat investoinnit (menojäännös vuoden alussa). Tuodaan vain asiakkaan ensimmäiselle tuontivuodelle. */
   openingAssets: PlannedAsset[];
   /** Verovuoden hankinnat. */
   newAssets: PlannedAsset[];
   agriDepreciations: { pool: AgriPool; amount: number }[];
-  forestDepreciations: { assetKey: string; amount: number; bookValueEnd: number }[];
   agriYear: AgriYearPlan | null;
   extras: { code: string; value: number }[];
   /** Aiemmilta vuosilta purkamattomat varaukset (aloitusvuosi) ja verovuoden varaus. */
@@ -502,11 +506,18 @@ export function buildYearPlan(f: TtFolder, year: number): YearPlan {
   // Aiemmat investoinnit: menojäännös 31.12. edellisenä vuonna
   // ---------------------------------------------------------------------------
   const openingAssets: PlannedAsset[] = [];
-  const opening = (key: string, activity: "agriculture" | "forestry", description: string, assetClass: AgriAssetClass | null, accelerated: boolean, ratePct: number, value: number) => {
+  const opening = (
+    key: string, activity: "agriculture" | "forestry", description: string, assetClass: AgriAssetClass | null, accelerated: boolean, ratePct: number, value: number,
+    origin?: { acquiredYear: number | null; cost: number },
+  ) => {
     if (!(value > 0)) return;
+    // Rakennuksen hankintavuosi ja -hinta kortistosta, jos ne sopivat: kertynyt poisto on niiden erotus.
+    // Ryhmän menojäännöksellä hankintaa ei tiedetä, joten hinta on menojäännös ja hankinta edellisen vuoden lopussa.
+    const known = origin && origin.acquiredYear !== null && origin.acquiredYear < year && origin.cost >= value;
     openingAssets.push({
       key, legacyId: tilitukiId("asset", f.folder, key), activity, description, assetClass, accelerated, ratePct,
-      acquiredOn: `${prevY}-12-31`, acquisitionCost: round2(value), openingYear: year, openingBookValue: round2(value),
+      acquiredOn: known ? `${origin!.acquiredYear}-12-31` : `${prevY}-12-31`, acquisitionCost: round2(known ? origin!.cost : value), openingYear: year,
+      openingBookValue: round2(value),
     });
   };
   // Verovuoden lomake ratkaisee, jos Tilituki on laskenut sen: kirjanpitäjä on voinut jättää ryhmän tai
@@ -526,14 +537,18 @@ export function buildYearPlan(f: TtFolder, year: number): YearPlan {
     const formStart = startOf(pool);
     const inClass = f.buildings.filter((b) => b.depreciationClass === Number(cls));
     const valueOf = (b: TtBuilding) => b.years[Y]?.start ?? b.years[prevY]?.end ?? 0;
-    // Tilituki jättää lomakkeelta pois rakennuksen, jolle ei ole annettu poistoprosenttia.
-    const counted = inClass.filter((b) => (b.years[Y]?.pct ?? b.years[prevY]?.pct ?? 0) > 0 && valueOf(b) > 0);
+    // Tilituki jättää lomakkeelta pois rakennuksen, jolle ei ole koskaan annettu poistoprosenttia. Rakennus, jolta
+    // poistoa ei tehty vuonna (prosentti tyhjä esim. valmistumisvuonna), on silti lomakkeella.
+    const counted = inClass.filter((b) => depreciable(b) && valueOf(b) > 0);
     const skipped = inClass.filter((b) => !counted.includes(b) && valueOf(b) > 0);
     if (skipped.length) note("rakennus ilman poistoprosenttia jätettiin pois (ei Tilitukin lomakkeella)", skipped.length);
     const sum = round2(counted.reduce((s, b) => s + valueOf(b), 0));
     const pct = POOL_PCT[pool];
     if (counted.length && Math.abs(sum - formStart) < 0.05) {
-      for (const b of counted) opening(`building-${b.id}`, "agriculture", `${b.name || "Rakennus"} (Tilituki)`, pool, false, pct, valueOf(b));
+      for (const b of counted) {
+        const acquiredYear = b.acquiredYear && /^\d{4}$/.test(b.acquiredYear) ? Number(b.acquiredYear) : null;
+        opening(`building-${b.id}`, "agriculture", `${b.name || "Rakennus"} (Tilituki)`, pool, false, pct, valueOf(b), { acquiredYear, cost: b.cost });
+      }
     } else {
       if (counted.length) note("rakennukset tuotiin ryhmänä, koska kortisto ei täsmää lomakkeeseen");
       opening(`pool-${pool}`, "agriculture", `${POOL_LABEL[pool]}, menojäännös (Tilituki)`, pool, false, pct, formStart);
@@ -541,7 +556,7 @@ export function buildYearPlan(f: TtFolder, year: number): YearPlan {
     // Verovuoden rakennusmenot rakennuskortistosta (rakennusten viennit ohitetaan, ettei summa tuplaudu).
     for (const b of inClass) {
       const add = b.years[Y]?.additions ?? 0;
-      if (add > 0 && (b.years[Y]?.pct ?? 0) > 0) {
+      if (add > 0 && depreciable(b)) {
         const key = `building-add-${b.id}-${Y}`;
         newAssets.push({
           key, legacyId: tilitukiId("asset", f.folder, key), activity: "agriculture", description: `${b.name || "Rakennus"}, verovuoden menot (Tilituki)`,
@@ -551,17 +566,8 @@ export function buildYearPlan(f: TtFolder, year: number): YearPlan {
     }
   }
 
-  // Metsätalouden kalusto (KALUSTO, tulolähde metsätalous): menojäännöspoisto kohteittain.
-  const forestDepreciations: YearPlan["forestDepreciations"] = [];
-  for (const m of f.machinery.filter((x) => x.source.toUpperCase().startsWith("METS"))) {
-    const value = m.years[prevY]?.end ?? m.years[Y]?.start ?? 0;
-    const pct = m.years[Y]?.pct || m.maxPct || 25;
-    const rate = [25, 15, 10].includes(pct) ? pct : 25;
-    const key = `machine-${m.id}`;
-    opening(key, "forestry", `${m.name || m.type || "Investointi"} (Tilituki)`, null, false, rate, value);
-    const dep = m.years[Y]?.depreciation ?? 0;
-    if (value > 0 && dep > 0) forestDepreciations.push({ assetKey: key, amount: dep, bookValueEnd: m.years[Y]?.end ?? round2(value - dep) });
-  }
+  // Metsätalouden kalusto (KALUSTO, tulolähde metsätalous) tuodaan koko historiana kortti kerrallaan
+  // (history.ts, run.ts syncForestHistory), ei vuoden suunnitelmassa.
 
   // Ryhmien poistot verovuodelle: Tilitukin lomakkeelta, jos vuosi on laskettu.
   const agriDepreciations: YearPlan["agriDepreciations"] = [];
@@ -638,7 +644,6 @@ export function buildYearPlan(f: TtFolder, year: number): YearPlan {
     openingAssets,
     newAssets,
     agriDepreciations,
-    forestDepreciations,
     agriYear,
     extras: [...extras].filter(([, v]) => v > 0).map(([code, value]) => ({ code, value })),
     openingReserves,
@@ -649,6 +654,9 @@ export function buildYearPlan(f: TtFolder, year: number): YearPlan {
     notes,
   };
 }
+
+/** Rakennus, jolle Tilitukissa on jonain vuonna annettu poistoprosentti. */
+const depreciable = (b: TtBuilding) => Object.values(b.years).some((y) => (y.pct ?? 0) > 0);
 
 const POOL_PCT: Record<AgriAssetClass, number> = {
   agri_production_building: 10, agri_dwelling: 6, agri_greenhouse: 20, agri_environmental: 25, agri_machinery: 25, agri_bridges: 10, agri_drainage: 20,

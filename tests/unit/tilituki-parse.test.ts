@@ -86,6 +86,20 @@ function writeFolder() {
     { values: ["0000000002", 6, "1", 1, "20250228", "2500", 999, 0, "Poistettu", null, 0, 0], deleted: true },
   ]));
   writeFileSync(path.join(dir, "KPVIHIST.DBF"), dbf(vf, [{ values: ["0000000009", 1, "1", 1, "20241231", "2500", 50, 0, "", null, 0, 0] }]));
+  writeFileSync(path.join(dir, "KALUSTO.DBF"), dbf(
+    [["PKUNIIKKI", "C", 10], ["PKNIMI", "C", 32], ["PKTYYPPI", "C", 16], ["PKTULOLAHD", "C", 16], ["PKOSTOPVM", "D", 8], ["PKKAYTTOPV", "D", 8], ["PKHHINTA", "N", 12, 2], ["PKMAXPPROS", "N", 12, 2]],
+    [{ values: ["0000000001", "Mönkijä", "Kone", "METSÄTALOUS", "20230315", "", 4000, 25] }],
+  ));
+  const pf: Field[] = [
+    ["PKUNIIKKI", "C", 10], ["PPVUOSI", "C", 16], ["PPEVLPROS", "N", 12, 2], ["PPEVLARVOA", "N", 12, 2], ["PPLISAYS", "N", 12, 2], ["PPVAHENNYS", "N", 12, 2],
+    ["PPEVLMENOJ", "N", 12, 2], ["PPEVLPSUMM", "N", 12, 2], ["PPEVLARVOL", "N", 12, 2],
+  ];
+  writeFileSync(path.join(dir, "KALUSPOI.DBF"), dbf(pf, [
+    { values: ["0000000001", "2023", 25, 0, 4000, 0, 4000, 1000, 3000] },
+    { values: ["0000000001", "2024", 100, 3000, 0, 0, 3000, 3000, 0] },
+    // Vuodeton rivi on keskeneräinen tietue, joka ohitetaan.
+    { values: ["0000000001", "", 0, 0, 0, 0, 0, 0, 0] },
+  ]));
   writeFileSync(path.join(dir, "lomake2_2025.dbf"), dbf([["TYVINRO", "C", 16], ["VERONRO", "C", 16], ["TYYPPI", "C", 1], ["TULOSTA", "C", 128]], [
     { values: ["226", "L2_258", "N", "       100,00"] },
     { values: ["", "L21_102", "N", "     14284,30"] },
@@ -118,5 +132,13 @@ describe.skipIf(!python)("Tilitukin DBF-jäsennin", () => {
     expect(data.form2["2025"]).toEqual({ "226": 100 });
     expect(data.form2c["2025"]).toEqual({ "603": 30000 });
     expect(data.form2Raw["2025"]).toEqual({ L2_258: 100, L21_102: 14284.3 });
+    // Kalusto koko historiana: kortin tiedot ja vuosirivit, vuodeton rivi ohitettu.
+    expect(data.machinery).toEqual([{
+      id: "0000000001", name: "Mönkijä", type: "Kone", source: "METSÄTALOUS", acquiredOn: "2023-03-15", usedFrom: null, cost: 4000, maxPct: 25,
+      years: {
+        "2023": { pct: 25, start: 0, additions: 4000, disposals: 0, base: 4000, depreciation: 1000, end: 3000 },
+        "2024": { pct: 100, start: 3000, additions: 0, disposals: 0, base: 3000, depreciation: 3000, end: 0 },
+      },
+    }]);
   });
 });

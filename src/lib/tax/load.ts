@@ -192,6 +192,8 @@ export async function loadPlanData(tx: Sql, clientId: string, year: number): Pro
       roadDitch.set(a.forest_property_id!, byYear);
     }
     const y = assetYear(input, deps, year);
+    // Kokonaan poistettu investointi ei tuota poistoa eikä näy suunnitelmassa, ellei vuodelle ole kirjattu riviä.
+    if (y.active && !y.sold && y.bookValueStart <= 0 && y.transferred === 0 && !deps.some((d) => d.taxYear === year)) continue;
     if (!y.active) {
       if (y.transferred > 0) transfersOut.push({ method: a.method, decliningRatePct: rate, acquiredOn: a.acquired_on, amount: y.transferred });
       continue;

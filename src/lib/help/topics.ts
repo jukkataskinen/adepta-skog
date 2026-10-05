@@ -643,7 +643,30 @@ export const HELP_TOPICS: HelpTopic[] = [
     sections: [
       {
         title: "Investoinnit-sivu",
-        text: "Avaa asiakas ja valitse välilehti Investoinnit. Näet kaikki asiakkaan investoinnit: hankintahinnan ja aiemmille investoinneille myös kertyneen poiston ja menojäännöksen. Uusi investointi syntyy, kun kirjaat hankinnan kirjanpitoon.",
+        text: "Avaa asiakas ja valitse välilehti Investoinnit. Näet kaikki asiakkaan investoinnit. Uusi investointi syntyy, kun kirjaat hankinnan kirjanpitoon.",
+        bullets: [
+          "Jokaisesta investoinnista näet hankintavuoden, hankintahinnan, kertyneen poiston ja menojäännöksen.",
+          "Menojäännös on viimeisen kirjatun vuoden lopussa. Esimerkiksi 0,00 € 31.12.2024 – poistettu kokonaan.",
+          "Kirjattu vuosi on vuosi, jonka verosuunnitelma on vahvistettu, tai vuosi, joka on tuotu vanhasta ohjelmasta.",
+          "Poistettu kokonaan tarkoittaa, että arvoa ei ole jäljellä. Siitä ei tule enää poistoa, eikä se näy verosuunnitelmassa.",
+          "Myyty investointi näyttää myyntivuoden ja myyntihinnan.",
+        ],
+        steps: [
+          "Valitse investoinnin alta Poistohistoria.",
+          "Näet jokaisen vuoden rivinä: arvo alussa, poisto ja arvo lopussa.",
+          "Maatalouden poistoryhmät ovat sivun lopussa omana taulukkonaan. Niissäkin on Poistohistoria.",
+        ],
+      },
+      {
+        title: "Vanhasta ohjelmasta tuodut investoinnit",
+        text: "Tilituki-ohjelmasta tuodaan koko historia: jokainen kone, tie, oja ja rakennus omana investointinaan, ja jokaisen vuoden poisto. Näin seuraavan vuoden kirjanpito alkaa oikeasta menojäännöksestä.",
+        bullets: [
+          "Hankintavuosi ja hankintahinta tulevat vanhan ohjelman kortilta.",
+          "Jos vanha ohjelma ei laskenut jotain vuotta, sen vuoden poisto on 0.",
+          "Jos muutat tuotua investointia Skogissa, uusi tuonti ei enää muuta sitä.",
+          "Suljetun vuoden poistoja tuonti ei muuta.",
+          "Maatalouden ryhmät alkavat ensimmäisen Skogiin tuodun vuoden menojäännöksestä. Sitä vanhempi historia on vanhassa ohjelmassa.",
+        ],
       },
       {
         title: "Aiemmin hankittu investointi ja menojäännös",

@@ -202,8 +202,12 @@ export interface ClientAssetRow {
   opening_accumulated_depreciation: string | null;
   opening_book_value: string | null;
   disposed_on: string | null;
+  sale_price: string | null;
+  useful_life_years: number | null;
   legacy_id: string | null;
   property_name: string | null;
+  /** Kirjatut poistot vuosittain (metsätalous). */
+  deps: { taxYear: number; amount: string; bookValueEnd: string }[] | null;
   activity: Activity;
   asset_class: string | null;
   accelerated: boolean;
@@ -214,7 +218,10 @@ export interface ClientAssetRow {
 export async function listClientAssets(tx: Sql, clientId: string): Promise<ClientAssetRow[]> {
   return tx.query<ClientAssetRow>(
     `select a.id, a.description, a.acquired_on::text, a.acquisition_cost, a.method, a.declining_rate_pct, a.opening_year,
-            a.opening_accumulated_depreciation, a.opening_book_value, a.disposed_on::text, a.legacy_id, p.name as property_name,
+            a.opening_accumulated_depreciation, a.opening_book_value, a.disposed_on::text, a.sale_price, a.useful_life_years, a.legacy_id,
+            p.name as property_name,
+            (select json_agg(json_build_object('taxYear', d.tax_year, 'amount', d.amount, 'bookValueEnd', d.book_value_end)) from sk_depreciations d
+              where d.asset_id = a.id) as deps,
             a.activity, a.asset_class, a.accelerated,
             coalesce(sk_year_is_closed(a.client_id, a.opening_year), false) as locked
        from sk_assets a left join sk_forest_properties p on p.id = a.forest_property_id

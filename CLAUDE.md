@@ -70,7 +70,7 @@ src/lib/agriculture/        Maatalous-välilehden tiedot: vuoden tiedot, maatila
 src/lib/years/              verovuoden avaus, sulkeminen ja lukitus
 src/lib/compare/            vertailu vanhaan sovellukseen (legacy-tax) ja Tilitukin lomakkeeseen 2 (tilituki)
 src/lib/import/             tiedonsiirto vanhasta kannasta: muunnokset (legacy.ts) ja kirjoitus (run.ts); tuotujen rivien tunnisteet (origin.ts)
-src/lib/import/tilituki/    Tilituki Pro -tuonti: kartoitus veronumerosta ja vuoden suunnitelma (map.ts), kirjoitus (run.ts)
+src/lib/import/tilituki/    Tilituki Pro -tuonti: kartoitus veronumerosta ja vuoden suunnitelma (map.ts), metsän kaluston historia (history.ts), kirjoitus (run.ts)
 scripts/tilituki/           Tilitukin DBF-taulujen jäsennys Pythonilla (dbf.py, parse.py) → data/private/tilituki
 src/lib/storage/            tositteet ja raportit: paikallinen kansio tai Supabase Storage
 src/lib/ai/receipts/        tositteiden tunnistus: index (tila), anthropic (Claude), mock ja mock-agri, schema (tarkistus), agri (maatalouden lajit, tukilajit, huomautukset), reconcile (täsmäytys), config/chunks/pdf/merge (osissa)
@@ -91,7 +91,8 @@ npm run db:seed:demo         kuvitteellinen demodata
 npm run tuo:vanha -- --org "Nimi" [--kuiva] [--tuotanto]      tiedot vanhasta Skog-kannasta
 npm run vertaa:vero -- --vuosi 2025 [--tuotanto]             veroraportin luvut vanhaa sovellusta vasten
 python scripts/tilituki/parse.py <Tilitukin datakansio>       Tilituki Pro -asiakkaat → data/private/tilituki/<kansio>.json
-npm run tilituki:tuo -- [--kansio N] [--vuosi 2025] [--org "Nimi"] [--luo] [--metsa] [--kuiva] [--tuotanto]   maatalousasiakkaat Tilitukista
+npm run tilituki:tuo -- [--kansio N,M] [--vuosi 2023,2024,2025] [--org "Nimi"] [--luo] [--metsa] [--avaa 2026] [--tarkista] [--kuiva] [--tuotanto]   asiakkaat Tilitukista, metsän kalusto koko historiana
+npm run tilituki:tarkista -- [--kansio N,M] [--vuodet 2023,2024,2025] [--tuotanto]   menojäännökset Tilitukin kortistoa ja lomakkeita vasten
 npm run tilituki:vertaa -- [--vuosi 2025] [--kansio N] [--tuotanto]   Skogin lomake 2 Tilitukin lomaketta vasten
 npm run kayttaja:lisaa -- --email x --org "Nimi" --rooli owner [--luo-org] [--tuotanto]
 npm run lint && npm run typecheck && npm run test
