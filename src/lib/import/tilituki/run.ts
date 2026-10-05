@@ -4,7 +4,7 @@ import { thirds } from "@/lib/tax/agriculture";
 import { round2 } from "@/lib/tax/amounts";
 import { tilitukiId, TILITUKI_ID_SQL } from "@/lib/import/origin";
 import { buildForestHistory, sameAsManual, type HistoryAsset, type ManualAsset } from "./history";
-import { buildYearPlan, clientName, hasAgriculture, hasForestry, type TtFolder, type UnmappedAccount, type YearPlan } from "./map";
+import { buildYearPlan, clientName, dataYearRange, hasAgriculture, hasForestry, type TtFolder, type UnmappedAccount, type YearPlan } from "./map";
 
 /**
  * Tilituki-aineiston kirjoitus Skogiin yhdessä transaktiossa (palvelun rooli).
@@ -33,6 +33,8 @@ export interface TilitukiImportOptions {
 
 export interface FolderResult {
   folder: string;
+  /** Skogin asiakas, jos vuosi tuotiin (vuosien sulkemista varten). */
+  clientId?: string;
   status: "imported" | "skipped";
   reason?: string;
   counts: Record<string, number>;
@@ -80,6 +82,9 @@ async function importFolder(tx: Sql, orgId: string, opts: TilitukiImportOptions,
   const agri = hasAgriculture(f, year);
   const forest = hasForestry(f, year);
   const skip = (reason: string): FolderResult => ({ folder: f.folder, status: "skipped", reason, counts, unmapped: [], ignored: {}, notes: {} });
+  // Vuodet ennen asiakkaan ensimmäistä ja jälkeen viimeisen Tilituki-vuoden ohitetaan: verovuotta ei luoda tyhjänä.
+  const range = dataYearRange(f);
+  if (!range || year < range.first || year > range.last) return skip("ei Tilituki-aineistoa vuodelta");
   const plan = buildYearPlan(f, year);
   const clientLegacy = tilitukiId("client", f.folder);
   // Y-tunnus ensin: asiakas voi olla Skogissa jo ennestään.
@@ -124,17 +129,33 @@ async function importFolder(tx: Sql, orgId: string, opts: TilitukiImportOptions,
   }
   const clientId = client.id;
 
-  // Verovuosi. Suljettuun vuoteen ei kosketa.
-  const [ty] = await tx.query<{ status: string }>("select status from sk_tax_years where client_id = $1 and year = $2", [clientId, year]);
-  if (ty?.status === "closed") return { ...skip("verovuosi on suljettu"), counts };
+  // Verovuosi. Käyttäjän sulkemaan vuoteen ei kosketa. Tuonnin itse sulkema vuosi avataan uusintatuontia varten
+  // ja suljetaan ajon lopuksi uudelleen (closeImportedYears), joten ajo on toistettava.
+  const [ty] = await tx.query<{ id: string; status: string; closed_by: string | null }>(
+    "select id, status, closed_by::text from sk_tax_years where client_id = $1 and year = $2",
+    [clientId, year],
+  );
+  if (ty?.status === "closed") {
+    if (!(await closedByImport(tx, ty))) return { ...skip("verovuosi on suljettu"), counts };
+    await tx.query("update sk_tax_years set status = 'open', closed_at = null, closed_by = null where id = $1", [ty.id]);
+    await tx.query(
+      "insert into sk_audit_log (organization_id, action, entity, entity_id, details) values ($1, 'tax_year.reopen', 'sk_tax_years', $2, $3)",
+      [orgId, ty.id, JSON.stringify({ year, source: IMPORT_SOURCE })],
+    );
+    add("tuonnin sulkemia verovuosia avattu");
+  }
   if (!ty) {
     await tx.query("insert into sk_tax_years (organization_id, client_id, year, status) values ($1,$2,$3,'open')", [orgId, clientId, year]);
     add("verovuosia avattu");
   }
 
   // Aloitusvuosi: aiemmat investoinnit, varaukset ja jaksotukset tuodaan vain asiakkaan ensimmäiselle tuontivuodelle.
+  // Ensimmäinen vuosi on se, jota ennen asiakkaalla ei ole Tilitukista tuotuja kirjauksia eikä maatalouden
+  // investointeja. Pelkkä aiempi ryhmä ei riitä: ilman ryhmiä alkanut asiakas voi hankkia koneen myöhemmin.
   const [earlier] = await tx.query<{ n: number }>(
-    `select count(*)::int as n from sk_assets where client_id = $1 and activity = 'agriculture' and ${TILITUKI_ID_SQL} and opening_year is not null and opening_year < $2`,
+    `select ((select count(*) from sk_transactions where client_id = $1 and tax_year < $2 and ${TILITUKI_ID_SQL})
+           + (select count(*) from sk_assets where client_id = $1 and activity = 'agriculture' and ${TILITUKI_ID_SQL}
+                and coalesce(opening_year, extract(year from acquired_on)::int) < $2))::int as n`,
     [clientId, year],
   );
   const firstYear = earlier.n === 0;
@@ -172,34 +193,55 @@ async function importFolder(tx: Sql, orgId: string, opts: TilitukiImportOptions,
   // ---------------------------------------------------------------------------
   // Kirjaukset
   // ---------------------------------------------------------------------------
+  // Olemassa olevat rivit yhdellä kyselyllä ja uudet erissä: vuosia on 25 ja vientejä kymmeniätuhansia,
+  // joten rivi kerrallaan tuotantokantaan menisi liian kauan.
+  const existing = new Map(
+    (
+      await tx.query<{
+        id: string; legacy_id: string; booked_on: string; kind: string; category: string; description: string; amount_net: string; vat_rate: string;
+        withholding: string; reference: string | null; asset_id: string | null;
+      }>(
+        `select id, legacy_id::text, booked_on::text, kind, category, description, amount_net, vat_rate, withholding, reference, asset_id::text
+           from sk_transactions where client_id = $1 and legacy_id = any($2::uuid[])`,
+        [clientId, plan.transactions.map((t) => t.legacyId)],
+      )
+    ).map((r) => [r.legacy_id, r]),
+  );
+  const inserts: { t: YearPlan["transactions"][number]; assetId: string | null; activity: string }[] = [];
   for (const t of plan.transactions) {
     const assetId = t.assetKey ? (assetIds.get(t.assetKey) ?? null) : null;
-    const [ex] = await tx.query<{ id: string; same: boolean }>(
-      `select id, (booked_on = $2::date and kind = $3 and category = $4 and description = $5 and amount_net = $6::numeric and vat_rate = $7::numeric
-                   and withholding = $8::numeric and reference is not distinct from $9 and asset_id is not distinct from $10::uuid) as same
-         from sk_transactions where legacy_id = $1`,
-      [t.legacyId, t.bookedOn, t.kind, t.category, t.description, t.amountNet, t.vatRate, t.withholding, t.reference, assetId],
-    );
     const activity = t.category.startsWith("agri_") ? "agriculture" : "forestry";
-    if (ex) {
-      if (ex.same) continue;
-      // amount_gross null: kanta laskee verollisen summan verottomasta (0009), jolloin veroton pysyy Tilitukin lukuna.
-      await tx.query(
-        `update sk_transactions set booked_on = $2, kind = $3, category = $4, description = $5, amount_gross = null, amount_net = $6, vat_rate = $7,
-                withholding = $8, reference = $9, asset_id = $10, activity = $11 where id = $1`,
-        [ex.id, t.bookedOn, t.kind, t.category, t.description, t.amountNet, t.vatRate, t.withholding, t.reference, assetId, activity],
-      );
-      add("kirjauksia päivitetty");
+    const ex = existing.get(t.legacyId);
+    if (!ex) {
+      inserts.push({ t, assetId, activity });
       continue;
     }
+    const same =
+      ex.booked_on === t.bookedOn && ex.kind === t.kind && ex.category === t.category && ex.description === t.description &&
+      Number(ex.amount_net) === t.amountNet && Number(ex.vat_rate) === t.vatRate && Number(ex.withholding) === t.withholding &&
+      ex.reference === t.reference && ex.asset_id === assetId;
+    if (same) continue;
+    // amount_gross null: kanta laskee verollisen summan verottomasta (0009), jolloin veroton pysyy Tilitukin lukuna.
+    await tx.query(
+      `update sk_transactions set booked_on = $2, kind = $3, category = $4, description = $5, amount_gross = null, amount_net = $6, vat_rate = $7,
+              withholding = $8, reference = $9, asset_id = $10, activity = $11 where id = $1`,
+      [ex.id, t.bookedOn, t.kind, t.category, t.description, t.amountNet, t.vatRate, t.withholding, t.reference, assetId, activity],
+    );
+    add("kirjauksia päivitetty");
+  }
+  for (let i = 0; i < inserts.length; i += 500) {
+    const chunk = inserts.slice(i, i + 500);
     await tx.query(
       `insert into sk_transactions (organization_id, client_id, booked_on, kind, category, description, amount_net, vat_rate, withholding, reference, asset_id,
                                     activity, legacy_id)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-      [orgId, clientId, t.bookedOn, t.kind, t.category, t.description, t.amountNet, t.vatRate, t.withholding, t.reference, assetId, activity, t.legacyId],
+       select $1, $2, * from unnest($3::date[], $4::text[], $5::text[], $6::text[], $7::numeric[], $8::numeric[], $9::numeric[], $10::text[], $11::uuid[],
+                                    $12::text[], $13::uuid[])`,
+      [orgId, clientId, chunk.map((c) => c.t.bookedOn), chunk.map((c) => c.t.kind), chunk.map((c) => c.t.category), chunk.map((c) => c.t.description),
+        chunk.map((c) => c.t.amountNet), chunk.map((c) => c.t.vatRate), chunk.map((c) => c.t.withholding), chunk.map((c) => c.t.reference),
+        chunk.map((c) => c.assetId), chunk.map((c) => c.activity), chunk.map((c) => c.t.legacyId)],
     );
-    add("kirjauksia");
   }
+  add("kirjauksia", inserts.length);
   const removed = await tx.query(
     `delete from sk_transactions where client_id = $1 and tax_year = $2 and ${TILITUKI_ID_SQL} and not (legacy_id = any($3::uuid[])) returning id`,
     [clientId, year, plan.transactions.map((t) => t.legacyId)],
@@ -244,6 +286,31 @@ async function importFolder(tx: Sql, orgId: string, opts: TilitukiImportOptions,
   const reserves = [...(firstYear ? plan.openingReserves : []), ...plan.yearReserves];
   await tx.query("delete from sk_agri_reserves where client_id = $1 and note = $2 and made_year = $3", [clientId, NOTE, year]);
   if (firstYear) await tx.query("delete from sk_agri_reserves where client_id = $1 and note = $2 and made_year < $3", [clientId, NOTE, year]);
+  // Myöhempien vuosien tuloutus (219) aiemmin tuoduista varauksista vanhimmasta alkaen. Aloitusvuonna se on
+  // aloitusvarauksilla (incomeThisYear). Pitkässä historiassa varauksia tehdään ja tuloutetaan monena vuonna.
+  await tx.query(
+    "delete from sk_agri_reserve_uses u using sk_agri_reserves r where u.reserve_id = r.id and r.client_id = $1 and r.note = $2 and u.tax_year = $3",
+    [clientId, NOTE, year],
+  );
+  if (!firstYear && plan.reserveIncome > 0) {
+    const open = await tx.query<{ id: string; left: string }>(
+      `select r.id, r.amount - coalesce((select sum(u.amount) from sk_agri_reserve_uses u where u.reserve_id = r.id and u.tax_year < $3), 0) as left
+         from sk_agri_reserves r where r.client_id = $1 and r.note = $2 and r.kind = 'equalization' and r.made_year < $3 order by r.made_year`,
+      [clientId, NOTE, year],
+    );
+    let income = plan.reserveIncome;
+    for (const r of open) {
+      const use = round2(Math.min(income, Number(r.left)));
+      if (use <= 0) continue;
+      await tx.query(
+        "insert into sk_agri_reserve_uses (organization_id, client_id, reserve_id, tax_year, use_kind, amount) values ($1,$2,$3,$4,'income',$5)",
+        [orgId, clientId, r.id, year, use],
+      );
+      add("varausten tuloutuksia");
+      income = round2(income - use);
+    }
+    if (income > 0.005) add("tasausvarauksen tuloutusta ei voitu kohdistaa");
+  }
   for (const r of reserves) {
     const [row] = await tx.query<{ id: string }>(
       "insert into sk_agri_reserves (organization_id, client_id, kind, made_year, amount, note) values ($1,$2,$3,$4,$5,$6) returning id",
@@ -282,7 +349,53 @@ async function importFolder(tx: Sql, orgId: string, opts: TilitukiImportOptions,
     add(`verovuosia avattu (${y})`, opened.length);
   }
 
-  return { folder: f.folder, status: "imported", counts, unmapped: plan.unmapped, ignored: plan.ignored, notes: { ...plan.notes, ...historyNotes } };
+  return { folder: f.folder, clientId, status: "imported", counts, unmapped: plan.unmapped, ignored: plan.ignored, notes: { ...plan.notes, ...historyNotes } };
+}
+
+/** Tuonnin sulkemien vuosien merkintä muutoslokissa (details.source). */
+const IMPORT_SOURCE = "tilituki";
+
+/**
+ * Onko vuosi tuonnin sulkema: sulkijaa ei ole (palvelun rooli), tuonti on kirjannut sulkemisen lokiin, eikä
+ * vuotta ole koskaan avattu tai suljettu muuten (käyttäjä tai muu lähde). Käyttäjän kerran käsittelemään
+ * vuoteen tuonti ei enää koske. Saman ajon avaus ja sulkeminen ovat lokissa samalla ajalla, joten
+ * järjestykseen ei luoteta.
+ */
+async function closedByImport(tx: Sql, ty: { id: string; closed_by: string | null }): Promise<boolean> {
+  if (ty.closed_by) return false;
+  const [r] = await tx.query<{ imported: boolean; other: boolean }>(
+    `select bool_or(action = 'tax_year.close' and user_id is null and details->>'source' = $2) as imported,
+            bool_or(user_id is not null or details->>'source' is distinct from $2) as other
+       from sk_audit_log where entity = 'sk_tax_years' and entity_id = $1 and action in ('tax_year.close', 'tax_year.reopen', 'tax_year.open')`,
+    [ty.id, IMPORT_SOURCE],
+  );
+  return !!r?.imported && !r.other;
+}
+
+/**
+ * Tuodut vanhat verovuodet suljetaan, jotta niitä ei muuteta vahingossa (DECISIONS 5.10.2026, koko historia).
+ * Suljetaan vain tässä ajossa tuodut vuodet, jotka ovat enintään `throughYear`. Sulkeminen kirjataan lokiin
+ * ilman käyttäjää lähteellä "tilituki", josta uusintatuonti tunnistaa vuoden omakseen.
+ */
+export async function closeImportedYears(tx: Sql, orgId: string, imported: { clientId: string; year: number }[], throughYear: number): Promise<number> {
+  let n = 0;
+  const seen = new Set<string>();
+  for (const { clientId, year } of imported) {
+    const key = `${clientId}/${year}`;
+    if (year > throughYear || seen.has(key)) continue;
+    seen.add(key);
+    const [row] = await tx.query<{ id: string }>(
+      "update sk_tax_years set status = 'closed', closed_at = now(), closed_by = null where client_id = $1 and year = $2 and status = 'open' returning id",
+      [clientId, year],
+    );
+    if (!row) continue;
+    await tx.query(
+      "insert into sk_audit_log (organization_id, action, entity, entity_id, details) values ($1, 'tax_year.close', 'sk_tax_years', $2, $3)",
+      [orgId, row.id, JSON.stringify({ year, source: IMPORT_SOURCE })],
+    );
+    n++;
+  }
+  return n;
 }
 
 const num = (v: string | number | null) => (v === null ? null : Number(v));

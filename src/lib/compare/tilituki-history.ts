@@ -107,6 +107,13 @@ export function checkForestForm(f: TtFolder, history: HistoryAsset[], skog: Skog
         out.push({ item: g.label, year, tilituki: tt, skog: sk, ok: true, note: "lomaketta ei laskettu Tilitukissa" });
         continue;
       }
+      // Tilitukin kalustokortisto alkaa vasta myöhemmin (historia 2007–): aiempien vuosien lomakkeen koneita ja
+      // teitä ei ole kortteina, joten niitä ei ole Skogissakaan.
+      const firstCard = Math.min(...history.map((h) => h.years[0].year), Infinity);
+      if (year < firstCard) {
+        out.push({ item: g.label, year, tilituki: tt, skog: sk, ok: true, note: "Tilitukin kalustokortisto alkaa myöhemmin" });
+        continue;
+      }
       // Käsin lisätty vastine alkaa myöhemmin kuin Tilitukin historia: aiempien vuosien ryhmä ei ole Skogissa vertailukelpoinen.
       const lateManual = ofKind.some((h) => {
         const a = skogFor(h, skog);
@@ -142,6 +149,17 @@ export function checkAgri(f: TtFolder, src: AgriDepreciationSource, years: numbe
       const sk = cls === "agri_machinery" ? r2(end("agri_machinery") + end(ACCELERATED_POOL)) : end(cls);
       const tt = form[fields.end] ?? 0;
       if (!sk && !tt) continue;
+      // Rakennusryhmä puuttuu Tilitukin lasketulta lomakkeelta kokonaan: tuonti seuraa rakennuskortistoa, joten
+      // verrataan korttien loppuarvoihin.
+      const buildingClass = Object.entries(BUILDING_CLASSES).find(([, c]) => c === cls)?.[0];
+      const missing = buildingClass && [fields.start, fields.end, fields.dep, fields.add].every((c) => form[c] === undefined);
+      if (missing) {
+        const cards = r2(f.buildings
+          .filter((b) => b.depreciationClass === Number(buildingClass) && Object.values(b.years).some((y) => y.pct > 0))
+          .reduce((s, b) => s + (b.years[String(year)]?.end ?? 0), 0));
+        out.push({ item: `lomake 2 ${fields.end}`, year, tilituki: cards, skog: sk, ok: close(cards, sk, 0.05), note: "ryhmä puuttuu Tilitukin lomakkeelta, verrattu rakennuskortistoon" });
+        continue;
+      }
       const ok = close(tt, sk, 0.05);
       // Rakennus ilman poistoprosenttia: Tilituki on voinut ottaa sen lomakkeelle vain osana vuosista (BLOCKERS 14 ab).
       const noPct = Object.entries(BUILDING_CLASSES).some(([n, c]) => c === cls && f.buildings.some((b) => b.depreciationClass === Number(n) && !Object.values(b.years).some((y) => y.pct > 0)));

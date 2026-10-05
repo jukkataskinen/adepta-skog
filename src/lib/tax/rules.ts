@@ -243,42 +243,80 @@ export function withLivestockDeferral(code: string, deferred: boolean): string {
 export const TIMBER_SALE_CODES = ["standing_sale", "delivery_sale", "firewood_sale"];
 
 /**
- * Yleinen arvonlisäverokanta päivän mukaan. Kanta nousi 24 prosentista
- * 25,5 prosenttiin 1.9.2024.
+ * Arvonlisäverokannat päivän mukaan koko Tilitukin historialta (1994–).
+ * Yleinen kanta: 22 % 1.6.1994, 23 % 1.7.2010, 24 % 1.1.2013 ja 25,5 % 1.9.2024.
+ * Alennettu kanta (elintarvikkeet, rehut, ravintola): 17 %, 12 % 1.10.2009,
+ * 13 % 1.7.2010, 14 % 1.1.2013 ja 13,5 % 1.1.2026. Alin kanta (kirjat, lääkkeet,
+ * henkilökuljetus, majoitus): 8 %, 9 % 1.7.2010 ja 10 % 1.1.2013; 1.1.2025
+ * alkaen suurin osa alimman kannan hyödykkeistä siirtyi 14 prosenttiin, ja
+ * 10 % jäi lehdille. Historialliset kannat tarvitaan Tilitukin vanhoille
+ * vuosille (DECISIONS 5.10.2026, koko historia).
  */
 const GENERAL_VAT: { from: string; rate: number }[] = [
+  { from: "1994-06-01", rate: 22 },
+  { from: "2010-07-01", rate: 23 },
   { from: "2013-01-01", rate: 24 },
   { from: "2024-09-01", rate: 25.5 },
 ];
 
-export function generalVatRate(date: string): number {
-  let rate = GENERAL_VAT[0].rate;
-  for (const r of GENERAL_VAT) if (date >= r.from) rate = r.rate;
+function rateOn(table: { from: string; rate: number }[], date: string): number {
+  let rate = table[0].rate;
+  for (const r of table) if (date >= r.from) rate = r.rate;
   return rate;
 }
 
+export function generalVatRate(date: string): number {
+  return rateOn(GENERAL_VAT, date);
+}
+
 /**
- * Alennettu arvonlisäverokanta (elintarvikkeet, rehut, majoitus): 14 % ja
- * 13,5 % 1.1.2026 alkaen. Maito ja vilja ovat tällä kannalla, elävät eläimet
- * yleisellä (docs/maatalous-suunnitelma-2026-10-02.md, 2.1).
+ * Alennettu arvonlisäverokanta (elintarvikkeet, rehut, majoitus vuodesta 2025):
+ * 14 % ja 13,5 % 1.1.2026 alkaen. Maito ja vilja ovat tällä kannalla, elävät
+ * eläimet yleisellä (docs/maatalous-suunnitelma-2026-10-02.md, 2.1).
  */
 const REDUCED_VAT: { from: string; rate: number }[] = [
+  { from: "1994-06-01", rate: 17 },
+  { from: "2009-10-01", rate: 12 },
+  { from: "2010-07-01", rate: 13 },
   { from: "2013-01-01", rate: 14 },
   { from: "2026-01-01", rate: 13.5 },
 ];
 
 export function reducedVatRate(date: string): number {
-  let rate = REDUCED_VAT[0].rate;
-  for (const r of REDUCED_VAT) if (date >= r.from) rate = r.rate;
-  return rate;
+  return rateOn(REDUCED_VAT, date);
 }
 
-/** Verokannan ryhmä: yleinen (VSRALVKV 301), alennettu 14 % tai 13,5 % (302), 10 % (303) tai veroton. */
+/** Alin arvonlisäverokanta (ilmoituksen kohta 303): 8 %, 9 % ja 10 %. */
+const LOWEST_VAT: { from: string; rate: number }[] = [
+  { from: "1994-06-01", rate: 8 },
+  { from: "2010-07-01", rate: 9 },
+  { from: "2013-01-01", rate: 10 },
+];
+
+export function lowestVatRate(date: string): number {
+  return rateOn(LOWEST_VAT, date);
+}
+
+/**
+ * Päivänä voimassa olleet verokannat (0 % mukana). Vuodesta 2025 myös 14 %,
+ * johon alimman kannan hyödykkeet siirtyivät, vaikka elintarvikkeiden kanta on
+ * 2026 alkaen 13,5 %. Tuonti käyttää tätä tarkistukseen, ei kannan valintaan.
+ */
+export function vatRatesOn(date: string): number[] {
+  const rates = new Set([0, generalVatRate(date), reducedVatRate(date), lowestVatRate(date)]);
+  if (date >= "2025-01-01") rates.add(14);
+  return [...rates].sort((a, b) => b - a);
+}
+
+/**
+ * Verokannan ryhmä: yleinen (VSRALVKV 301: 22, 23, 24 tai 25,5 %), alennettu
+ * (302: 17, 12, 13, 14 tai 13,5 %), alin (303: 8, 9 tai 10 %) tai veroton.
+ */
 export type VatRateGroup = "general" | "reduced" | "ten" | "zero";
 
 export function vatRateGroup(rate: number): VatRateGroup {
   if (rate <= 0) return "zero";
-  if (rate === 10) return "ten";
+  if (rate < 11) return "ten";
   return rate >= 20 ? "general" : "reduced";
 }
 

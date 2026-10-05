@@ -91,8 +91,8 @@ npm run db:seed:demo         kuvitteellinen demodata
 npm run tuo:vanha -- --org "Nimi" [--kuiva] [--tuotanto]      tiedot vanhasta Skog-kannasta
 npm run vertaa:vero -- --vuosi 2025 [--tuotanto]             veroraportin luvut vanhaa sovellusta vasten
 python scripts/tilituki/parse.py <Tilitukin datakansio>       Tilituki Pro -asiakkaat → data/private/tilituki/<kansio>.json
-npm run tilituki:tuo -- [--kansio N,M] [--vuosi 2023,2024,2025] [--org "Nimi"] [--luo] [--metsa] [--avaa 2026] [--tarkista] [--kuiva] [--tuotanto]   asiakkaat Tilitukista, metsän kalusto koko historiana
-npm run tilituki:tarkista -- [--kansio N,M] [--vuodet 2023,2024,2025] [--tuotanto]   menojäännökset Tilitukin kortistoa ja lomakkeita vasten
+npm run tilituki:tuo -- [--kansio N,M] [--vuosi 2002-2025] [--org "Nimi"] [--luo] [--metsa] [--sulje 2024] [--avaa 2026] [--tarkista] [--laaja] [--kuiva] [--tuotanto]   asiakkaat Tilitukista koko historiana, vanhat vuodet suljetaan
+npm run tilituki:tarkista -- [--kansio N,M] [--vuodet 2002-2025] [--laaja] [--tuotanto]   kirjaukset, viennit, menojäännökset ja lomake 2 Tilitukia vasten vuosittain
 npm run tilituki:vertaa -- [--vuosi 2025] [--kansio N] [--tuotanto]   Skogin lomake 2 Tilitukin lomaketta vasten
 npm run kayttaja:lisaa -- --email x --org "Nimi" --rooli owner [--luo-org] [--tuotanto]
 npm run lint && npm run typecheck && npm run test

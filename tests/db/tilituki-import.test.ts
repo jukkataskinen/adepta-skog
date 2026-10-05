@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Database } from "@/lib/db/types";
-import { importTilituki } from "@/lib/import/tilituki/run";
+import { closeImportedYears, importTilituki } from "@/lib/import/tilituki/run";
 import { importLegacyData } from "@/lib/import/run";
 import { tilitukiId } from "@/lib/import/origin";
 import { loadForm2 } from "@/lib/tax/agri-form-load";
@@ -130,5 +130,32 @@ describe("Tilituki-tuonti", () => {
     await db.asService((tx) => tx.query("update sk_tax_years set status = 'closed', closed_at = now() where client_id = $1 and year = 2025", [id]));
     const r = await run([folder]);
     expect(r.folders[0]).toMatchObject({ status: "skipped", reason: "verovuosi on suljettu" });
+  });
+
+  it("tuonnin sulkema vuosi avataan uusintatuonnissa ja suljetaan uudelleen, käyttäjän sulkemaan ei kosketa", async () => {
+    const f = { ...farmFolder({ folder: "904" }), client: { ...folder.client, businessId: "2345678-9" } };
+    const first = await run([f]);
+    const id = first.folders[0].clientId!;
+    expect(id).toBeTruthy();
+    const closed = await db.asService((tx) => closeImportedYears(tx, orgId, [{ clientId: id, year: 2025 }], 2025));
+    expect(closed).toBe(1);
+    const status = async () =>
+      (await db.asService((tx) => tx.query<{ status: string }>("select status from sk_tax_years where client_id = $1 and year = 2025", [id])))[0].status;
+    expect(await status()).toBe("closed");
+    // Uusintatuonti avaa oman sulkemansa vuoden, ei tuplaa mitään, ja sulkeminen palauttaa tilan.
+    const again = await run([f]);
+    expect(again.folders[0].counts).toMatchObject({ "tuonnin sulkemia verovuosia avattu": 1 });
+    expect(again.folders[0].counts.kirjauksia ?? 0).toBe(0);
+    expect(await db.asService((tx) => closeImportedYears(tx, orgId, [{ clientId: id, year: 2025 }], 2025))).toBe(1);
+    // Vuoden avaaminen käyttäjänä (lokissa avaus) tekee sulkemisesta käyttäjän: tuonti ei enää avaa sitä.
+    const [ty] = await db.asService((tx) => tx.query<{ id: string }>("select id from sk_tax_years where client_id = $1 and year = 2025", [id]));
+    await db.asService(async (tx) => {
+      await tx.query("insert into sk_audit_log (organization_id, action, entity, entity_id, details) values ($1, 'tax_year.reopen', 'sk_tax_years', $2, '{}')", [orgId, ty.id]);
+      await tx.query("insert into sk_audit_log (organization_id, action, entity, entity_id, details) values ($1, 'tax_year.close', 'sk_tax_years', $2, '{}')", [orgId, ty.id]);
+    });
+    const third = await run([f]);
+    expect(third.folders[0]).toMatchObject({ status: "skipped", reason: "verovuosi on suljettu" });
+    // Vuotta, jota ei tuotu tai joka on rajan jälkeen, ei suljeta.
+    expect(await db.asService((tx) => closeImportedYears(tx, orgId, [{ clientId: id, year: 2026 }], 2025))).toBe(0);
   });
 });

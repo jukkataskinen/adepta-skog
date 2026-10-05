@@ -1,6 +1,6 @@
 import { round2 } from "./amounts";
 import { ownShare } from "./share";
-import { categoryActivity, generalVatRate, reducedVatRate, vatRateGroup, type Activity, type TransactionKind } from "./rules";
+import { categoryActivity, generalVatRate, lowestVatRate, reducedVatRate, vatRateGroup, type Activity, type TransactionKind } from "./rules";
 
 /**
  * Arvonlisäveron yhteenveto neljänneksittäin ja vuodelta. Metsätalouden ja
@@ -142,7 +142,7 @@ export function vatFormRows(year: number, form: VatReturnFields): [code: string,
   return [
     ["301", `Vero ${rates(generalVatRate)}`, form.general],
     ["302", `Vero ${rates(reducedVatRate)}`, form.reduced],
-    ["303", "Vero 10 %", form.ten],
+    ["303", `Vero ${rates(lowestVatRate)}`, form.ten],
     ["307", "Verokauden vähennettävä vero", form.deductible],
     ["308", form.payable < 0 ? "Palautettava vero" : "Maksettava vero", Math.abs(form.payable)],
   ];

@@ -5,12 +5,36 @@ import { loadPlanData } from "../../src/lib/tax/load.ts";
 import { agriDepreciation, POOL_FIELDS } from "../../src/lib/tax/agri-depreciation.ts";
 import { loadAgriDepreciationSource } from "../../src/lib/tax/agri-load.ts";
 import { checkAgri, checkForest, checkForestForm, skogEndOf, type HistoryCheck, type SkogForestAsset } from "../../src/lib/compare/tilituki-history.ts";
-import type { TtFolder } from "../../src/lib/import/tilituki/map.ts";
+import { buildYearPlan, dataYearRange, type TtFolder } from "../../src/lib/import/tilituki/map.ts";
+import { checkEntriesAgainstForm, checkImportedLedger } from "../../src/lib/compare/tilituki-ledger.ts";
+import { compareForm2 } from "../../src/lib/compare/tilituki.ts";
+import { loadForm2 } from "../../src/lib/tax/agri-form-load.ts";
+import { VSY002_SPECS } from "../../src/lib/filing/vsy002.ts";
+import { TILITUKI_ID_SQL } from "../../src/lib/import/origin.ts";
+
+/** Tarkistuksen laji vuosittaiseen yhteenvetoon. */
+type Kind = "kirjaukset" | "viennit" | "investoinnit" | "lomake2";
+const KINDS: Kind[] = ["kirjaukset", "viennit", "investoinnit", "lomake2"];
+const kindOf = (item: string): Kind =>
+  item.startsWith("kirjaukset") ? "kirjaukset" : item.startsWith("viennit") ? "viennit" : item.startsWith("lomake 2 kenttä") ? "lomake2" : "investoinnit";
+
 /**
- * Investointien ja ryhmien menojäännökset Skogissa Tilitukia vasten (tilituki:tarkista ja tilituki:tuo --tarkista).
- * Tulostaa kansion numeron, kortin tunnuksen ja eurot, ei nimiä.
+ * Ristiintarkistus Skogissa Tilitukia vasten vuosittain (tilituki:tarkista ja tilituki:tuo --tarkista):
+ * - kirjaukset: Skogin tuodut kirjaukset luokittain = tuontisuunnitelma (määrä ja summa);
+ * - viennit: Tilitukin viennit veronumeroittain = Tilitukin lomakkeen luku (kartoitus vuosittain);
+ * - investoinnit: metsän kortit, 2C:n ryhmät ja maatalouden ryhmät menojäännöksinä;
+ * - lomake 2: Skogin laskema lomake Tilitukin lomaketta vasten vuosille, joille Skogissa on lomake (VSY002_SPECS).
+ * Tulostaa kansion numeron, tunnuksen ja eurot, ei nimiä.
  */
-export async function checkHistory(tx: Sql, folders: TtFolder[], years: number[]): Promise<{ okFolders: number; diffFolders: number }> {
+export async function checkHistory(
+  tx: Sql, folders: TtFolder[], years: number[], opts: { verbose?: boolean } = {},
+): Promise<{ okFolders: number; diffFolders: number }> {
+  const stats = new Map<number, Record<Kind, { ok: number; diff: number }>>();
+  const stat = (year: number, kind: Kind, ok: boolean) => {
+    const y = stats.get(year) ?? (Object.fromEntries(KINDS.map((k) => [k, { ok: 0, diff: 0 }])) as Record<Kind, { ok: number; diff: number }>);
+    y[kind][ok ? "ok" : "diff"]++;
+    stats.set(year, y);
+  };
   const eur = (n: number) => n.toLocaleString("fi-FI", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const nextYear = Math.max(...years) + 1;
   let okFolders = 0;
@@ -53,11 +77,50 @@ export async function checkHistory(tx: Sql, folders: TtFolder[], years: number[]
       recorded: (r.deps ?? []).map((d) => ({ taxYear: Number(d.taxYear), amount: Number(d.amount), bookValueEnd: Number(d.bookValueEnd) })),
     }));
     const agriSrc = await loadAgriDepreciationSource(tx, clientId);
+    // Vain asiakkaan omat Tilituki-vuodet: muilta vuosilta ei tuoda mitään.
+    const range = dataYearRange(f);
+    const own = years.filter((y) => range && y >= range.first && y <= range.last);
     const checks: HistoryCheck[] = [
-      ...checkForest(history, skog, years),
-      ...checkForestForm(f, history, skog, years),
-      ...checkAgri(f, agriSrc, years),
+      ...checkForest(history, skog, own),
+      ...checkForestForm(f, history, skog, own),
+      ...checkAgri(f, agriSrc, own),
     ];
+    const importedYears = new Set(
+      (await tx.query<{ year: number }>(`select distinct tax_year as year from sk_transactions where client_id = $1 and ${TILITUKI_ID_SQL}`, [clientId]))
+        .map((r) => Number(r.year)),
+    );
+    for (const year of own) {
+      const yearPlan = buildYearPlan(f, year);
+      if (yearPlan.transactions.length || importedYears.has(year)) {
+        const rows = await tx.query<{ category: string; n: number; sum: string }>(
+          `select category, count(*)::int as n, sum(amount_net) as sum from sk_transactions
+            where client_id = $1 and tax_year = $2 and ${TILITUKI_ID_SQL} group by category`,
+          [clientId, year],
+        );
+        checks.push(...checkImportedLedger(yearPlan, rows.map((r) => ({ category: r.category, n: Number(r.n), sum: Number(r.sum) }))));
+      }
+      checks.push(...checkEntriesAgainstForm(f, year));
+      // Lomake 2 vain vuosille, joille Skogissa on lomake, ja asiakkaille, joilla on maataloutta.
+      if (VSY002_SPECS[year] && Object.keys(f.form2[String(year)] ?? {}).some((c) => !["413", "414", "415", "416"].includes(c))) {
+        const form = await loadForm2(tx, clientId, year);
+        if (form) {
+          const cmp = compareForm2(f.form2[String(year)] ?? {}, form.fields);
+          for (const d of [...cmp.differing, ...cmp.unsupported]) checks.push({ item: `lomake 2 kenttä ${d.code}`, year, tilituki: d.tilituki, skog: d.skog, ok: false });
+          if (!cmp.differing.length && !cmp.unsupported.length) checks.push({ item: "lomake 2 kenttä (kaikki)", year, tilituki: 0, skog: 0, ok: true });
+        }
+      }
+    }
+    // Vuosittainen yhteenveto: kansion vuosi on lajissaan kunnossa, jos sen kaikki tarkistukset täsmäävät.
+    const byYearKind = new Map<string, boolean>();
+    for (const c of checks) {
+      if (c.year >= nextYear) continue;
+      const key = `${c.year}/${kindOf(c.item)}`;
+      byYearKind.set(key, (byYearKind.get(key) ?? true) && c.ok);
+    }
+    for (const [key, ok] of byYearKind) {
+      const [y, k] = key.split("/");
+      stat(Number(y), k as Kind, ok);
+    }
     // Seuraavan vuoden (2026) alkuarvot verosuunnitelman ja lomakkeiden laskennalla Tilitukin viimeisen vuoden loppuarvoja vasten.
     const last = nextYear - 1;
     const plan = await loadPlanData(tx, clientId, nextYear);
@@ -87,10 +150,22 @@ export async function checkHistory(tx: Sql, folders: TtFolder[], years: number[]
       console.log(`kansio ${f.folder}: täsmää (${summary})${extra}`);
     } else {
       diffFolders++;
-      console.log(`kansio ${f.folder}: ${diffs.length} eroa (${summary})${extra}`);
-      for (const d of diffs) console.log(`  ${d.item} ${d.year}: Tilituki ${eur(d.tilituki)}, Skog ${eur(d.skog)}${d.note ? ` (${d.note})` : ""}`);
+      const kinds = KINDS.map((k) => [k, diffs.filter((d) => kindOf(d.item) === k).length] as const).filter(([, n]) => n);
+      console.log(`kansio ${f.folder}: ${diffs.length} eroa (${kinds.map(([k, n]) => `${k} ${n}`).join(", ")}; ${summary})${extra}`);
+      const shown = opts.verbose ? diffs : diffs.slice(0, 8);
+      for (const d of shown) console.log(`  ${d.item} ${d.year}: Tilituki ${eur(d.tilituki)}, Skog ${eur(d.skog)}${d.note ? ` (${d.note})` : ""}`);
+      if (shown.length < diffs.length) console.log(`  … ${diffs.length - shown.length} muuta eroa (--laaja näyttää kaikki)`);
     }
-    for (const d of explained) console.log(`  selitetty: ${d.item} ${d.year}: Tilituki ${eur(d.tilituki)}, Skog ${eur(d.skog)} (${d.note})`);
+    if (opts.verbose) for (const d of explained) console.log(`  selitetty: ${d.item} ${d.year}: Tilituki ${eur(d.tilituki)}, Skog ${eur(d.skog)} (${d.note})`);
   }
+  // Vuosi × laji: kansioita, joilla täsmää / eroja.
+  console.log("");
+  console.log("Ristiintarkistus vuosittain (kansioita täsmää / eroja):");
+  console.table(
+    [...stats.entries()].sort((a, b) => a[0] - b[0]).map(([year, k]) => ({
+      vuosi: year,
+      ...Object.fromEntries(KINDS.map((kind) => [kind, k[kind].ok + k[kind].diff ? `${k[kind].ok} / ${k[kind].diff}` : "-"])),
+    })),
+  );
   return { okFolders, diffFolders };
 }

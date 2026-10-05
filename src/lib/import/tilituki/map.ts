@@ -1,5 +1,5 @@
 import { round2 } from "@/lib/tax/amounts";
-import { category, type AgriAssetClass, type TransactionKind } from "@/lib/tax/rules";
+import { category, vatRatesOn, type AgriAssetClass, type TransactionKind } from "@/lib/tax/rules";
 import { ACCELERATED_POOL, POOL_FIELDS, type AgriPool } from "@/lib/tax/agri-depreciation";
 import { AGRI_EXTRA_FIELDS } from "@/lib/filing/vsy002-fields";
 import { tilitukiId } from "@/lib/import/origin";
@@ -106,6 +106,56 @@ export interface TtFolder {
   form2c: Record<string, Record<string, number>>;
   /** Lomakkeen 2 laskentarivit Tilitukin veronumeroittain (myös ilman tietuetunnusta). */
   form2Raw: Record<string, Record<string, number>>;
+  /** Lomakkeen 2C laskentarivit veronumeroittain (uudempi jäsennys). */
+  form2cRaw?: Record<string, Record<string, number>>;
+  /**
+   * Tilitukin esimerkkiaineisto (sama vähintään kolmella asiakkaalla, parse.py): vuodet, joiden
+   * viennit ohitetaan ja joiden lomake on tyhjennetty. Esimerkiksi vuoden 2001 viennit ja 2002 lomake.
+   */
+  templates?: { entries: string[]; forms: string[] };
+}
+
+/** Vuosilista komentoriviltä: "2023,2024,2025" tai väli "2002-2025" (myös yhdessä). Virheellinen → null. */
+export function parseYears(text: string): number[] | null {
+  const out: number[] = [];
+  for (const part of text.split(",").map((x) => x.trim()).filter(Boolean)) {
+    const m = /^(\d{4})(?:-(\d{4}))?$/.exec(part);
+    if (!m) return null;
+    const from = Number(m[1]);
+    const to = m[2] ? Number(m[2]) : from;
+    if (to < from || from < 2000 || to > 2100) return null;
+    for (let y = from; y <= to; y++) if (!out.includes(y)) out.push(y);
+  }
+  return out.length ? out.sort((x, y) => x - y) : null;
+}
+
+/** Vuoden omat viennit: Tilitukin esimerkkiaineiston vuosi on tyhjä. */
+export function yearEntries(f: TtFolder, year: number | string): TtEntry[] {
+  const Y = String(year);
+  if (f.templates?.entries.includes(Y)) return [];
+  return f.entries[Y] ?? [];
+}
+
+/** Onko vuodelta asiakkaan omaa aineistoa: vientejä tai lomakkeen lukuja (muitakin kuin omistusosuudet). */
+export function hasYearData(f: TtFolder, year: number): boolean {
+  if (yearEntries(f, year).length) return true;
+  const shares = ["413", "414", "415", "416"];
+  const form = f.form2[String(year)] ?? {};
+  const shares2c = ["601", "602"];
+  return Object.keys(form).some((c) => !shares.includes(c)) || Object.keys(f.form2c[String(year)] ?? {}).some((c) => !shares2c.includes(c));
+}
+
+/**
+ * Asiakkaan Tilituki-vuodet: ensimmäisestä viimeiseen vuoteen, jolta on omaa aineistoa.
+ * Väliin jäävä tyhjä vuosi tuodaan, jotta verovuodet ja ketjut jatkuvat.
+ */
+export function dataYearRange(f: TtFolder): { first: number; last: number } | null {
+  const years = [...new Set([...Object.keys(f.entries), ...Object.keys(f.form2), ...Object.keys(f.form2c)])]
+    .filter((y) => /^\d{4}$/.test(y))
+    .map(Number)
+    .filter((y) => hasYearData(f, y))
+    .sort((a, b) => a - b);
+  return years.length ? { first: years[0], last: years[years.length - 1] } : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -339,6 +389,8 @@ export interface YearPlan {
   /** Aiemmilta vuosilta purkamattomat varaukset (aloitusvuosi) ja verovuoden varaus. */
   openingReserves: PlannedReserve[];
   yearReserves: PlannedReserve[];
+  /** Verovuonna tuloutettu tasausvaraus (219); myöhempinä vuosina se kohdistetaan aiemmin tuotuihin varauksiin. */
+  reserveIncome: number;
   /** Kotieläinten jaksotukset kahdelta edelliseltä vuodelta (aloitusvuosi). */
   openingDeferrals: { taxYear: number; kind: "livestock_sale" | "livestock_purchase"; amount: number }[];
   unmapped: UnmappedAccount[];
@@ -369,9 +421,48 @@ const poolFields = (pool: AgriAssetClass) => POOL_FIELDS[pool];
  * kohta 737) ja tyhjensi vakiotilin 6715 veronumeron. Tilikartta on vain nykytilassa, joten aiempien
  * vuosien viennit tällä tilillä viedään kuten silloin: muihin alv 0 %:n tuloihin (220).
  */
-export function accountForYear(a: TtAccount | undefined, year: number): TtAccount | undefined {
+export function accountForYear(a: TtAccount | undefined, year: number, remaps?: Map<string, string>): TtAccount | undefined {
+  if (a && remaps?.has(a.number)) return { ...a, taxCode: remaps.get(a.number)! };
   if (a && year <= 2024 && a.number === "6715" && !a.taxCode) return { ...a, taxCode: "L2_257" };
   return a;
+}
+
+/**
+ * Vuosikohtainen tilikartoitus Tilitukin oman lomakkeen perusteella. Tilikartta on vain nykytilassa, mutta
+ * tilin veronumeroa on voitu vaihtaa (esim. tila siirretty muista alv 0 %:n tuloista majoitukseen). Jos
+ * vuoden lomakkeella yhden veronumeron summa on vientejä pienempi täsmälleen yhden tilin summalla ja toisen
+ * tuotavan veronumeron summa vastaavasti suurempi, tili viedään sinä vuonna jälkimmäiseen, kuten Tilituki
+ * silloin teki. Muita tilejä ei siirretä. Palauttaa tilinumero → veronumero.
+ */
+export function yearRemaps(f: TtFolder, year: number): Map<string, string> {
+  const out = new Map<string, string>();
+  const raw = { ...(f.form2Raw[String(year)] ?? {}), ...(f.form2cRaw?.[String(year)] ?? {}) };
+  if (!Object.keys(raw).length) return out;
+  const accounts = new Map(f.accounts.map((a) => [a.number, a]));
+  const byAccount = new Map<string, number>();
+  const byCode: Record<string, number> = {};
+  for (const e of yearEntries(f, year)) {
+    if (e.row !== null && e.row < 0) continue;
+    const code = accountForYear(accounts.get(e.account), year)?.taxCode ?? "";
+    if (!code) continue;
+    byAccount.set(e.account, round2((byAccount.get(e.account) ?? 0) + e.debit - e.credit));
+    byCode[code] = round2((byCode[code] ?? 0) + e.debit - e.credit);
+  }
+  const imported = (code: string) => {
+    const t = mapAccount(f.accounts.find((a) => a.taxCode === code)).type;
+    return t === "category" || t === "agri_asset";
+  };
+  // Ylijäämä: viennit suuremmat kuin lomake. Vaje: lomake suurempi kuin viennit.
+  const gap = (code: string) => round2(Math.abs(byCode[code] ?? 0) - Math.abs(raw[code] ?? 0));
+  const codes = [...new Set([...Object.keys(byCode), ...Object.keys(raw)])].filter(imported);
+  for (const from of codes.filter((c) => gap(c) > 0.01)) {
+    for (const [acc, sum] of byAccount) {
+      if (accountForYear(accounts.get(acc), year)?.taxCode !== from || Math.abs(Math.abs(sum) - gap(from)) > 0.01) continue;
+      const targets = codes.filter((c) => c !== from && Math.abs(-gap(c) - Math.abs(sum)) <= 0.01);
+      if (targets.length === 1) out.set(acc, targets[0]);
+    }
+  }
+  return out;
 }
 
 /** Onko vuodella maataloutta: kirjauksia maatalouden tileillä tai summia lomakkeella 2 (pelkät jako-osuudet eivät riitä). */
@@ -379,7 +470,7 @@ export function hasAgriculture(f: TtFolder, year: number): boolean {
   const accounts = new Map(f.accounts.map((a) => [a.number, a]));
   const form = f.form2[String(year)] ?? {};
   if (Object.keys(form).some((c) => !["413", "414", "415", "416"].includes(c))) return true;
-  return (f.entries[String(year)] ?? []).some((e) => {
+  return yearEntries(f, year).some((e) => {
     const code = accountForYear(accounts.get(e.account), year)?.taxCode ?? "";
     return code.startsWith("L2_") || code.startsWith("L21_");
   });
@@ -389,13 +480,13 @@ export function hasForestry(f: TtFolder, year: number): boolean {
   const accounts = new Map(f.accounts.map((a) => [a.number, a]));
   if (Object.keys(f.form2c[String(year)] ?? {}).length) return true;
   if (f.machinery.some((m) => m.source.toUpperCase().startsWith("METS") && (m.years[String(year)]?.start ?? 0) > 0)) return true;
-  return (f.entries[String(year)] ?? []).some((e) => (accounts.get(e.account)?.taxCode ?? "").startsWith("L2C_"));
+  return yearEntries(f, year).some((e) => (accounts.get(e.account)?.taxCode ?? "").startsWith("L2C_"));
 }
 
 /** Alv-velvollinen, jos vuoden vienneissä on arvonlisäveroa. */
 export function isVatRegistered(f: TtFolder, year: number): boolean {
   const accounts = new Map(f.accounts.map((a) => [a.number, a]));
-  return (f.entries[String(year)] ?? []).some((e) => {
+  return yearEntries(f, year).some((e) => {
     const a = accounts.get(e.account);
     return !!a && (a.class.startsWith("TAALV") || a.taxCode.startsWith("LALV")) && (e.debit || e.credit);
   });
@@ -417,7 +508,10 @@ export function buildYearPlan(f: TtFolder, year: number): YearPlan {
   const transactions: PlannedTransaction[] = [];
   const newAssets: PlannedAsset[] = [];
   const extras = new Map<string, number>();
-  const entries = f.entries[Y] ?? [];
+  const entries = yearEntries(f, year);
+  if (f.templates?.entries.includes(Y) && f.entries[Y]?.length) ignored["Tilitukin esimerkkiaineisto"] = f.entries[Y].length;
+  const remaps = yearRemaps(f, year);
+  if (remaps.size) note("tili viety vuoden lomakkeen mukaiseen kohtaan (veronumero vaihtunut)", remaps.size);
 
   // Ennakonpidätykset tositteittain: liitetään tositteen ainoaan metsätalouden tuloon.
   const withholdingByVoucher = new Map<string, number>();
@@ -431,9 +525,11 @@ export function buildYearPlan(f: TtFolder, year: number): YearPlan {
       ignored["vastakirjaus (kassa tai pankki)"] = (ignored["vastakirjaus (kassa tai pankki)"] ?? 0) + 1;
       continue;
     }
-    const a = accountForYear(accounts.get(e.account), year);
+    const a = accountForYear(accounts.get(e.account), year, remaps);
     // Verokanta vain, jos rivillä on veroa: hyvitys ilman veroa on 0 %.
     const vatRate = vatRegistered && e.vat ? e.vatPct : 0;
+    // Tilitukin kanta säilytetään, jotta luvut täsmäävät; päivälle kuulumaton kanta (esim. 22 % heinäkuussa 2010) kerrotaan.
+    if (vatRate > 0 && !vatRatesOn(e.date).includes(vatRate)) note("verokanta ei ole päivän kanta (Tilitukin kanta säilytetty)");
     const m = mapAccount(a, vatRegistered, vatRate);
     const net = round2(e.debit - e.credit);
     if (m.type === "withholding") continue;
@@ -554,8 +650,13 @@ export function buildYearPlan(f: TtFolder, year: number): YearPlan {
       opening(`pool-${pool}`, "agriculture", `${POOL_LABEL[pool]}, menojäännös (Tilituki)`, pool, false, pct, formStart);
     }
     // Verovuoden rakennusmenot rakennuskortistosta (rakennusten viennit ohitetaan, ettei summa tuplaudu).
+    // Menoista vähennetään vuoden korvaukset, avustukset ja käytetyt varaukset kuten Tilitukin kortilla, jotta
+    // ketju jatkuu Tilitukin menojäännöksellä (esim. vakuutuskorvaus vähentää rakennuksen poistopohjaa).
     for (const b of inClass) {
-      const add = b.years[Y]?.additions ?? 0;
+      const by = b.years[Y];
+      const reductions = round2((by?.compensation ?? 0) + (by?.grants ?? 0) + (by?.equalization ?? 0) + (by?.replacementReserve ?? 0));
+      const add = round2((by?.additions ?? 0) - reductions);
+      if (reductions > 0 && (by?.additions ?? 0) > 0) note("rakennusmenoista vähennetty korvaukset, avustukset tai varaukset");
       if (add > 0 && depreciable(b)) {
         const key = `building-add-${b.id}-${Y}`;
         newAssets.push({
@@ -574,6 +675,30 @@ export function buildYearPlan(f: TtFolder, year: number): YearPlan {
   for (const pool of Object.keys(POOL_FIELDS) as AgriAssetClass[]) {
     const v = form[POOL_FIELDS[pool].dep];
     if (v) agriDepreciations.push({ pool, amount: v });
+  }
+  // Laskettu lomake, jolta rakennusryhmä puuttuu kokonaan, vaikka kortistossa on poisto: Tilituki on jättänyt
+  // ryhmän lomakkeelta (vanhoina vuosina toistuvasti). Poisto otetaan kortistosta, jotta ketju seuraa korttia.
+  if (computed) {
+    for (const [cls, pool] of Object.entries(BUILDING_CLASSES)) {
+      const fl = POOL_FIELDS[pool];
+      if ([fl.start, fl.end, fl.dep, fl.add].some((c) => form[c] !== undefined)) continue;
+      const cards = f.buildings.filter((b) => b.depreciationClass === Number(cls) && depreciable(b));
+      let dep = round2(cards.reduce((s, b) => s + (b.years[Y]?.depreciation ?? 0), 0));
+      // Jos ryhmä on edellisen vuoden lopussa ja seuraavan vuoden alussa Tilitukin lomakkeella, poisto on niiden
+      // erotus (vuoden menot huomioiden), jotta ketju osuu sentilleen Tilitukin seuraavaan alkuarvoon: kortit ja
+      // lomake pyöristävät eri tavalla.
+      const prevEnd = f.form2[prevY]?.[fl.end];
+      const nextStart = f.form2[String(year + 1)]?.[fl.start];
+      if (dep > 0 && prevEnd !== undefined && nextStart !== undefined) {
+        const adds = newAssets.filter((a) => a.assetClass === pool).reduce((s, a) => s + a.acquisitionCost, 0);
+        const byChain = round2(prevEnd + adds - nextStart);
+        if (byChain >= 0 && Math.abs(byChain - dep) < 1) dep = byChain;
+      }
+      if (dep > 0) {
+        agriDepreciations.push({ pool, amount: dep });
+        note("rakennusten poisto kortistosta (ryhmä puuttuu Tilitukin lomakkeelta)");
+      }
+    }
   }
   const accDep = raw["L21_117T"];
   if (accDep) {
@@ -648,6 +773,7 @@ export function buildYearPlan(f: TtFolder, year: number): YearPlan {
     extras: [...extras].filter(([, v]) => v > 0).map(([code, value]) => ({ code, value })),
     openingReserves,
     yearReserves,
+    reserveIncome: form["219"] ?? 0,
     openingDeferrals,
     unmapped: [...unmappedMap.values()].sort((a, b) => a.account.localeCompare(b.account)),
     ignored,
