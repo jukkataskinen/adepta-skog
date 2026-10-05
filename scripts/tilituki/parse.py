@@ -72,7 +72,9 @@ def r2(x):
 def parse_client(folder):
     yr = {r["YRAVAIN"]: r for r in table(folder, "YR.DBF")}
     text = lambda key: ((yr.get(key) or {}).get("YRTIETOC") or "").strip()
-    name = text("YRVIRALLINENNIMI")
+    name = text("YRVIRALLINENNIMI") or text("XMLNIMI") or text("YRLASKUNIMI")
+    # Verohallinnon muoto (sukunimi ensin), jolla nimi jaetaan suku- ja etunimeksi.
+    tax_name = text("XMLNIMI")
     business_id = text("YRLYTUNN")
     if not Y_TUNNUS.match(business_id):
         business_id = ""
@@ -81,6 +83,7 @@ def parse_client(folder):
     m = re.match(r"^(\d{5})\s+(.+)$", post)
     return {
         "name": name or None,
+        "taxName": tax_name or None,
         "businessId": business_id or None,
         "street": street or None,
         "postalCode": m.group(1) if m else None,

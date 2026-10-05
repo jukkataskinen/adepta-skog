@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountForYear, buildYearPlan, hasAgriculture, hasForestry, isVatRegistered, mapAccount } from "@/lib/import/tilituki/map";
+import { accountForYear, buildYearPlan, clientName, hasAgriculture, hasForestry, isVatRegistered, mapAccount } from "@/lib/import/tilituki/map";
 import { compareForm2, summarizeComparisons } from "@/lib/compare/tilituki";
 import { isTilitukiId, tilitukiId } from "@/lib/import/origin";
 import { acc, entry, farmFolder } from "../helpers/tilituki";
@@ -149,5 +149,20 @@ describe("tuotujen rivien alkuperä", () => {
     expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     expect(isTilitukiId(id)).toBe(true);
     expect(isTilitukiId("00000000-0000-4000-8000-000000000041")).toBe(false);
+  });
+});
+
+describe("clientName", () => {
+  const base = { name: null, businessId: null, street: null, postalCode: null, city: null, openYear: null, vatMethod: null };
+  it("Verohallinnon muodosta sukunimi ja etunimet", () => {
+    expect(clientName({ ...base, taxName: "Virtanen Matti Juhani" }, "1")).toEqual({ firstName: "Matti Juhani", lastName: "Virtanen" });
+  });
+  it("yhtymä tai kuolinpesä jää kokonaan sukunimeksi", () => {
+    expect(clientName({ ...base, taxName: "Virtanen Matti ja Liisa" }, "1")).toEqual({ firstName: "", lastName: "Virtanen Matti ja Liisa" });
+    expect(clientName({ ...base, taxName: "Virtasen Matin kuolinpesä" }, "1").firstName).toBe("");
+  });
+  it("ilman ilmoitusnimeä virallinen nimi tai tunniste", () => {
+    expect(clientName({ ...base, name: "Maatila Esimerkki" }, "1")).toEqual({ firstName: "", lastName: "Maatila Esimerkki" });
+    expect(clientName(base, "7")).toEqual({ firstName: "", lastName: "Tilituki-asiakas 7" });
   });
 });

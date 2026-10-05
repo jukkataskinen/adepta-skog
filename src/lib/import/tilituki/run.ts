@@ -88,6 +88,16 @@ async function importFolder(tx: Sql, orgId: string, opts: TilitukiImportOptions,
   if (!client) {
     [client] = await tx.query("select id, has_agriculture, has_forestry, vat_registered from sk_clients where legacy_id = $1 and organization_id = $2", [clientLegacy, orgId]);
   }
+  // Ensimmäinen tuonti tallensi koko nimen sukunimeksi. Korjataan Tilitukista luodun asiakkaan nimi, jos käyttäjä ei
+  // ole vielä muuttanut sitä (etunimi on tyhjä). Muualta tulleen asiakkaan nimeen ei kosketa.
+  if (client) {
+    const name = clientName(f.client, f.folder);
+    const fixed = await tx.query(
+      "update sk_clients set first_name = $2, last_name = $3 where id = $1 and legacy_id = $4 and first_name = '' and (first_name, last_name) is distinct from ($2, $3) returning id",
+      [client.id, name.firstName, name.lastName, clientLegacy],
+    );
+    if (fixed.length) add("asiakkaan nimi korjattu");
+  }
   // Aiemmin tuotu maatalousasiakas tuodaan joka vuosi, vaikka vuonna ei olisi maataloutta (esim. pelkät jako-osuudet).
   const known = !!client && (client.has_agriculture || (opts.includeForestOnly ?? false));
   if (!agri && !known && !(opts.includeForestOnly && forest)) return skip(forest ? "vain metsätaloutta" : "ei kirjanpitoa vuodelta");

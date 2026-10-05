@@ -79,6 +79,8 @@ export interface TtBuilding {
 
 export interface TtClient {
   name: string | null;
+  /** Ilmoitusaineiston nimi Verohallinnon muodossa: sukunimi ensin. */
+  taxName?: string | null;
   businessId: string | null;
   street: string | null;
   postalCode: string | null;
@@ -657,6 +659,20 @@ const POOL_LABEL: Record<AgriAssetClass, string> = {
 };
 
 /** Tilitukin asiakkaan nimi Skogin kenttiin: koko virallinen nimi sukunimeksi, koska henkilön ja tilan nimeä ei voi erottaa. */
+// Yhtymän, kuolinpesän tai yrityksen nimeä ei jaeta suku- ja etunimeksi.
+const GROUP_NAME = /(\s(ja|&)\s|kuolinpes|yhtym|(oy|ky|ay|tmi|ry))/i;
+
+/**
+ * Asiakkaan nimi. Tilitukin ilmoitusaineiston nimi on Verohallinnon muodossa
+ * "Sukunimi Etunimet", joten ensimmäinen sana on sukunimi. Yhtymä tai kuolinpesä
+ * jää kokonaan sukunimeksi, jotta nimi ei hajoa.
+ */
 export function clientName(c: TtClient, folder: string): { firstName: string; lastName: string } {
-  return { firstName: "", lastName: (c.name ?? "").trim() || `Tilituki-asiakas ${folder}` };
+  const tax = (c.taxName ?? "").trim().replace(/\s+/g, " ");
+  if (tax && !GROUP_NAME.test(tax)) {
+    const [last, ...rest] = tax.split(" ");
+    if (rest.length) return { firstName: rest.join(" "), lastName: last };
+  }
+  const whole = tax || (c.name ?? "").trim();
+  return { firstName: "", lastName: whole || `Tilituki-asiakas ${folder}` };
 }
