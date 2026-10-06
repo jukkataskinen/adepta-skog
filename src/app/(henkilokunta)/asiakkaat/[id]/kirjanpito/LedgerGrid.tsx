@@ -74,7 +74,7 @@ import { formatSharePct } from "@/lib/tax/share";
 import { GridDialog } from "./GridDialog";
 import { DeliveryWorkInputs, useDeliveryWork } from "./DeliveryWorkCalculator";
 import { dismissSuggestionAction } from "./receipt-actions";
-import { DOCUMENT_TYPE_LABEL, documentHref, pageLabel, sourceDocumentLabel } from "@/lib/ai/receipts/schema";
+import { DOCUMENT_TYPE_LABEL, documentHref, pageLabel, sourceDocumentLabel, suggestionAnchor } from "@/lib/ai/receipts/schema";
 import { usePostingSuggestions } from "./usePostingSuggestions";
 
 let seq = 0;
@@ -153,7 +153,8 @@ export function LedgerGrid({
 
   const [original, setOriginal] = useState<GridRow[]>(initialRows);
   const [rows, setRows] = useState<GridRow[]>(() =>
-    initialRows.length || suggestionRows.length ? [...initialRows, ...suggestionRows] : [emptyGridRow(newKey(), defaultDate)],
+    // Ehdotusrivit ensin, kirjausten yläpuolelle, jotta tallentamaton työ on heti näkyvissä (DECISIONS 6.10.2026).
+    initialRows.length || suggestionRows.length ? [...suggestionRows, ...initialRows] : [emptyGridRow(newKey(), defaultDate)],
   );
   const [deleted, setDeleted] = useState<string[]>([]);
   const [undoStack, setUndoStack] = useState<{ index: number; row: GridRow }[]>([]);
@@ -205,9 +206,12 @@ export function LedgerGrid({
     for (const id of removed) knownSuggestions.current.delete(id);
     setRows((rs) => {
       let next = rs.filter((r) => !r.suggestionId || !removed.includes(r.suggestionId));
-      // Uudet ehdotukset loppuun, mutta ennen lopun tyhjää riviä.
-      const tail = next.length && isBlankGridRow(next[next.length - 1]) ? next.length - 1 : next.length;
-      next = [...next.slice(0, tail), ...added, ...next.slice(tail)];
+      // Uudet ehdotukset ehdotusten jatkoksi taulukon alkuun, kirjausten yläpuolelle.
+      let at = 0;
+      next.forEach((r, i) => {
+        if (r.suggestionId && !r.id) at = i + 1;
+      });
+      next = [...next.slice(0, at), ...added, ...next.slice(at)];
       return next.length ? next : [emptyGridRow(newKey(), defaultDate)];
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -228,6 +232,13 @@ export function LedgerGrid({
     for (const g of groups.values()) for (const k of g.rowKeys) m.set(k, g);
     return m;
   }, [groups]);
+  // Ankkurit: kunkin ehdotuksen ensimmäinen rivi (linkit odottavien tulkintojen listasta) ja ehdotuslohkon otsikko.
+  const firstOfSuggestion = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of rows) if (r.suggestionId && !r.id && !m.has(r.suggestionId)) m.set(r.suggestionId, r.key);
+    return m;
+  }, [rows]);
+  const firstVisibleSuggestionKey = rows.find((r, i) => visible[i] && r.suggestionId && !r.id)?.key ?? null;
   const warnDirty = changes.updated.length + changes.deleted.length + changes.created.filter((r) => !untouchedSuggestion(r)).length > 0;
 
   // ---------------------------------------------------------------------------
@@ -642,7 +653,7 @@ export function LedgerGrid({
         setOriginal(res.rows);
         // Odottavat ehdotukset (myös odottamaan jätetyt rivit) tulevat palvelimelta uusina.
         const waiting = res.suggestionRows ?? [];
-        const next = [...res.rows, ...waiting];
+        const next = [...waiting, ...res.rows];
         setRows(next.length ? next : [emptyGridRow(newKey(), defaultDate)]);
         setDeleted([]);
         setUndoStack([]);
@@ -656,7 +667,7 @@ export function LedgerGrid({
 
   function revert() {
     const sugg = [...suggestionSnapshot.current.values()].filter((r) => knownSuggestions.current.has(r.suggestionId!));
-    setRows(original.length || sugg.length ? [...original, ...sugg] : [emptyGridRow(newKey(), defaultDate)]);
+    setRows(original.length || sugg.length ? [...sugg, ...original] : [emptyGridRow(newKey(), defaultDate)]);
     setDeleted([]);
     setUndoStack([]);
     setErrors({});
@@ -864,6 +875,8 @@ export function LedgerGrid({
           <tbody>
             {rows.map((r, i) => {
               if (!visible[i]) return null;
+              const anchor = r.suggestionId && !r.id && firstOfSuggestion.get(r.suggestionId) === r.key ? suggestionAnchor(r.suggestionId) : undefined;
+              const blockStart = r.suggestionId && !r.id && r.key === firstVisibleSuggestionKey;
               const err = errors[r.key] ?? {};
               const livestock = rowLivestockDeferral(r, year, client);
               const kind = rowKind(r);
@@ -890,6 +903,17 @@ export function LedgerGrid({
               // Yksirivisen tositteen ero näytetään rivin alla; ryhmän ero otsikossa.
               const singleMismatch = group && group.rowKeys.length === 1 && group.balance.status === "mismatch" ? group : null;
               return [
+                blockStart ? (
+                  <tr key={`${r.key}-s`} id="ehdotukset" className="scroll-mt-24 border-t-2 border-amber/60 bg-amber-soft">
+                    <td className="border-l-4 border-amber" />
+                    <td colSpan={columns.length + 5} className="px-2 py-2 text-sm">
+                      <span className="font-bold text-ink">Ehdotus – ei tallennettu.</span>{" "}
+                      <span className="text-ink/75">
+                        Siniset rivit ovat tositteiden tulkintoja. Ne eivät ole vielä kirjauksia. Tarkista ne ja paina Tallenna, niin niistä tulee kirjauksia.
+                      </span>
+                    </td>
+                  </tr>
+                ) : null,
                 header ? (
                   <tr key={`${r.key}-g`} className="border-t-2 border-sky/40 bg-sky-soft">
                     <td className="border-l-4 border-sky" />
@@ -900,7 +924,8 @@ export function LedgerGrid({
                 ) : null,
                 <tr
                   key={r.key}
-                  className={`border-t align-top ${sg ? `border-sky/30 bg-sky-soft${r.deferred ? " opacity-60" : ""}` : r.id ? "border-line" : "border-line bg-sky-soft/30"}`}
+                  id={anchor}
+                  className={`${anchor ? "scroll-mt-24 " : ""}border-t align-top ${sg ? `border-sky/30 bg-sky-soft${r.deferred ? " opacity-60" : ""}` : r.id ? "border-line" : "border-line bg-sky-soft/30"}`}
                   title={sg ? `Ehdotus: ${sg.reasoning}` : undefined}
                 >
                   <td className={`px-2 py-2.5 text-right tabular ${sg ? "border-l-4 border-sky font-semibold text-sky" : "text-ink/45"}`}>{i + 1}</td>
@@ -1134,6 +1159,7 @@ export function LedgerGrid({
                         title={`Avaa tosite ${sg.documentName}${sg.pages.length ? `, ${pageLabel(sg.pages)}` : ""}`}
                       >
                         {sg.pages.length ? `Ehdotus, ${pageLabel(sg.pages)}` : "Ehdotus"}
+                        <span className="sr-only"> – ei tallennettu</span>
                       </a>
                     ) : r.id ? (
                       <span className="grid gap-0.5">

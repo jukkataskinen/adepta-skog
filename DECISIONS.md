@@ -577,3 +577,17 @@ Linjaus: "Ei ole tarkoitus ennustaa, mitä laskuja pitäisi tulla kirjanpitoon, 
 **Oma EU-tenantti.** Skog käyttää Auth0-tenanttia `adepta.eu.auth0.com` (oma Auth0-tili, koska ilmaisversiossa on yksi tenantti tiliä kohden). Jukan linjaus: jokaisella tuotteella oma tenantti, jotta kirjautumisnäkymä on tuotteen näköinen. Itserekisteröinti pois, MFA aina, kieli suomi. Käyttäjät luodaan Auth0:ssa käsin ja yhdistetään Skogin käyttäjiin varmennetulla sähköpostilla. Vanha `dev-qanv…us`-tenantti jää eSinetille ja PPR:lle, kunnes ne siirtyvät omiinsa.
 
 **v2 mainiin.** main korvattiin v2:lla `ours`-yhdistämisellä (puu = v2, vanhan sovelluksen kaksi viimeistä korjausta jäivät historiaan). Tuotannon muuttujat osoittavat uuteen Supabase-projektiin; vanhan projektin `SUPABASE_SERVICE_ROLE_KEY` rajattiin pois tuotannosta. Paluu: Vercel → Deployments → edellinen → Promote to Production.
+
+## 2026-10-06 Odottavat tulkinnat näkyviin (Jukan palaute)
+
+Palaute: skannatut ja tulkitut tositteet "katosivat", kun Jukka kävi toisessa asiakkaassa ja palasi. Ehdotukset olivat tallessa (odottava, maatalous, 2026), mutta kirjanpito avautui metsätalouden näkymään, jossa maatalouden ehdotuksia ei näytetä. Lisäksi Vuoden tositteet -lista oli auki vain saman käynnin tunnistuksen jälkeen.
+
+**Kooste kaikista odottavista.** Vuoden tositteet -paneelin yläosassa on osio Tulkitut tositteet odottavat hyväksyntää (`src/lib/documents/pending-overview.ts`, `PendingReceipts.tsx`): asiakkaan kaikki odottavat ehdotukset kaikilta vuosilta ja kummastakin toiminnosta (tiedosto ja sivut, vuosi, toiminto, rivien määrä ja summa, tunnistusaika). Linkki vie vuoteen ja toimintoon ja ankkurilla ehdotuksen ensimmäiselle riville (`#ehdotus-<tunniste>`). Näkyy myös lomakesyötössä; piiloutuu, kun odottavia ei ole. Kysely käyttäjän RLS-transaktiossa, indeksi `sk_receipt_suggestions_client_year` alkaa asiakkaasta, joten migraatiota ei tarvittu.
+
+**Oletusnäkymä.** Kun kirjanpito avataan ilman `?vuosi`- ja `?toiminta`-parametreja ja odottavia on, avataan uusimman odottavan ehdotuksen (luontiaika) vuosi ja toiminto (`ledgerTarget`, `src/lib/ledger/default-view.ts`, puhdas funktio). Jos jompikumpi parametri on annettu, se pätee sellaisenaan, jotta vuosivalikko ja välilehdet toimivat kuten ennen. Vuosi, jota ei ole avattu, ohitetaan.
+
+**Ehdotusrivit taulukon alkuun.** Ehdotukset ovat taulukossa ennen kirjauksia otsikon "Ehdotus – ei tallennettu" alla (myös tallennuksen ja peruutuksen jälkeen ja uusien ehdotusten tullessa), koska ne ovat keskeneräistä työtä ja jäivät pitkän vuoden lopussa huomaamatta.
+
+**Tositelista aina auki.** Kun tiedostoja on, lista ja jokaisen tiedoston tila (Tunnistamatta, Ehdotus taulukossa, Ehdotus toisen toiminnon kirjanpidossa, Kirjattu) näkyvät aina. Piilota lista muistetaan selaimessa (localStorage, try/catch), oletus auki. Lisäysalue aukeaa painikkeesta, ja ilman tositteita se on auki valmiiksi. Kooste ja lista ovat samassa paneelissa: kooste kertoo, mikä odottaa hyväksyntää missä tahansa vuodessa, lista tämän vuoden tiedostot.
+
+**Merkintä asiakkaasta.** Tiedot-sivulla ja asiakaslistassa lukee "N tulkittua tositetta odottaa" linkkinä kirjanpitoon (oletusnäkymä vie oikeaan kohtaan). Työpöydällä ei ole asiakaslistaa, joten sinne ei lisätty mitään.

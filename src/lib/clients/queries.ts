@@ -16,6 +16,8 @@ export interface ClientListRow {
   property_count: number;
   open_year: number | null;
   archived: boolean;
+  /** Tositteita, joiden tunnistuksen ehdotus odottaa hyväksyntää (kaikki vuodet ja toiminnot). */
+  pending_receipts: number;
 }
 
 export async function listClients(tx: Sql, orgId: string, opts: { q?: string; archived?: boolean } = {}): Promise<ClientListRow[]> {
@@ -25,7 +27,9 @@ export async function listClients(tx: Sql, orgId: string, opts: { q?: string; ar
             coalesce(u.full_name, u.email) as responsible_name,
             (select count(*)::int from sk_forest_properties p where p.client_id = c.id) as property_count,
             (select max(y.year)::int from sk_tax_years y where y.client_id = c.id and y.status = 'open') as open_year,
-            c.archived_at is not null as archived
+            c.archived_at is not null as archived,
+            (select count(distinct s.document_id)::int from sk_receipt_suggestions s join sk_documents d on d.id = s.document_id
+              where s.client_id = c.id and s.status = 'pending' and d.transaction_id is null) as pending_receipts
        from sk_clients c
        left join sk_users u on u.id = c.responsible_user_id
       where c.organization_id = $1

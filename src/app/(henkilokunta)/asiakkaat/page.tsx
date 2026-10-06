@@ -54,6 +54,11 @@ export default async function ClientsPage({ searchParams }: { searchParams: Prom
                       <Badge>ALV</Badge>
                     </span>
                   ) : null}
+                  {c.pending_receipts ? (
+                    <Link href={`/asiakkaat/${c.id}/kirjanpito#odottavat`} className="ml-2 text-xs font-semibold text-amber hover:underline">
+                      {c.pending_receipts === 1 ? "1 tulkittu tosite odottaa" : `${c.pending_receipts} tulkittua tositetta odottaa`}
+                    </Link>
+                  ) : null}
                 </Td>
                 <Td>{c.municipality ?? "–"}</Td>
                 <Td numeric>{c.property_count}</Td>

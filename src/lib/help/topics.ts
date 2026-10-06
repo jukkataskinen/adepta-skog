@@ -585,7 +585,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: "Tositteet",
         text: "Vuoden tositteet ovat asiakkaan yhteisiä. Sama lista näkyy metsän ja maatalouden kirjanpidossa, ja ne tulevat kerran veroraportin liitteiksi.",
         steps: [
-          "Valitse Lisää tositteet.",
+          "Valitse Lisää tositteet. Jos tositteita ei vielä ole, laatikko on jo auki.",
           "Vedä tiedostot laatikkoon tai valitse ne. Voit skannata koko vuoden paperit yhdeksi tiedostoksi.",
         ],
         bullets: [
@@ -600,7 +600,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Avaa Maatalouden kirjanpito ja valitse Lisää tositteet.",
           "Lisää tiedosto ja valitse Tunnista. Tunnista kaikki lukee kaikki tositteet, joista ei vielä ole ehdotusta.",
           "Odota. Pitkä tiedosto luetaan osissa, ja näet, mitä sivuja luetaan. Koko vuoden aineisto (150–300 sivua) kestää noin 4–18 minuuttia.",
-          "Maatalouden ehdotukset tulevat taulukon loppuun sinisinä riveinä. Tilitys, jossa on monta riviä, näkyy ryhmänä.",
+          "Maatalouden ehdotukset tulevat taulukon alkuun sinisinä riveinä, kirjausten yläpuolelle. Tilitys, jossa on monta riviä, näkyy ryhmänä.",
           "Katso ryhmän otsikosta, täsmäävätkö rivit tositteeseen. Jos näkyy ero, tarkista rivit.",
           "Lue keltaiset huomautukset rivien alla. Ne kertovat, mitä sinun pitää päättää itse.",
           "Tarkista jokainen rivi: päivä, luokka, summa ja alv.",
@@ -687,7 +687,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         steps: [
           "Avaa asiakas ja valitse kirjanpidon välilehti.",
           "Valitse verovuosi Verovuosi-valikosta.",
-          "Kohta Vuoden tositteet on korttien alla. Valitse Lisää tositteet tai Näytä tositteet.",
+          "Kohta Vuoden tositteet on korttien alla. Tositteiden lista näkyy siinä aina. Piilota lista pienentää sen, ja Näytä lista tuo sen takaisin.",
         ],
         bullets: [
           "Vuoden tositteet ovat asiakkaan yhteisiä. Sama lista näkyy metsän ja maatalouden kirjanpidossa.",
@@ -701,6 +701,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Valitse Lisää tositteet.",
           "Vedä tiedostot laatikkoon tai valitse ne. Voit lisätä useita kerralla. PDF, JPG tai PNG, enintään 25 Mt tiedostoa kohden.",
           "Tositteet tallentuvat heti ja näkyvät listassa. Nimestä tositteen voi avata.",
+          "Listassa näkyy jokaisen tositteen tila: Tunnistamatta, Ehdotus taulukossa, Ehdotus maatalouden kirjanpidossa (tai metsätalouden) tai Kirjattu.",
           "Kun vuosi suljetaan, kaikki vuoden tositteet liitetään lopullisen veroraportin loppuun.",
         ],
         bullets: [
@@ -717,7 +718,7 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Valitse tositteen kohdalta Tunnista. Tunnista kaikki lukee kerralla kaikki tositteet, joista ei vielä ole ehdotusta.",
           "Pitkästä tiedostosta ohjelma kertoo ensin, kauanko lukeminen kestää, esimerkiksi 40 sivua, 6 osaa, noin 2–4 min. Valitse OK.",
           "Odota. Ohjelma lukee tiedoston osissa ja näyttää, mitä sivuja se lukee, esimerkiksi Luetaan sivuja 9–16 / 40.",
-          "Ehdotukset tulevat taulukon loppuun sinisinä riveinä, ja niissä on merkki Ehdotus.",
+          "Ehdotukset tulevat taulukon alkuun sinisinä riveinä, kirjausten yläpuolelle. Niiden yläpuolella lukee Ehdotus – ei tallennettu, ja jokaisessa rivissä on merkki Ehdotus.",
           "Tarkista jokainen rivi: päivä, selite, luokka, summa, alv ja puukaupan ennakonpidätys. Rivin alla näkyy, kuinka varma tekoäly oli ja mistä se päätteli tiedot. Merkistä Ehdotus tosite aukeaa.",
           "Korjaa, mikä on väärin. Valitse tarvittaessa metsätila.",
           "Tallenna taulukko (Ctrl + S). Vasta nyt rivit tallentuvat kirjauksiksi.",
@@ -734,9 +735,27 @@ export const HELP_TOPICS: HelpTopic[] = [
           "Jos jotain osaa ei voitu lukea, näet esimerkiksi Sivuja 17–24 ei voitu lukea. Valitse Yritä uudelleen. Voit myös valita Tee ehdotus luetuista sivuista ja kirjata puuttuvat sivut käsin.",
           "Aloita alusta lukee koko tiedoston uudelleen.",
           "Jos tositetta ei voitu tunnistaa, kirjaa se käsin tavalliseen tapaan.",
+          "Jos lähdet kesken pois, tulkinnat odottavat tallessa. Katso kohta Tulkitut tositteet odottavat hyväksyntää.",
           "Tosite lähetetään tunnistuspalveluun (Anthropic) Yhdysvaltoihin. Palveluun ei lähetetä asiakkaan nimeä. Tositteen lisäksi palvelu saa vihjeeksi asiakkaan tavallisimmat tiliöinnit: selitteen avainsanat, luokan, alv-prosentin ja osuuden, ei summia eikä viitteitä. Palvelu ei käytä tositetta tekoälyn kouluttamiseen, ja se poistaa tositteen 30 päivän kuluessa. Lisää tietoa on sivulla Tietosuoja (skog.adepta.fi/tietosuoja).",
           "Suljetun vuoden tositteita ei tunnisteta.",
           "Kun kokeilet ohjelmaa ilman tunnistuspalvelua, ehdotus tehdään tiedoston nimestä, eikä tositetta lähetetä minnekään. Nimi, jossa on sana kokooma, antaa esimerkin monen tositteen tiedostosta, ja nimi, jossa on sana maatila, maatilan tositteista. Maatalousasiakkaalla myös nimet meijeri, teurastamo, vilja, vipu, konekauppa, eläinkauppa, sähkö, myel, laina ja osuusmaksu antavat esimerkin. Yli kahdeksan sivun tiedostosta tulee esimerkkilaskuja sivujen mukaan.",
+        ],
+      },
+      {
+        title: "Tulkitut tositteet odottavat hyväksyntää",
+        text: "Jos lähdet kesken pois, tulkinnat odottavat tallessa. Ne eivät ole vielä kirjauksia, mutta ne eivät myöskään katoa. Voit siirtyä toiseen asiakkaaseen ja palata myöhemmin.",
+        steps: [
+          "Avaa asiakas. Tiedot-sivulla ja asiakaslistassa lukee esimerkiksi 3 tulkittua tositetta odottaa.",
+          "Valitse merkintä tai kirjanpidon välilehti. Kirjanpito avautuu siihen vuoteen ja kirjanpitoon, jossa uusimmat tulkinnat ovat.",
+          "Kohdan Vuoden tositteet yläosassa on lista Tulkitut tositteet odottavat hyväksyntää. Siinä ovat kaikki odottavat tulkinnat, kaikilta vuosilta ja sekä metsän että maatalouden kirjanpidosta.",
+          "Jokaisesta näet tositteen nimen ja sivut, vuoden, rivien määrän, summan ja tunnistusajan.",
+          "Valitse Avaa ehdotus. Ohjelma vie oikeaan vuoteen ja kirjanpitoon ja ehdotuksen rivien kohdalle. Jos ehdotus on jo tällä sivulla, linkki on Näkyy alla taulukossa.",
+          "Tarkista rivit ja tallenna taulukko. Sen jälkeen tosite poistuu odottavien listasta.",
+        ],
+        bullets: [
+          "Lista näkyy myös, kun kirjaat lomakkeella. Ehdotukset tarkistetaan aina taulukossa.",
+          "Jos hylkäät ehdotuksen, se poistuu listasta. Tosite jää vuoden tositteisiin, ja voit tunnistaa sen uudelleen.",
+          "Kun odottavia tulkintoja ei ole, listaa ei näy.",
         ],
       },
       {
@@ -1603,6 +1622,10 @@ export const HELP_TOPICS: HelpTopic[] = [
     summary: "Lyhyet vastaukset tavallisiin kysymyksiin.",
     highlights: ["Miksi en voi muuttaa kirjausta", "Mihin kirjaukset katosivat", "Miksi tiedostoa ei voi ladata"],
     sections: [
+      {
+        title: "Tulkitut tositteet katosivat",
+        text: "Ne eivät katoa. Tulkinnat odottavat tallessa, kunnes tallennat tai hylkäät ne. Taulukossa ne näkyvät vain oikean vuoden ja oikean kirjanpidon kohdalla, esimerkiksi maatalouden kirjanpidossa. Kaikki odottavat tulkinnat ovat kirjanpidon sivulla kohdassa Tulkitut tositteet odottavat hyväksyntää. Valitse Avaa ehdotus.",
+      },
       {
         title: "En näe asiakasta listassa",
         text: "Kirjanpitäjä näkee vain asiakkaat, joiden vastuukirjanpitäjä hän on. Pyydä pääkäyttäjää vaihtamaan sinut vastuukirjanpitäjäksi. Asiakas voi olla myös arkistoitu: valitse Näytä arkistoidut.",

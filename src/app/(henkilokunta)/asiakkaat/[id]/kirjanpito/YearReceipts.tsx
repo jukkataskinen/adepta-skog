@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { YearReceipt } from "@/lib/documents/year-receipts";
 import type { JobChunk } from "@/lib/documents/recognition-jobs";
@@ -20,6 +20,8 @@ import {
 /** Toiminnon kirjanpidon nimi genetiivissä: "maatalouden kirjanpitoon". */
 const VIEW_NAME: Record<Activity, string> = { forestry: "metsätalouden", agriculture: "maatalouden" };
 
+const LIST_KEY = "skog.tositelista.piilossa";
+
 const size = (b: number) =>
   b >= 1024 * 1024 ? `${(b / 1024 / 1024).toLocaleString("fi-FI", { maximumFractionDigits: 1 })} Mt` : `${Math.max(1, Math.round(b / 1024))} kt`;
 
@@ -32,6 +34,10 @@ const size = (b: number) =>
  * kirjanpito näyttävät saman listan (DECISIONS 2.10.2026). Tunnistus
  * aloitetaan näkymän toiminnolla, ja toisen toiminnon rivit menevät sen
  * näkymän taulukkoon, mikä kerrotaan tositteen kohdalla.
+ *
+ * Lista on oletuksena auki, kun tiedostoja on (Jukan palaute 6.10.2026: lista
+ * näkyi vain saman käynnin tunnistuksen jälkeen). Piilotus muistetaan selaimessa.
+ * Paneelin yläosassa (children) ovat asiakkaan kaikki odottavat tulkinnat.
  */
 export function YearReceipts({
   clientId,
@@ -43,6 +49,7 @@ export function YearReceipts({
   gridHref,
   view = null,
   otherViewHref = null,
+  children,
 }: {
   clientId: string;
   year: number;
@@ -57,13 +64,36 @@ export function YearReceipts({
   view?: Activity | null;
   /** Toisen toiminnon kirjanpito, kun asiakkaalla on molemmat. */
   otherViewHref?: string | null;
+  /** Odottavat tulkinnat (PendingReceipts) paneelin yläosaan. */
+  children?: ReactNode;
 }) {
   const otherView: Activity | null = view && otherViewHref ? (view === "agriculture" ? "forestry" : "agriculture") : null;
   const pendingHere = (r: YearReceipt) => (view ? r.pending_activities.includes(view) : r.pending_suggestion);
   const pendingOther = (r: YearReceipt) => (otherView ? r.pending_activities.includes(otherView) : false);
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
-  const [open, setOpen] = useState(() => receipts.some((r) => r.recognition));
+  // Lisäysalue auki vain pyynnöstä, tai kun tositteita ei vielä ole.
+  const [adding, setAdding] = useState(false);
+  const [listHidden, setListHidden] = useState(false);
+  // Selaimen muisti luetaan vasta latauksen jälkeen, jotta palvelimen ja selaimen näkymä täsmäävät.
+  useEffect(() => {
+    try {
+      setListHidden(window.localStorage.getItem(LIST_KEY) === "1");
+    } catch {
+      // Yksityinen ikkuna tai estetty tallennus: lista pysyy auki.
+    }
+  }, []);
+  const toggleList = () => {
+    const next = !listHidden;
+    setListHidden(next);
+    try {
+      if (next) window.localStorage.setItem(LIST_KEY, "1");
+      else window.localStorage.removeItem(LIST_KEY);
+    } catch {
+      // Valinta jää vain tälle käynnille.
+    }
+  };
+  const showDrop = !readOnly && (adding || receipts.length === 0);
   const [status, setStatus] = useState<{ tone: "info" | "error" | "ok"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [drag, setDrag] = useState(false);
@@ -219,29 +249,38 @@ export function YearReceipts({
   }
 
   return (
-    <section id="tositteet" className="mb-6 scroll-mt-6 rounded-[var(--radius-panel)] border border-line bg-paper">
+    <section id="tositteet" className="mb-6 scroll-mt-6 overflow-hidden rounded-[var(--radius-panel)] border border-line bg-paper">
+      {children}
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
         <div>
-          <h2 className="font-bold">Vuoden tositteet</h2>
+          <h2 className="font-bold">Vuoden {year} tositteet</h2>
           <p className="text-sm text-ink/65">
             {receipts.length === 1 ? "1 tiedosto. " : receipts.length ? `${receipts.length} tiedostoa. ` : "Ei vielä tositteita. "}
             Tositteet liitetään lopullisen veroraportin loppuun, kun vuosi suljetaan.
             {otherView ? " Tositteet ovat yhteiset metsä- ja maataloudelle: sama lista näkyy kummassakin kirjanpidossa." : ""}
-            {!readOnly && receipts.length ? " Tunnista-painike tekee tositteesta kirjausehdotuksen taulukkoon." : ""}
           </p>
         </div>
-        <button
-          type="button"
-          className="inline-flex min-h-10 items-center rounded-xl bg-ink px-4 text-sm font-semibold text-paper hover:bg-ink/85"
-          onClick={() => setOpen(!open)}
-          aria-expanded={open}
-        >
-          {readOnly ? "Näytä tositteet" : "Lisää tositteet"}
-        </button>
+        <span className="flex flex-wrap items-center gap-3">
+          {receipts.length ? (
+            <button type="button" className="text-sm font-semibold text-sky hover:underline" onClick={toggleList} aria-expanded={!listHidden} aria-controls="tositelista">
+              {listHidden ? "Näytä lista" : "Piilota lista"}
+            </button>
+          ) : null}
+          {!readOnly && receipts.length ? (
+            <button
+              type="button"
+              className="inline-flex min-h-10 items-center rounded-xl bg-ink px-4 text-sm font-semibold text-paper hover:bg-ink/85"
+              onClick={() => setAdding(!adding)}
+              aria-expanded={adding}
+            >
+              Lisää tositteet
+            </button>
+          ) : null}
+        </span>
       </div>
-      {open ? (
-        <div className="grid gap-4 border-t border-line px-5 py-4">
-          {!readOnly ? (
+      {showDrop || status || (receipts.length && !listHidden) ? (
+        <div className="grid gap-3 border-t border-line px-5 py-4">
+          {showDrop ? (
             <label
               className={`grid cursor-pointer place-items-center gap-1 rounded-xl border-2 border-dashed px-4 py-6 text-center text-sm ${drag ? "border-sky bg-sky-soft" : "border-line bg-cloud/50"}`}
               onDragOver={(e) => {
@@ -268,10 +307,10 @@ export function YearReceipts({
               />
             </label>
           ) : null}
-          {!readOnly && receipts.length ? (
+          {!readOnly && receipts.length && !listHidden ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-sky-soft/50 px-4 py-3 text-sm">
               <p className="text-ink/75">
-                Tekoäly lukee tositteen ja ehdottaa kirjauksia. Sinä tarkistat ne taulukossa ennen tallennusta. Tosite lähetetään tunnistuspalveluun. Pitkä skannaus luetaan osissa, ja voit jatkaa, jos sivu suljetaan kesken.
+                Tunnista-painike tekee tositteesta kirjausehdotuksen. Tekoäly lukee tositteen, ja sinä tarkistat ehdotuksen taulukossa ennen tallennusta. Tosite lähetetään tunnistuspalveluun. Pitkä skannaus luetaan osissa, ja voit jatkaa, jos sivu suljetaan kesken.
                 {testMode ? " Tunnistus on nyt testitilassa: ehdotus tehdään tiedostonimestä, eikä tositetta lähetetä minnekään." : ""}
                 {!gridMode && gridHref ? (
                   <>
@@ -298,10 +337,10 @@ export function YearReceipts({
               {status.text}
             </p>
           ) : null}
-          {receipts.length ? (
-            <ul className="grid gap-2 text-sm">
+          {receipts.length && !listHidden ? (
+            <ul id="tositelista" className="grid gap-1.5 text-sm">
               {receipts.map((r) => (
-                <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line px-3 py-2">
+                <li key={r.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-line px-3 py-1.5">
                   <span className="grid gap-0.5">
                     <a href={`/asiakkaat/${clientId}/tositteet/${r.id}`} target="_blank" rel="noreferrer" className="font-semibold text-sky">
                       {r.file_name}
@@ -309,11 +348,22 @@ export function YearReceipts({
                     {recognizing === r.id ? <span className="text-xs text-ink/60">{progress ?? "Tunnistetaan…"}</span> : null}
                     {failed[r.id] ? <span className="text-xs text-coral">{failed[r.id]}</span> : null}
                     {r.recognition && recognizing !== r.id && !failed[r.id] ? <RecognitionState recognition={r.recognition} /> : null}
-                    {pendingHere(r) && recognizing !== r.id ? <span className="text-xs font-semibold text-sky">Ehdotus taulukossa</span> : null}
+                    {pendingHere(r) && recognizing !== r.id ? (
+                      gridMode || !gridHref ? (
+                        <span className="text-xs font-semibold text-sky">Ehdotus taulukossa</span>
+                      ) : (
+                        <a href={gridHref} className="text-xs font-semibold text-sky hover:underline">
+                          Ehdotus taulukossa
+                        </a>
+                      )
+                    ) : null}
                     {pendingOther(r) && otherView && otherViewHref && recognizing !== r.id ? (
                       <a href={otherViewHref} className="text-xs font-semibold text-sky hover:underline">
-                        Ehdotus odottaa {VIEW_NAME[otherView]} kirjanpidossa
+                        Ehdotus {VIEW_NAME[otherView]} kirjanpidossa
                       </a>
+                    ) : null}
+                    {!r.recognition && !r.pending_suggestion && !r.booked_count && recognizing !== r.id && !failed[r.id] ? (
+                      <span className="text-xs text-ink/55">Tunnistamatta</span>
                     ) : null}
                     {r.booked_count ? (
                       <span className="text-xs font-semibold text-moss">

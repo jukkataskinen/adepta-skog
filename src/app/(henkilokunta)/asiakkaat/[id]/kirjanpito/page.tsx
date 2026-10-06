@@ -22,6 +22,9 @@ import { LedgerGrid } from "./LedgerGrid";
 import { toFinnishDate } from "@/lib/ledger/transaction-input";
 import { listYearReceipts } from "@/lib/documents/year-receipts";
 import { YearReceipts } from "./YearReceipts";
+import { PendingReceipts } from "./PendingReceipts";
+import { listClientPendingOverview } from "@/lib/documents/pending-overview";
+import { ledgerTarget } from "@/lib/ledger/default-view";
 import { documentHref, parsePagesColumn, sourceDocumentLabel } from "@/lib/ai/receipts/schema";
 
 export const metadata = { title: "Kirjanpito" };
@@ -49,10 +52,14 @@ export default async function LedgerPage({
     const client = await getClient(tx, ctx.org.organizationId, id);
     if (!client) return null;
     const years = await listYears(tx, id);
-    const requested = Number(sp.vuosi);
+    // Asiakkaan kaikki odottavat tulkinnat (kaikki vuodet ja toiminnot) sivun yläosaan.
+    const pending = await listClientPendingOverview(tx, id);
+    // Ilman vuotta ja toimintoa avataan uusimman odottavan tulkinnan näkymä (src/lib/ledger/default-view.ts).
+    const target = ledgerTarget({ requestedYear: sp.vuosi, requestedActivity: sp.toiminta, years, pending });
+    const requested = Number(target.vuosi);
     const year = years.some((y) => y.year === requested) ? requested : defaultYear(years);
     // Kirjanpito toiminnoittain: pelkällä metsäasiakkaalla ei rajausta (null).
-    const view = ledgerView({ hasForestry: client.has_forestry, hasAgriculture: client.has_agriculture }, sp.toiminta);
+    const view = ledgerView({ hasForestry: client.has_forestry, hasAgriculture: client.has_agriculture }, target.toiminta);
     const rows = year ? await listTransactions(tx, id, year) : [];
     const defaultDate = year && today.startsWith(String(year)) ? today : `${year}-01-01`;
     return {
@@ -61,6 +68,7 @@ export default async function LedgerPage({
       year,
       view,
       rows,
+      pending,
       assets: await listAssets(tx, id),
       properties: await listPropertyOptions(tx, id),
       farms: await listFarmOptions(tx, id),
@@ -204,7 +212,9 @@ export default async function LedgerPage({
             gridHref={modeHref(true)}
             view={view}
             otherViewHref={otherView ? viewHref(otherView) : null}
-          />
+          >
+            <PendingReceipts clientId={id} items={data.pending} year={year} view={view} both={both} gridShown={gridMode} />
+          </YearReceipts>
 
           {!closed ? (
             <nav className="mb-4 flex gap-1 text-sm" aria-label="Syöttötapa">

@@ -7,6 +7,7 @@ import { getClient, listProperties, listResponsibleOptions, listTaxYears } from 
 import { formatDate, formatEur, formatNumber } from "@/lib/format";
 import { addTaxYearAction, setArchivedAction, setResponsibleAction, setTaxYearStatusAction } from "../actions";
 import { ClientTabs } from "../ClientTabs";
+import { countClientPendingReceipts } from "@/lib/documents/pending-overview";
 
 export const metadata = { title: "Asiakas" };
 
@@ -23,6 +24,7 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
       client,
       properties: await listProperties(tx, id),
       years: await listTaxYears(tx, id),
+      pendingReceipts: await countClientPendingReceipts(tx, id),
       options: owner ? await listResponsibleOptions(tx, ctx.org.organizationId) : [],
     };
   });
@@ -49,6 +51,15 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
         <div className="mb-5">
           <Notice tone="ok" title="Tallennettu." />
         </div>
+      ) : null}
+      {data.pendingReceipts ? (
+        <p className="mb-5 text-sm">
+          {/* Ilman vuotta kirjanpito avautuu uusimman odottavan tulkinnan vuoteen ja toimintoon. */}
+          <Link href={`/asiakkaat/${id}/kirjanpito#odottavat`} className="inline-flex items-center gap-2 rounded-full bg-amber-soft px-3 py-1 font-semibold text-ink hover:underline">
+            {data.pendingReceipts === 1 ? "1 tulkittu tosite odottaa" : `${data.pendingReceipts} tulkittua tositetta odottaa`}
+            <span className="font-normal text-ink/65">Avaa kirjanpito</span>
+          </Link>
+        </p>
       ) : null}
 
       <Panel>

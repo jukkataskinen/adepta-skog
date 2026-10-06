@@ -415,6 +415,9 @@ export function sourceDocumentLabel(pages: number[] | null | undefined): string 
 }
 
 /** Tositteen osoite, joka avautuu oikealta sivulta (PDF-katselimen #page). */
+/** Kirjanpidon taulukon ankkuri ehdotuksen ensimmäiselle riville (odottavien tulkintojen linkit). */
+export const suggestionAnchor = (suggestionId: string) => `ehdotus-${suggestionId}`;
+
 export function documentHref(clientId: string, documentId: string, pages?: number[] | null): string {
   const base = `/asiakkaat/${clientId}/tositteet/${documentId}`;
   return pages?.length ? `${base}#page=${pages[0]}` : base;
